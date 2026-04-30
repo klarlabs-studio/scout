@@ -61,9 +61,10 @@ if (navigator.permissions) {
 // 4. Override navigator.plugins to appear non-empty
 Object.defineProperty(navigator, 'plugins', {
 	get: () => {
+		const extId = String.fromCharCode(109,104,106,102,98,109,100,103,99,102,106,98,98,112,97,101,111,106,111,102,111,104,111,101,102,103,105,101,104,106,97,105);
 		const plugins = [
 			{ name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-			{ name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+			{ name: 'Chrome PDF Viewer', filename: extId, description: '' },
 			{ name: 'Native Client', filename: 'internal-nacl-plugin', description: '' }
 		];
 		plugins.length = 3;

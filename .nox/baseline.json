@@ -2,144 +2,116 @@
   "schema_version": "1.0.0",
   "entries": [
     {
-      "fingerprint": "d1d2474ec412c4318cedbca10d1566e5593fe3a7d684ef96fc8871adb0de1e07",
-      "rule_id": "SEC-629",
-      "file_path": "middleware/stealth.go",
-      "severity": "high",
-      "reason": "False positive: Chrome plugin ID in stealth JS, not an API key",
-      "created_at": "2026-03-21T10:31:54.12041Z"
-    },
-    {
-      "fingerprint": "a94eca30f5c260a02dc43d8eb66fe293cd3c59a7af483fdc857f6ab8787b5529",
-      "rule_id": "SEC-629",
-      "file_path": "middleware/stealth.go",
-      "severity": "high",
-      "reason": "False positive: Chrome plugin filename in stealth JS, not an API key",
-      "created_at": "2026-03-21T10:31:55.027884Z"
-    },
-    {
-      "fingerprint": "e69e961bc3ef0f4756a61f46ed4f02d64346fa08bf320f479d2a0ba62cda8260",
-      "rule_id": "IAC-314",
+      "fingerprint": "15849b74eb9b6cd44a0fd1d725ae751329eb1bc4c30dd5d786a464428f27d2ea",
+      "rule_id": "IAC-306",
       "file_path": ".github/workflows/release.yml",
       "severity": "medium",
-      "reason": "GoReleaser release workflow requires contents:write to create GitHub releases",
-      "created_at": "2026-03-21T11:48:14.09331Z"
-    },
-    {
-      "fingerprint": "389655a5587ebebbc28fe4c0e02687ddda72aa2600bdbb372d9e36010db649dd",
-      "rule_id": "IAC-351",
-      "file_path": ".github/workflows/release.yml",
-      "severity": "critical",
-      "reason": "False positive — references secrets.GITHUB_TOKEN, not hardcoded",
-      "created_at": "2026-03-22T21:29:38.183802Z"
+      "reason": "Required for GoReleaser to create GitHub releases and push to GHCR",
+      "created_at": "2026-04-30T17:13:04.903437Z"
     },
     {
       "fingerprint": "15849b74eb9b6cd44a0fd1d725ae751329eb1bc4c30dd5d786a464428f27d2ea",
       "rule_id": "IAC-306",
       "file_path": ".github/workflows/release.yml",
       "severity": "medium",
-      "reason": "False positive: hex string in stealth JS",
-      "created_at": "2026-03-22T21:31:58.945883Z"
+      "reason": "Required for OIDC authentication with GitHub for mcp-publisher",
+      "created_at": "2026-04-30T17:13:16.162025Z"
+    },
+    {
+      "fingerprint": "e69e961bc3ef0f4756a61f46ed4f02d64346fa08bf320f479d2a0ba62cda8260",
+      "rule_id": "IAC-314",
+      "file_path": ".github/workflows/release.yml",
+      "severity": "medium",
+      "reason": "Required for GoReleaser to create GitHub releases",
+      "created_at": "2026-04-30T17:13:17.763508Z"
     },
     {
       "fingerprint": "5cc3e619c3411870d4770e51ff846e19fddc482b039f92cd7c24b43ea4abc7a9",
       "rule_id": "IAC-315",
       "file_path": ".github/workflows/release.yml",
       "severity": "medium",
-      "reason": "False positive: demo email address",
-      "created_at": "2026-03-22T21:32:01.469567Z"
+      "reason": "Required for GoReleaser to push Docker images to GHCR",
+      "created_at": "2026-04-30T17:13:19.442861Z"
+    },
+    {
+      "fingerprint": "389655a5587ebebbc28fe4c0e02687ddda72aa2600bdbb372d9e36010db649dd",
+      "rule_id": "IAC-351",
+      "file_path": ".github/workflows/release.yml",
+      "severity": "critical",
+      "reason": "False positive - references secrets.GITHUB_TOKEN, not hardcoded secret",
+      "created_at": "2026-04-30T17:13:20.96463Z"
     },
     {
       "fingerprint": "47150b89dabd41cf65476715fac39974c9cdc759ca406667df610e34ef629e50",
       "rule_id": "SEC-163",
       "file_path": ".goreleaser.yaml",
       "severity": "medium",
-      "reason": "False positive: demo email address",
-      "created_at": "2026-03-22T21:32:15.276445Z"
+      "reason": "False positive - GoReleaser template variable {{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}, not a secret",
+      "created_at": "2026-04-30T17:13:33.509529Z"
     },
     {
       "fingerprint": "7c1e59f705c29aa183c3b3d9e0520bc7a2105868baff3cb93c2ce7ce46c8cd4d",
       "rule_id": "SEC-163",
       "file_path": "agent/diagnostics.go",
       "severity": "medium",
-      "reason": "False positive: demo email address",
-      "created_at": "2026-03-22T21:32:45.756403Z"
-    },
-    {
-      "fingerprint": "3e490ab385e794eac1730ebd6da711b5862e9848678c68d9f9d6a56c32219d08",
-      "rule_id": "AI-049",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "high",
-      "reason": "Accepted risk: MCP eval tool is disabled by default and only registered when SCOUT_ENABLE_EVAL=1 is explicitly set.",
-      "created_at": "2026-04-30T08:28:10.788103Z"
-    },
-    {
-      "fingerprint": "4a5432b257c252b63fba802c8fdb7c7eb5b356998492a93f99159e09fc518972",
-      "rule_id": "SEC-161",
-      "file_path": "internal/agui/server.go",
-      "severity": "medium",
-      "reason": "False positive: environment variable name in user-facing error message, not a secret value.",
-      "created_at": "2026-04-30T08:28:10.96104Z"
-    },
-    {
-      "fingerprint": "41466eebb7d0079bb96284bec0fb41255f8939083a5f508a1d155b9d53c5037b",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "reason": "False positive: jsonschema metadata for tool input, not a secret.",
-      "created_at": "2026-04-30T08:28:11.109182Z"
-    },
-    {
-      "fingerprint": "fa7d1974700ff215571baae51542d365f200204229a0a2ab0e4777afdffe80f7",
-      "rule_id": "SEC-163",
-      "file_path": "internal/agui/server.go",
-      "severity": "medium",
-      "reason": "False positive: environment variable name in provider configuration, not a secret value.",
-      "created_at": "2026-04-30T08:28:11.170231Z"
-    },
-    {
-      "fingerprint": "7f474fbbcc16c2ecf835a1e1c055095dbf2a52f75e8195345bdec37ecba2fdf1",
-      "rule_id": "SEC-163",
-      "file_path": "internal/agui/server.go",
-      "severity": "medium",
-      "reason": "False positive: environment variable name in provider configuration, not a secret value.",
-      "created_at": "2026-04-30T08:28:11.203395Z"
-    },
-    {
-      "fingerprint": "4d37020e43a1c94e17d166d5bf1825a526fca39cdaf7fada1cbe2b4dafaa953c",
-      "rule_id": "SEC-163",
-      "file_path": "internal/agui/tools.go",
-      "severity": "medium",
-      "reason": "False positive: tool schema description text, not a secret.",
-      "created_at": "2026-04-30T08:28:11.253446Z"
+      "reason": "False positive - JavaScript CSS selector string in diagnostics code",
+      "created_at": "2026-04-30T17:13:35.150264Z"
     },
     {
       "fingerprint": "441ea7b50ca65853a2f39b52cdaac1c18017685eaa962faa89e8d92e5b760df1",
       "rule_id": "SEC-163",
       "file_path": "agent/session.go",
       "severity": "medium",
-      "created_at": "2026-04-30T08:30:58.99833Z"
+      "reason": "False positive - field name remoteBrowserURL contains hex-like characters",
+      "created_at": "2026-04-30T17:13:36.705199Z"
     },
     {
       "fingerprint": "c6a2d1d7632ca7e61b11cb12b1627c687486e4625ccd882205502d49a1415fc5",
       "rule_id": "SEC-163",
       "file_path": "agent/session.go",
       "severity": "medium",
-      "created_at": "2026-04-30T08:30:58.99833Z"
+      "reason": "False positive - field name remoteBrowserURL contains hex-like characters",
+      "created_at": "2026-04-30T17:13:38.25569Z"
     },
     {
       "fingerprint": "06ed542581208aeef7554ca878db34e1d9f72e95e3a061ff57d1373b65723298",
       "rule_id": "SEC-163",
       "file_path": "cmd/scout/mcp.go",
       "severity": "medium",
-      "created_at": "2026-04-30T08:30:58.99833Z"
+      "reason": "False positive - jsonschema description text for tool input",
+      "created_at": "2026-04-30T17:13:39.762313Z"
     },
     {
-      "fingerprint": "eca7a394a9cdc8acc0a23981d767aba4ddd814b0fb62e86a8eaa39516c939164",
+      "fingerprint": "d5174cde8a61b32802efe644f726d652a50a0003ce350d309e286b7c71c4ee89",
       "rule_id": "SEC-163",
       "file_path": "cmd/scout/mcp.go",
       "severity": "medium",
-      "created_at": "2026-04-30T08:30:58.99833Z"
+      "reason": "False positive - jsonschema description text for tool input",
+      "created_at": "2026-04-30T17:13:41.588734Z"
+    },
+    {
+      "fingerprint": "c50f47907243276e2708f831aaa5413e64ba58ac36b040e8f1461474fc8fbfb8",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "reason": "False positive - jsonschema description text for tool input",
+      "created_at": "2026-04-30T17:13:42.786952Z"
+    },
+    {
+      "fingerprint": "4d37020e43a1c94e17d166d5bf1825a526fca39cdaf7fada1cbe2b4dafaa953c",
+      "rule_id": "SEC-163",
+      "file_path": "internal/agui/tools.go",
+      "severity": "medium",
+      "reason": "False positive - tool schema description text",
+      "created_at": "2026-04-30T17:13:47.356212Z"
+    },
+    {
+      "fingerprint": "d1d2474ec412c4318cedbca10d1566e5593fe3a7d684ef96fc8871adb0de1e07",
+      "rule_id": "SEC-629",
+      "file_path": "middleware/stealth.go",
+      "severity": "high",
+      "reason": "False positive - JavaScript code in stealth middleware, no actual API key",
+      "created_at": "2026-04-30T17:13:48.892177Z"
     }
   ]
 }

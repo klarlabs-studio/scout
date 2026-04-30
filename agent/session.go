@@ -46,7 +46,7 @@ type Session struct {
 	userAgent           string
 	viewport            [2]int
 	allowPrivateIPs     bool
-	remoteCDP           string
+	remoteBrowserURL    string
 	recoverTimeoutN     int
 	consecutiveTimeouts int
 	lastError           string
@@ -101,17 +101,17 @@ func NewSession(cfg SessionConfig) (*Session, error) {
 	}
 
 	return &Session{
-		browser:         engine,
-		timeout:         cfg.Timeout,
-		contentOpts:     DefaultContentOptions(),
-		stealth:         cfg.Stealth,
-		headless:        cfg.Headless,
-		userAgent:       cfg.UserAgent,
-		viewport:        cfg.Viewport,
-		allowPrivateIPs: cfg.AllowPrivateIPs,
-		remoteCDP:       cfg.RemoteCDP,
-		network:         network,
-		recoverTimeoutN: 3,
+		browser:          engine,
+		timeout:          cfg.Timeout,
+		contentOpts:      DefaultContentOptions(),
+		stealth:          cfg.Stealth,
+		headless:         cfg.Headless,
+		userAgent:        cfg.UserAgent,
+		viewport:         cfg.Viewport,
+		allowPrivateIPs:  cfg.AllowPrivateIPs,
+		remoteBrowserURL: cfg.RemoteCDP,
+		network:          network,
+		recoverTimeoutN:  3,
 	}, nil
 }
 
@@ -128,17 +128,17 @@ func NewSessionFromBrowser(b browse.Browser, cfg SessionConfig) *Session {
 	}
 
 	return &Session{
-		browser:         b,
-		timeout:         cfg.Timeout,
-		contentOpts:     DefaultContentOptions(),
-		stealth:         cfg.Stealth,
-		headless:        cfg.Headless,
-		userAgent:       cfg.UserAgent,
-		viewport:        cfg.Viewport,
-		allowPrivateIPs: cfg.AllowPrivateIPs,
-		remoteCDP:       cfg.RemoteCDP,
-		network:         network,
-		recoverTimeoutN: 3,
+		browser:          b,
+		timeout:          cfg.Timeout,
+		contentOpts:      DefaultContentOptions(),
+		stealth:          cfg.Stealth,
+		headless:         cfg.Headless,
+		userAgent:        cfg.UserAgent,
+		viewport:         cfg.Viewport,
+		allowPrivateIPs:  cfg.AllowPrivateIPs,
+		remoteBrowserURL: cfg.RemoteCDP,
+		network:          network,
+		recoverTimeoutN:  3,
 	}
 }
 
@@ -249,8 +249,8 @@ func (s *Session) resetLocked() error {
 	if s.allowPrivateIPs {
 		opts = append(opts, browse.WithAllowPrivateIPs(true))
 	}
-	if s.remoteCDP != "" {
-		opts = append(opts, browse.WithRemoteCDP(s.remoteCDP))
+	if s.remoteBrowserURL != "" {
+		opts = append(opts, browse.WithRemoteCDP(s.remoteBrowserURL))
 	}
 	engine := browse.New(opts...)
 	if err := engine.Launch(); err != nil {

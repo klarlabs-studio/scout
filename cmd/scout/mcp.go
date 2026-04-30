@@ -102,10 +102,6 @@ type ScreenshotInput struct {
 	FullPage bool   `json:"full_page,omitempty" jsonschema:"description=Capture the entire scrollable page instead of just the viewport."`
 }
 
-type EvalInput struct {
-	Expression string `json:"expression" jsonschema:"required,description=JavaScript expression to evaluate"`
-}
-
 type HasElementInput struct {
 	Selector string `json:"selector" jsonschema:"required,description=CSS selector to check for"`
 }
@@ -1002,16 +998,6 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 		Handler(func(ctx context.Context, input StopTraceInput) (*agent.TraceResult, error) {
 			return s().StopTrace(input.Path)
 		})
-
-	// --- Gated tools ---
-
-	if os.Getenv("SCOUT_ENABLE_EVAL") == "1" {
-		srv.Tool("eval").
-			Description("Execute JavaScript on the page. WARNING: arbitrary code execution.").
-			Handler(func(ctx context.Context, input EvalInput) (any, error) {
-				return s().Eval(input.Expression)
-			})
-	}
 
 	if err := mcp.ServeStdio(ctx, srv); err != nil && err != context.Canceled {
 		fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)

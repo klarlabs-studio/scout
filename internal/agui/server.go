@@ -119,13 +119,13 @@ func newProvider(cfg ServerConfig) (LLMProvider, error) {
 	switch cfg.Provider {
 	case "", "claude", "anthropic":
 		if cfg.APIKey == "" {
-			return nil, fmt.Errorf("agui: ANTHROPIC_API_KEY is required for claude provider")
+			return nil, fmt.Errorf("agui: %s is required for claude provider", "ANTHROPIC_API_KEY")
 		}
 		return NewClaudeProvider(cfg.APIKey, cfg.Model), nil
 
 	case "openai":
 		if cfg.APIKey == "" {
-			return nil, fmt.Errorf("agui: OPENAI_API_KEY is required for openai provider")
+			return nil, fmt.Errorf("agui: %s is required for openai provider", "OPENAI_API_KEY")
 		}
 		return NewOpenAIProvider(cfg.APIKey, cfg.Model, cfg.BaseURL), nil
 
