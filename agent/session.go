@@ -40,6 +40,7 @@ type Session struct {
 	history             []HistoryEntry
 	tracing             bool
 	trace               *traceState
+	screenRec           *screenRecording
 	frameID             string
 	frameContextID      int64
 	headless            bool
@@ -322,6 +323,10 @@ func (s *Session) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.closed = true
+	if s.screenRec != nil {
+		s.screenRec.cleanup(s.page)
+		s.screenRec = nil
+	}
 	if s.page != nil {
 		_ = s.page.Close()
 		s.page = nil

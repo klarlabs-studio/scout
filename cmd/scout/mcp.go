@@ -30,6 +30,18 @@ type MCPErrorEnvelope struct {
 	Hint       string `json:"hint,omitempty"`
 }
 
+func envBool(key string) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return false
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false
+	}
+	return b
+}
+
 func mcpErr(err error) error {
 	if err == nil {
 		return nil
@@ -162,7 +174,8 @@ type DispatchEventInput struct {
 }
 
 type ConfigureInput struct {
-	Headless bool `json:"headless" jsonschema:"description=Run browser in headless mode (no visible window). Default true."`
+	Headless        bool `json:"headless" jsonschema:"description=Run browser in headless mode (no visible window). Default true."`
+	AllowPrivateIPs bool `json:"allow_private_ips,omitempty" jsonschema:"description=Allow navigation to loopback (127.0.0.1, localhost) and private IPs (10.*, 192.168.*, etc). Required for local-dev workflows. Default false."`
 }
 
 type ResetInput struct{}
@@ -207,6 +220,17 @@ type SavePlaybookInput struct {
 type ReplayInput struct {
 	Path string `json:"path" jsonschema:"required,description=File path to the playbook JSON file"`
 }
+
+type StartScreenRecordingInput struct {
+	Width     int    `json:"width,omitempty" jsonschema:"description=Capture width in CSS pixels (default 1280)"`
+	Height    int    `json:"height,omitempty" jsonschema:"description=Capture height in CSS pixels (default 800)"`
+	FPS       int    `json:"fps,omitempty" jsonschema:"description=Target frames per second 1-60 (default 30)"`
+	Quality   int    `json:"quality,omitempty" jsonschema:"description=JPEG frame quality 1-100 (default 80)"`
+	Format    string `json:"format,omitempty" jsonschema:"description=Output format: webm (default if ffmpeg present), mp4, or frames"`
+	OutputDir string `json:"output_dir,omitempty" jsonschema:"description=Parent directory for output. Defaults to OS temp dir."`
+}
+
+type StopScreenRecordingInput struct{}
 
 type TabInput struct {
 	Name string `json:"name,omitempty" jsonschema:"description=Tab name (for open_tab and switch_tab)"`
@@ -273,8 +297,11 @@ func serveMCP() {
 	// All handlers reference `session` which is lazily initialized via ensureSession().
 	var (
 		session    *agent.Session
-		sessionCfg = agent.SessionConfig{Headless: true}
-		sessionMu  sync.Mutex
+		sessionCfg = agent.SessionConfig{
+			Headless:        true,
+			AllowPrivateIPs: envBool("SCOUT_ALLOW_PRIVATE_IPS"),
+		}
+		sessionMu sync.Mutex
 	)
 
 	ensureSession := func() error {
@@ -367,10 +394,11 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("configure").
 		ClosedWorld().Idempotent().
-		Description("Change browser settings without restarting. Use headless=false to see the browser window.").
+		Description("Change browser settings without restarting. Use headless=false to see the browser window. Set allow_private_ips=true for local-dev workflows (localhost, 127.0.0.1, private IPs).").
 		Handler(func(ctx context.Context, input ConfigureInput) (string, error) {
 			if err := reconfigure(agent.SessionConfig{
-				Headless: input.Headless,
+				Headless:        input.Headless,
+				AllowPrivateIPs: input.AllowPrivateIPs,
 			}); err != nil {
 				return "", err
 			}
@@ -378,7 +406,11 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			if !input.Headless {
 				mode = "visible"
 			}
-			return fmt.Sprintf("Browser reconfigured: %s mode. Next navigation will use the new settings.", mode), nil
+			privIPs := "blocked"
+			if input.AllowPrivateIPs {
+				privIPs = "allowed"
+			}
+			return fmt.Sprintf("Browser reconfigured: %s mode, private IPs %s. Next navigation will use the new settings.", mode, privIPs), nil
 		})
 
 	srv.Tool("reset").
@@ -978,6 +1010,37 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				return nil, err
 			}
 			return s().ReplayPlaybook(pb)
+		})
+
+	// --- Screen Recording (video) ---
+
+	srv.Tool("start_screen_recording").
+		ClosedWorld().
+		Description("Start capturing the active page as a screencast video. Frames are streamed via CDP and (if ffmpeg is in PATH) encoded to webm/mp4 on stop. Otherwise raw JPEG frames + ffmpeg concat list are returned for offline encoding. Call stop_screen_recording to finish.").
+		Handler(func(ctx context.Context, input StartScreenRecordingInput) (string, error) {
+			err := s().StartScreenRecording(agent.ScreenRecordingOptions{
+				Width:     input.Width,
+				Height:    input.Height,
+				FPS:       input.FPS,
+				Quality:   input.Quality,
+				Format:    input.Format,
+				OutputDir: input.OutputDir,
+			})
+			if err != nil {
+				return "", mcpErr(err)
+			}
+			return "Screen recording started. Call stop_screen_recording to finish and obtain the video path.", nil
+		})
+
+	srv.Tool("stop_screen_recording").
+		ClosedWorld().
+		Description("Stop the active screen recording. Returns a struct with the output file path (video or frames dir), format, encoder used, frame count, and duration.").
+		Handler(func(ctx context.Context, input StopScreenRecordingInput) (*agent.ScreenRecordingResult, error) {
+			res, err := s().StopScreenRecording()
+			if err != nil {
+				return nil, mcpErr(err)
+			}
+			return res, nil
 		})
 
 	// --- Tracing ---
