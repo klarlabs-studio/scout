@@ -591,7 +591,7 @@ a:focus-visible,button:focus-visible{
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 7h14M7 7v10"/></svg>
         </div>
         <h3>MCP built in.</h3>
-        <p>Run <code style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">scout mcp serve</code> and any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has 66 browser tools. No second project to install.</p>
+        <p>Run <code style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">scout mcp serve</code> and any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has 69 browser tools. No second project to install.</p>
       </div>
 
       <div class="why-card">
@@ -657,6 +657,11 @@ a:focus-visible,button:focus-visible{
             <td class="axis">Containerised deploy</td>
             <td class="scout-cell">Drop the binary into <code>scratch</code> or <code>distroless</code>. Tens of MB.</td>
             <td class="other-cell">Carry Node + browser binaries. Hundreds of MB.</td>
+          </tr>
+          <tr>
+            <td class="axis">Video recording</td>
+            <td class="scout-cell"><span class="yes">Built-in.</span> <code>start_screen_recording</code> / <code>stop_screen_recording</code> — webm/mp4 via ffmpeg, or raw frames if ffmpeg is absent. Returns a file path, never base64.</td>
+            <td class="other-cell"><code>recordVideo</code> context option in JS/TS only; not exposed via the MCP variant.</td>
           </tr>
           <tr>
             <td class="axis">CDP access</td>
@@ -781,7 +786,7 @@ nextjs</code></pre>
     <div class="tab-panel" role="tabpanel" id="panel-mcp" aria-labelledby="tab-mcp">
       <div style="padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0;">
         <p style="color:var(--purple);font-weight:600;font-size:14px;margin-bottom:6px;">For giving AI assistants (Claude, Cursor, etc.) browser superpowers</p>
-        <p style="color:var(--text-dim);font-size:14px;line-height:1.5;">Use the MCP server to let your AI assistant browse the web, fill forms, extract data, and take screenshots — all via the standard Model Context Protocol. A single Go binary with 66 tools, zero runtime dependencies. Just install and add one line to your MCP config. The AI decides which tools to call; Scout handles the browser.</p>
+        <p style="color:var(--text-dim);font-size:14px;line-height:1.5;">Use the MCP server to let your AI assistant browse the web, fill forms, extract data, and take screenshots — all via the standard Model Context Protocol. A single Go binary with 69 tools, zero runtime dependencies. Just install and add one line to your MCP config. The AI decides which tools to call; Scout handles the browser.</p>
       </div>
       <pre style="border-radius:0 0 var(--radius) var(--radius);"><code><span class="cm"># Add to Claude Code</span>
 <span class="fl">$</span> claude mcp add scout -- scout mcp serve
@@ -796,7 +801,7 @@ nextjs</code></pre>
   }
 }
 
-<span class="cm"># 66 tools available:</span>
+<span class="cm"># 69 tools available:</span>
 <span class="cm">#</span>
 <span class="cm"># Navigation:  navigate, observe, observe_diff, observe_with_budget,</span>
 <span class="cm">#              hybrid_observe</span>
@@ -815,6 +820,7 @@ nextjs</code></pre>
 <span class="cm">#              component_state, app_state</span>
 <span class="cm"># Playback:    start_recording, stop_recording,</span>
 <span class="cm">#              save_playbook, replay_playbook</span>
+<span class="cm"># Video:       start_screen_recording, stop_screen_recording</span>
 <span class="cm"># Tracing:     start_trace, stop_trace</span>
 <span class="cm"># Performance: web_vitals</span>
 <span class="cm"># Utility:     has_element, wait_for, configure</span></code></pre>
@@ -936,7 +942,7 @@ nextjs</code></pre>
 
       <div class="arch-layer">
         <div class="arch-box arch-l1">CLI<br><span style="font-weight:400;font-size:11px;opacity:.7">scout observe / screenshot / extract</span></div>
-        <div class="arch-box arch-l1">MCP Server<br><span style="font-weight:400;font-size:11px;opacity:.7">66 tools via stdio</span></div>
+        <div class="arch-box arch-l1">MCP Server<br><span style="font-weight:400;font-size:11px;opacity:.7">69 tools via stdio</span></div>
       </div>
       <div class="arch-arrow" aria-hidden="true">|</div>
 

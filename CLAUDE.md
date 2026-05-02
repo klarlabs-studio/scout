@@ -71,6 +71,7 @@ The `internal/agui` package adds a third interface: an AG-UI protocol HTTP serve
 - `agent/batch.go`: `ExecuteBatch` acquires mutex once, runs multiple actions sequentially. Uses internal helpers (`batchClick`, `batchType`) to avoid re-locking.
 - `agent/vision.go`: `HybridObserve` returns clean screenshot + element bounding boxes. `FindByCoordinates` does point-in-rect hit test.
 - `agent/trace.go`: `StartTrace`/`StopTrace` capture before/after screenshots per action, export as zip with `trace.json` + `screenshots/` + `network.json`.
+- `agent/screencast.go`: `StartScreenRecording`/`StopScreenRecording` produce a video. Uses **polled `Page.captureScreenshot`** in a goroutine (CDP `Page.startScreencast` events are silently dropped under `--headless=new`). FPS capped at 30 (~15 realistic). On stop, writes ffmpeg concat list with real per-frame timestamps and shells out to `ffmpeg` (libvpx-vp9 for webm, libx264 for mp4). Falls back to frames-only if ffmpeg is missing. Always returns a file path, never base64.
 - `agent/iframe.go`: `SwitchToFrame` gets iframe execution context via `Page.createIsolatedWorld`. `SwitchToMainFrame` resets.
 - `agent/vitals.go`: `WebVitals` extracts LCP/CLS/INP via PerformanceObserver API.
 - Stealth v2 adds canvas/audio fingerprint noise, WebRTC leak prevention, UA rotation.
@@ -82,8 +83,8 @@ The `internal/agui` package adds a third interface: an AG-UI protocol HTTP serve
 
 - `server.go`: HTTP server with CORS, POST `/` handler, health check at `/health`.
 - `handler.go`: Agentic loop — LLM → tool calls → `ExecuteTool` → `STATE_DELTA` → repeat until text-only response. Max 10 tool loops per run.
-- `events.go`: Self-contained AG-UI SSE encoder (no SDK dependency). 14 event types.
-- `tools.go`: `CuratedTools()` (20 tools for large models) and `CoreTools()` (6 tools for small/local models like Ollama). `ExecuteTool` maps tool names to `agent.Session` methods.
+- `events.go`: Self-contained AG-UI SSE encoder (no SDK dependency). 16 event types incl. `RUN_BUDGET_EXHAUSTED` (10-hop ceiling hit) and `RUN_REPEATED_CALL` (3 identical (name, args) tool invocations in a row → loop terminates early — small-model failure mode guard).
+- `tools.go`: `CuratedTools()` (20 tools for large models) and `CoreTools()` (6 tools for small/local models like Ollama). `ExecuteTool` maps tool names to `agent.Session` methods. Tool results carrying scraped page text (`observe`, `observe_diff`, `extract`, `extract_table`, `markdown`, `discover_form`) are wrapped via `marshalUntrusted` — `{"_untrusted_page_content": true, "_warning": "...", "data": ...}` — and the system prompt tells the LLM to treat that `data` strictly as data. Defends against page-borne prompt injection.
 - `llm_claude.go` / `llm_openai.go`: Streaming LLM providers. OpenAI provider works with Ollama, Groq, Together, etc.
 - `sessions.go`: Thread→Session map with 10-minute idle cleanup. One browser per thread.
 - `state.go`: `BrowserState` struct + `Diff()` for JSON Patch (RFC 6902) delta generation.

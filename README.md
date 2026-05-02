@@ -15,7 +15,7 @@
   <img src="docs/nox-badge.svg?v=2" alt="Security">
 </p>
 
-A single statically-linked `scout` binary gives you a CLI, a 66-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
+A single statically-linked `scout` binary gives you a CLI, a 69-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
 
 ```bash
 brew install felixgeelhaar/tap/scout
@@ -93,6 +93,7 @@ claude mcp add scout -- scout mcp serve           # Claude Code
 | **Tabs** | `open_tab`, `switch_tab`, `close_tab`, `list_tabs` |
 | **Frameworks** | `wait_spa`, `detect_frameworks`, `component_state`, `app_state` |
 | **Playback** | `start_recording`, `stop_recording`, `save_playbook`, `replay_playbook` |
+| **Video** | `start_screen_recording`, `stop_screen_recording` |
 | **Smart Helpers** | `dismiss_cookies`, `check_readiness`, `suggest_selectors`, `session_history` |
 | **Vision** | `hybrid_observe`, `find_by_coordinates` |
 | **Batch** | `execute_batch` |
@@ -105,13 +106,32 @@ All tools have MCP annotations (`ReadOnly`, `OpenWorld`, `ClosedWorld`, `Idempot
 
 ### Runtime Configuration
 
-Switch between headless and visible browser without restarting:
+Switch between headless and visible browser without restarting, and opt into local-dev workflows (loopback, private IPs):
 
 ```
-Agent: configure(headless: false)   → browser window appears
-Agent: navigate("https://...")       → watch it work
-Agent: configure(headless: true)     → back to headless
+Agent: configure(headless: false)                        → browser window appears
+Agent: navigate("https://...")                           → watch it work
+Agent: configure(headless: true)                         → back to headless
+Agent: configure(allow_private_ips: true)                → unlock localhost / 192.168.* / 10.*
+Agent: navigate("http://127.0.0.1:4173/")                → drive your local dev server
 ```
+
+The MCP server also reads `SCOUT_ALLOW_PRIVATE_IPS=1` at startup as a one-shot toggle for trusted environments.
+
+### Screen Recording (video)
+
+Record the active page as a video. Pure CDP — works in headless, no Playwright needed:
+
+```
+Agent: start_screen_recording({ width: 1280, height: 800, fps: 15, format: "webm" })
+Agent: navigate("https://example.com")
+Agent: click("#cta")
+Agent: stop_screen_recording()
+       → { path: "/tmp/scout-rec-XXX.webm", format: "webm", encoder: "ffmpeg",
+           frame_count: N, duration_ms: N }
+```
+
+If `ffmpeg` is on PATH, the result is encoded to WebM (libvpx-vp9) or MP4 (libx264). If not, scout returns the raw JPEG frames directory plus an ffmpeg concat list so you can encode offline. The result is always a file path, never base64 — never enters your LLM token budget.
 
 ## Browser UI
 
@@ -253,7 +273,7 @@ scout version                         # print version
 scout/
 ├── browse.go, engine.go, context.go   # Gin-like API
 ├── page.go, selection.go              # CDP page & element interaction
-├── recorder.go                        # Video recording (screencast → MP4/GIF)
+├── recorder.go                        # Action playbook recording (Navigate/Click/Type → JSON)
 ├── middleware/                        # stealth, resilience, auth, network
 ├── agent/                             # AI agent API (50+ methods)
 │   ├── session.go                     # Session lifecycle, Navigate, Click, Type
@@ -273,11 +293,12 @@ scout/
 │   ├── batch.go                       # ExecuteBatch, sequential multi-action
 │   ├── vision.go                      # HybridObserve, FindByCoordinates
 │   ├── trace.go                       # StartTrace, StopTrace, action tracing
+│   ├── screencast.go                  # StartScreenRecording / StopScreenRecording — video via captureScreenshot polling + ffmpeg encode
 │   ├── iframe.go                      # SwitchToFrame, SwitchToMainFrame
 │   └── vitals.go                      # WebVitals (LCP/CLS/INP)
 ├── internal/cdp/                      # WebSocket CDP client (context-aware)
 ├── internal/launcher/                 # Chrome process management
-├── cmd/scout/                         # CLI + MCP server (66 tools)
+├── cmd/scout/                         # CLI + MCP server (69 tools)
 └── docs/                              # Landing page (GitHub Pages)
 ```
 
