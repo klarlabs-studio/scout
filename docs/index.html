@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scout — AI-Powered Browser Automation for Go</title>
-<meta name="description" content="Gin-like browser automation library for Go with pure CDP, agent-optimized APIs, and a single-binary MCP server. No rod, no chromedp.">
+<title>Scout — Browser Automation, One Binary. The Simpler Playwright.</title>
+<meta name="description" content="A simpler alternative to Playwright. One statically-linked binary — no Node, no Python, no runtime. Drive a real browser from Go, any shell, any AI agent (built-in MCP server), or a chat UI.">
 <meta name="theme-color" content="#0a0e1a">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <style>
@@ -239,6 +239,38 @@ section{padding:80px 0}
 .icon-agent{background:rgba(245,158,11,.12);color:var(--amber)}
 .icon-mcp{background:rgba(34,197,94,.12);color:var(--green)}
 .icon-mw{background:rgba(167,139,250,.12);color:var(--purple)}
+
+/* --- Compare table --- */
+.compare-table{
+  width:100%;border-collapse:collapse;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+  font-size:14px;
+}
+.compare-table th,
+.compare-table td{
+  padding:14px 18px;text-align:left;
+  border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+.compare-table thead th{
+  background:rgba(255,255,255,.03);
+  font-weight:700;color:var(--text);
+  font-size:13px;letter-spacing:.02em;
+}
+.compare-table thead th.scout-col{color:var(--blue)}
+.compare-table tbody tr:last-child td{border-bottom:none}
+.compare-table .axis{font-weight:600;color:var(--text);width:24%}
+.compare-table .scout-cell{color:var(--text);background:rgba(59,130,246,.04)}
+.compare-table .other-cell{color:var(--text-dim)}
+.compare-table .yes{color:var(--green);font-weight:600}
+.compare-table .no{color:var(--text-dim)}
+@media(max-width:720px){
+  .compare-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .compare-table{min-width:640px}
+}
 
 /* --- Code examples --- */
 .code-section{background:var(--bg-raised)}
@@ -506,13 +538,13 @@ a:focus-visible,button:focus-visible{
 <section class="hero">
   <div class="container">
     <div class="hero-badge">
-      <span>Browser automation for Go</span>
+      <span>Browser automation, one binary</span>
       <code>v1.4.1</code>
     </div>
     <img src="logo.svg" alt="Scout — Observer Eye logo" class="hero-logo" width="120" height="120">
     <h1>Scout</h1>
     <p class="hero-sub">
-      A <strong>single-binary MCP server</strong> that gives AI agents a browser. 66 tools for navigation, form filling, data extraction, screenshots, and DOM diffing — built on pure Chrome DevTools Protocol.
+      The <strong>simpler alternative to Playwright</strong>. One statically-linked binary — no Node, no Python, no runtime. Drive a real browser from a Go library, a CLI, an MCP server for AI agents, or a chat UI. Same engine. Any caller.
     </p>
     <div class="install-bar" role="region" aria-label="Install command">
       <code><span class="prompt" aria-hidden="true">$ </span>brew install felixgeelhaar/tap/scout</code>
@@ -534,16 +566,16 @@ a:focus-visible,button:focus-visible{
 <section id="why" class="fade-in">
   <div class="container">
     <p class="section-label">Why Scout</p>
-    <h2 class="section-title">Built different.</h2>
-    <p class="section-desc">Scout is not another wrapper around DevTools Protocol libraries. It is the protocol library.</p>
+    <h2 class="section-title">One binary. Any caller.</h2>
+    <p class="section-desc">Scout is a single statically-linked binary that drives a real Chrome — from a Go program, a shell, an MCP-aware agent, or a chat UI. No runtime to install. No protocol layer between you and the browser.</p>
     <div class="why-grid">
 
       <div class="why-card">
         <div class="icon icon-cdp" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 2v16M2 10h16"/><path d="M10 2a14 14 0 014 8 14 14 0 01-4 8M10 2a14 14 0 00-4 8 14 14 0 004 8"/></svg>
         </div>
-        <h3>Pure CDP. Zero wrappers.</h3>
-        <p>Direct WebSocket connection to Chrome DevTools Protocol. No rod, no chromedp, no Playwright dependency tree. One binary, one connection, full control.</p>
+        <h3>Direct CDP. Zero abstractions.</h3>
+        <p>Direct WebSocket to Chrome DevTools Protocol — no wrapper layer, no protocol of its own on top. One binary, one connection, every CDP surface available.</p>
       </div>
 
       <div class="why-card">
@@ -558,8 +590,8 @@ a:focus-visible,button:focus-visible{
         <div class="icon icon-mcp" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 7h14M7 7v10"/></svg>
         </div>
-        <h3>66-tool MCP server.</h3>
-        <p>Single Go binary. No Node.js runtime, no Python interpreter. Just <code style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">scout mcp serve</code> and your AI agent has a browser.</p>
+        <h3>MCP built in.</h3>
+        <p>Run <code style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">scout mcp serve</code> and any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has 66 browser tools. No second project to install.</p>
       </div>
 
       <div class="why-card">
@@ -574,12 +606,75 @@ a:focus-visible,button:focus-visible{
   </div>
 </section>
 
+<!-- Compared to Playwright -->
+<section id="vs-playwright" class="fade-in">
+  <div class="container">
+    <p class="section-label">Versus Playwright</p>
+    <h2 class="section-title">Same browser. Less ceremony.</h2>
+    <p class="section-desc">Playwright is the gold standard for browser automation — and a 600 MB Node tree, a separate language wrapper, and a separate MCP project to wire any of it to AI. Scout collapses all of that into one binary.</p>
+
+    <div class="compare-wrap">
+      <table class="compare-table" aria-label="Scout versus Playwright capability matrix">
+        <thead>
+          <tr>
+            <th class="axis">Capability</th>
+            <th class="scout-col">Scout</th>
+            <th>Playwright</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="axis">Install footprint</td>
+            <td class="scout-cell">One ~15&nbsp;MB binary. <code>brew install</code> or download.</td>
+            <td class="other-cell">npm + ~600&nbsp;MB browser cache + per-language wrapper.</td>
+          </tr>
+          <tr>
+            <td class="axis">Runtime dependency</td>
+            <td class="scout-cell"><span class="yes">None.</span> Statically linked.</td>
+            <td class="other-cell">Node.js (always). Python/Java/.NET wrappers as second class.</td>
+          </tr>
+          <tr>
+            <td class="axis">Languages it drives from</td>
+            <td class="scout-cell">Any. Go library, CLI from any shell, MCP from any LLM host, HTTP-shaped from any agent.</td>
+            <td class="other-cell">TypeScript / JavaScript first-class. Others lag releases.</td>
+          </tr>
+          <tr>
+            <td class="axis">AI-agent native</td>
+            <td class="scout-cell"><span class="yes">Built-in MCP server.</span> <code>scout mcp serve</code>.</td>
+            <td class="other-cell">Separate <code>playwright-mcp</code> project. Extra setup, extra runtime.</td>
+          </tr>
+          <tr>
+            <td class="axis">Token-aware extraction</td>
+            <td class="scout-cell"><span class="yes">DOM diff, content distillation, observation budgets.</span> 50–80% fewer tokens.</td>
+            <td class="other-cell">Not provided. Page text dumped raw.</td>
+          </tr>
+          <tr>
+            <td class="axis">Action playbooks</td>
+            <td class="scout-cell"><span class="yes">Record &amp; replay</span> deterministic JSON playbooks. No LLM at replay time.</td>
+            <td class="other-cell">Codegen produces a script you maintain by hand.</td>
+          </tr>
+          <tr>
+            <td class="axis">Containerised deploy</td>
+            <td class="scout-cell">Drop the binary into <code>scratch</code> or <code>distroless</code>. Tens of MB.</td>
+            <td class="other-cell">Carry Node + browser binaries. Hundreds of MB.</td>
+          </tr>
+          <tr>
+            <td class="axis">CDP access</td>
+            <td class="scout-cell">Direct WebSocket. Zero abstraction layer.</td>
+            <td class="other-cell">Internal protocol over CDP. Some surfaces hidden.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
 <!-- Code Examples -->
 <section id="examples" class="code-section fade-in">
   <div class="container">
     <p class="section-label">Code</p>
-    <h2 class="section-title">Four ways to use Scout.</h2>
-    <p class="section-desc">A Go library, an agent package, a CLI, and an MCP server. Same engine, different interfaces.</p>
+    <h2 class="section-title">Four interfaces. One engine.</h2>
+    <p class="section-desc">Embed it in a Go program, run it from any shell, plug it into an AI agent, or talk to it from a chat UI. Same browser session model, four access points.</p>
 
     <div class="tab-bar" role="tablist" aria-label="Code examples">
       <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-core" id="tab-core" onclick="switchTab('core')">Core API</button>
