@@ -120,18 +120,21 @@ The MCP server also reads `SCOUT_ALLOW_PRIVATE_IPS=1` at startup as a one-shot t
 
 ### Screen Recording (video)
 
-Record the active page as a video. Pure CDP — works in headless, no Playwright needed:
+Record the active page as a video. Pure CDP — works in headless, no Playwright needed. Recording survives `navigate`, `open_tab`, and `switch_tab` calls in between, so a multi-page demo lands as one continuous clip:
 
 ```
 Agent: start_screen_recording({ width: 1280, height: 800, fps: 15, format: "webm" })
 Agent: navigate("https://example.com")
 Agent: click("#cta")
+Agent: navigate("https://example.com/dashboard")   # recording continues across pages
 Agent: stop_screen_recording()
        → { path: "/tmp/scout-rec-XXX.webm", format: "webm", encoder: "ffmpeg",
            frame_count: N, duration_ms: N }
 ```
 
 If `ffmpeg` is on PATH, the result is encoded to WebM (libvpx-vp9) or MP4 (libx264). If not, scout returns the raw JPEG frames directory plus an ffmpeg concat list so you can encode offline. The result is always a file path, never base64 — never enters your LLM token budget.
+
+Realistic FPS: ~10–15 on typical pages, capped at 30. Implementation polls `Page.captureScreenshot` (CDP `Page.startScreencast` events are silently dropped under `--headless=new` Chrome).
 
 ## Browser UI
 

@@ -660,7 +660,7 @@ a:focus-visible,button:focus-visible{
           </tr>
           <tr>
             <td class="axis">Video recording</td>
-            <td class="scout-cell"><span class="yes">Built-in.</span> <code>start_screen_recording</code> / <code>stop_screen_recording</code> — webm/mp4 via ffmpeg, or raw frames if ffmpeg is absent. Returns a file path, never base64.</td>
+            <td class="scout-cell"><span class="yes">Built-in.</span> <code>start_screen_recording</code> / <code>stop_screen_recording</code> — survives navigations and tab switches, encodes to webm/mp4 via ffmpeg or returns frames if ffmpeg is absent. Always a file path, never base64.</td>
             <td class="other-cell"><code>recordVideo</code> context option in JS/TS only; not exposed via the MCP variant.</td>
           </tr>
           <tr>
