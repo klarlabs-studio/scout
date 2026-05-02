@@ -62,11 +62,15 @@ func TestIntegrationScreenRecording_WebM(t *testing.T) {
 	if res.FrameCount == 0 {
 		t.Fatal("no frames captured")
 	}
+	// If ffmpeg is absent (CI Ubuntu, sandboxed runners), scout falls back
+	// to a frames-only result with format "frames" and encoder "none".
+	// Skip the webm-specific assertions in that case — frame capture is
+	// already verified by the FramesFallback test.
+	if res.Encoder != "ffmpeg" {
+		t.Skipf("ffmpeg not detected on host (encoder=%q, format=%q); content assertions skipped", res.Encoder, res.Format)
+	}
 	if res.Format != "webm" {
 		t.Errorf("Format = %q, want webm", res.Format)
-	}
-	if res.Encoder != "ffmpeg" {
-		t.Skipf("ffmpeg not detected on host (encoder=%q); skipping content assertion", res.Encoder)
 	}
 	if !strings.HasSuffix(res.Path, ".webm") {
 		t.Errorf("Path = %q, expected .webm suffix", res.Path)
