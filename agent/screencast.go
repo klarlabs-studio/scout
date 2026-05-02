@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,11 +15,14 @@ import (
 	browse "github.com/felixgeelhaar/scout"
 )
 
+// debugScreencast enables verbose tracing of frame arrival. Off in normal builds.
+var debugScreencast = os.Getenv("SCOUT_DEBUG_SCREENCAST") == "1"
+
 // ScreenRecordingOptions configures a screen recording.
 type ScreenRecordingOptions struct {
 	Width     int    // capture width in CSS pixels (default 1280)
 	Height    int    // capture height in CSS pixels (default 800)
-	FPS       int    // target frames per second 1-60 (default 30)
+	FPS       int    // target frames per second 1-30 (default 15; 30 is hard cap)
 	Quality   int    // JPEG quality 1-100 (default 80)
 	Format    string // "webm", "mp4", or "frames"; auto-detected if empty
 	OutputDir string // parent directory for frames/output; defaults to os.TempDir()
@@ -35,29 +39,41 @@ type ScreenRecordingResult struct {
 }
 
 // screenRecording is the internal in-flight recording state.
+//
+// We poll Page.captureScreenshot on a ticker rather than subscribe to
+// Page.screencastFrame events. The CDP screencast event stream is unreliable
+// in headless Chrome — frames are gated on actual visual updates and the
+// "page visible" criterion, neither of which behaves consistently with
+// --headless=new. Polled captureScreenshot calls work in any mode and give
+// us deterministic FPS control. Trade-off: synchronous capture latency caps
+// realistic FPS around 15-20 on a typical page.
 type screenRecording struct {
-	id          string
-	startedAt   time.Time
-	framesDir   string
-	format      string
-	fps         int
-	width       int
-	height      int
-	quality     int
-	frames      []frameMeta
-	framesMu    sync.Mutex
-	unsubscribe func()
-	closed      atomic.Bool
+	id        string
+	startedAt time.Time
+	framesDir string
+	format    string
+	fps       int
+	width     int
+	height    int
+	quality   int
+	page      *browse.Page
+
+	frames   []frameMeta
+	framesMu sync.Mutex
+
+	stop   chan struct{} // closed by StopScreenRecording to signal capture loop
+	done   chan struct{} // closed by capture goroutine after it exits
+	closed atomic.Bool
 }
 
 type frameMeta struct {
 	path      string
-	timestamp float64
-	sessionID float64
+	timestamp float64 // seconds since recording start
 }
 
-// StartScreenRecording begins capturing the active page as a screencast.
-// Returns an error if a recording is already in progress on this session.
+// StartScreenRecording begins capturing the active page by polling
+// Page.captureScreenshot on a ticker. Returns an error if a recording is
+// already in progress on this session.
 func (s *Session) StartScreenRecording(opts ScreenRecordingOptions) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -69,8 +85,11 @@ func (s *Session) StartScreenRecording(opts ScreenRecordingOptions) error {
 		return fmt.Errorf("screen recording already in progress")
 	}
 
-	if opts.FPS <= 0 || opts.FPS > 60 {
-		opts.FPS = 30
+	if opts.FPS <= 0 {
+		opts.FPS = 15
+	}
+	if opts.FPS > 30 {
+		opts.FPS = 30 // captureScreenshot polling realistically tops out around here
 	}
 	if opts.Width <= 0 {
 		opts.Width = 1280
@@ -112,50 +131,100 @@ func (s *Session) StartScreenRecording(opts ScreenRecordingOptions) error {
 		width:     opts.Width,
 		height:    opts.Height,
 		quality:   opts.Quality,
+		page:      s.page,
+		stop:      make(chan struct{}),
+		done:      make(chan struct{}),
 	}
 
-	page := s.page
-	rec.unsubscribe = page.OnSession("Page.screencastFrame", func(params map[string]any) {
-		rec.handleFrame(page, params)
-	})
+	if debugScreencast {
+		fmt.Printf("[screencast] start fps=%d size=%dx%d format=%s dir=%s\n",
+			rec.fps, rec.width, rec.height, rec.format, rec.framesDir)
+	}
 
-	everyNth := 60 / opts.FPS
-	if everyNth < 1 {
-		everyNth = 1
-	}
-	if _, err := page.Call("Page.startScreencast", map[string]any{
-		"format":        "jpeg",
-		"quality":       opts.Quality,
-		"maxWidth":      opts.Width,
-		"maxHeight":     opts.Height,
-		"everyNthFrame": everyNth,
-	}); err != nil {
-		rec.unsubscribe()
-		_ = os.RemoveAll(framesDir)
-		return fmt.Errorf("start screencast: %w", err)
-	}
+	go rec.captureLoop()
 
 	s.screenRec = rec
 	return nil
 }
 
-// StopScreenRecording finishes the active recording and (optionally) encodes
-// frames to a video. Returns the result describing where output landed.
+// captureLoop runs in its own goroutine until stop is signalled. Each tick
+// calls Page.captureScreenshot, base64-decodes the JPEG, and writes it to
+// the frames directory.
+func (rec *screenRecording) captureLoop() {
+	defer close(rec.done)
+
+	interval := time.Second / time.Duration(rec.fps)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	// Capture an immediate first frame instead of waiting one tick.
+	rec.captureOne()
+
+	for {
+		select {
+		case <-rec.stop:
+			return
+		case <-ticker.C:
+			if rec.closed.Load() {
+				return
+			}
+			rec.captureOne()
+		}
+	}
+}
+
+func (rec *screenRecording) captureOne() {
+	result, err := rec.page.Call("Page.captureScreenshot", map[string]any{
+		"format":  "jpeg",
+		"quality": rec.quality,
+	})
+	if err != nil {
+		if debugScreencast {
+			fmt.Printf("[screencast] capture error: %v\n", err)
+		}
+		return
+	}
+
+	var payload struct {
+		Data string `json:"data"`
+	}
+	if err := json.Unmarshal(result, &payload); err != nil || payload.Data == "" {
+		return
+	}
+
+	raw, err := base64.StdEncoding.DecodeString(payload.Data)
+	if err != nil {
+		return
+	}
+
+	rec.framesMu.Lock()
+	idx := len(rec.frames)
+	ts := time.Since(rec.startedAt).Seconds()
+	framePath := filepath.Join(rec.framesDir, fmt.Sprintf("frame-%06d.jpg", idx))
+	rec.frames = append(rec.frames, frameMeta{path: framePath, timestamp: ts})
+	rec.framesMu.Unlock()
+
+	_ = os.WriteFile(framePath, raw, 0o644)
+}
+
+// StopScreenRecording signals the capture loop to stop, waits for it,
+// and (optionally) encodes the captured frames into a video.
 func (s *Session) StopScreenRecording() (*ScreenRecordingResult, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	rec := s.screenRec
 	if rec == nil {
+		s.mu.Unlock()
 		return nil, fmt.Errorf("no screen recording in progress")
 	}
 	s.screenRec = nil
-	rec.closed.Store(true)
-
-	if s.page != nil {
-		_, _ = s.page.Call("Page.stopScreencast", nil)
+	if rec.closed.CompareAndSwap(false, true) {
+		close(rec.stop)
 	}
-	rec.unsubscribe()
+	s.mu.Unlock()
+
+	// Wait for the capture goroutine to finish (drains in-flight CDP call).
+	<-rec.done
 
 	duration := time.Since(rec.startedAt)
 	rec.framesMu.Lock()
@@ -165,7 +234,7 @@ func (s *Session) StopScreenRecording() (*ScreenRecordingResult, error) {
 	rec.framesMu.Unlock()
 
 	if frameCount == 0 {
-		return nil, fmt.Errorf("no frames captured (page may have been closed)")
+		return nil, fmt.Errorf("no frames captured")
 	}
 
 	result := &ScreenRecordingResult{
@@ -210,57 +279,19 @@ func (s *Session) IsScreenRecording() bool {
 	return s.screenRec != nil
 }
 
-func (rec *screenRecording) handleFrame(page *browse.Page, params map[string]any) {
-	if rec.closed.Load() {
-		return
-	}
-	data, _ := params["data"].(string)
-	sessionID, _ := params["sessionId"].(float64)
-	var ts float64
-	if md, ok := params["metadata"].(map[string]any); ok {
-		ts, _ = md["timestamp"].(float64)
-	}
-	raw, err := base64.StdEncoding.DecodeString(data)
-	if err != nil {
-		// Still ack so Chrome keeps streaming.
-		_, _ = page.Call("Page.screencastFrameAck", map[string]any{"sessionId": sessionID})
-		return
-	}
-
-	rec.framesMu.Lock()
-	idx := len(rec.frames)
-	rec.framesMu.Unlock()
-
-	framePath := filepath.Join(rec.framesDir, fmt.Sprintf("frame-%06d.jpg", idx))
-	if err := os.WriteFile(framePath, raw, 0o644); err == nil {
-		rec.framesMu.Lock()
-		rec.frames = append(rec.frames, frameMeta{
-			path:      framePath,
-			timestamp: ts,
-			sessionID: sessionID,
-		})
-		rec.framesMu.Unlock()
-	}
-
-	_, _ = page.Call("Page.screencastFrameAck", map[string]any{"sessionId": sessionID})
-}
-
-func (rec *screenRecording) cleanup(page *browse.Page) {
+func (rec *screenRecording) cleanup(_ *browse.Page) {
 	if rec == nil {
 		return
 	}
-	rec.closed.Store(true)
-	if page != nil {
-		_, _ = page.Call("Page.stopScreencast", nil)
+	if rec.closed.CompareAndSwap(false, true) {
+		close(rec.stop)
 	}
-	if rec.unsubscribe != nil {
-		rec.unsubscribe()
-	}
+	<-rec.done
 }
 
 // writeConcatList writes an ffmpeg concat-demuxer list with real per-frame
-// durations derived from CDP timestamps. Falls back to 1/30s if timestamps
-// look bogus (zero/negative/excessive).
+// durations derived from capture timestamps. Falls back to 1/fps if the
+// timestamp delta looks bogus.
 func writeConcatList(path string, frames []frameMeta) error {
 	const fallbackDur = 1.0 / 30.0
 	f, err := os.Create(path)
@@ -284,7 +315,6 @@ func writeConcatList(path string, frames []frameMeta) error {
 			return err
 		}
 	}
-	// ffmpeg concat-demuxer requires the last file repeated without duration.
 	last := frames[len(frames)-1]
 	if _, err := fmt.Fprintf(f, "file '%s'\n", last.path); err != nil {
 		return err
