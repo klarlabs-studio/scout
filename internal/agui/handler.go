@@ -73,8 +73,16 @@ func (h *Handler) HandleRun(ctx context.Context, sse *SSEWriter, input RunAgentI
 	// Build initial messages from input
 	messages := convertMessages(input.Messages)
 
+	// Track tool-call signatures across hops to detect runaway repeated calls
+	// (a common failure mode on small models). 3 identical (name, args) calls
+	// in a row terminate the loop early and surface RUN_REPEATED_CALL.
+	const repeatLimit = 3
+	repeatCount := map[string]int{}
+	var loopExhausted bool
+	var loop int
+
 	// Agentic loop: LLM → tool calls → results → LLM → ...
-	for loop := 0; loop < maxToolLoops; loop++ {
+	for loop = 0; loop < maxToolLoops; loop++ {
 		msgID := fmt.Sprintf("msg-%s-%d", input.RunID, loop)
 		var textStarted bool
 		var textContent strings.Builder
@@ -197,7 +205,16 @@ func (h *Handler) HandleRun(ctx context.Context, sse *SSEWriter, input RunAgentI
 		})
 
 		// Execute each tool call
+		var repeatedTool string
+		var repeatedCount int
 		for _, pt := range pendingTools {
+			sig := pt.Name + "\x00" + pt.Args
+			repeatCount[sig]++
+			if repeatCount[sig] >= repeatLimit && repeatedCount == 0 {
+				repeatedTool = pt.Name
+				repeatedCount = repeatCount[sig]
+			}
+
 			result, execErr := ExecuteTool(session, pt.Name, json.RawMessage(pt.Args))
 
 			resultContent := string(result)
@@ -233,7 +250,34 @@ func (h *Handler) HandleRun(ctx context.Context, sse *SSEWriter, input RunAgentI
 			})
 		}
 		state = newState
+
+		// Repeated-call guard: terminate loop and surface a distinct event.
+		if repeatedTool != "" {
+			_ = sse.WriteEvent(RunRepeatedCall{
+				Type:     EventRunRepeatedCall,
+				ThreadID: input.ThreadID,
+				RunID:    input.RunID,
+				ToolName: repeatedTool,
+				Repeats:  repeatedCount,
+			})
+			break
+		}
 	}
+
+	// If we drained the loop without breaking on a text-only LLM response,
+	// the budget is exhausted — surface a distinct event so the UI can show
+	// "stopped early" rather than implying success.
+	if loop >= maxToolLoops {
+		loopExhausted = true
+		_ = sse.WriteEvent(RunBudgetExhausted{
+			Type:      EventRunBudgetExhausted,
+			ThreadID:  input.ThreadID,
+			RunID:     input.RunID,
+			HopsUsed:  loop,
+			HopsLimit: maxToolLoops,
+		})
+	}
+	_ = loopExhausted // reserved for future telemetry
 
 	// RUN_FINISHED
 	return sse.WriteEvent(RunFinished{

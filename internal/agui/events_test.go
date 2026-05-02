@@ -70,6 +70,20 @@ func TestNow_PositiveUnixMillis(t *testing.T) {
 	}
 }
 
+func TestEventTypes_BudgetAndRepeatedCallDistinct(t *testing.T) {
+	// New diagnostic events must not collide with the original RUN_FINISHED /
+	// RUN_ERROR semantics — UIs distinguish "stopped early" from success.
+	if EventRunBudgetExhausted == EventRunFinished || EventRunBudgetExhausted == EventRunError {
+		t.Errorf("RUN_BUDGET_EXHAUSTED collides with RUN_FINISHED/RUN_ERROR")
+	}
+	if EventRunRepeatedCall == EventRunFinished || EventRunRepeatedCall == EventRunError {
+		t.Errorf("RUN_REPEATED_CALL collides with RUN_FINISHED/RUN_ERROR")
+	}
+	if EventRunBudgetExhausted == EventRunRepeatedCall {
+		t.Error("budget and repeated-call events must be distinct")
+	}
+}
+
 // nonFlusher is an http.ResponseWriter without Flusher to exercise the SSE error path.
 type nonFlusher struct {
 	headers http.Header

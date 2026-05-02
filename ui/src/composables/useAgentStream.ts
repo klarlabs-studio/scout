@@ -146,6 +146,16 @@ export function useAgentStream(endpoint = "/api") {
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
         // User stopped the request — not an error
+      } else if (
+        e instanceof TypeError &&
+        /fetch|network|failed/i.test(e.message)
+      ) {
+        // Network-level disconnect (browser offline, server crash, proxy reset).
+        // Streaming POSTs can't auto-resume mid-run (no Last-Event-ID server-side
+        // checkpoint exists yet), but we surface a distinct, actionable message
+        // so the UI can offer a Retry button rather than a generic error blob.
+        error.value =
+          "Connection to scout server lost. Press Retry to start a new run.";
       } else {
         error.value = e instanceof Error ? e.message : String(e);
       }

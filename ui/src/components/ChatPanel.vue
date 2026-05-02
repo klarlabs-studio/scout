@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, watch } from "vue";
+import { ref, nextTick, watch, onMounted, onBeforeUnmount } from "vue";
 import type { ChatMessage } from "../types/agui";
 import { renderMarkdown } from "../composables/useMarkdown";
 
@@ -17,6 +17,7 @@ const emit = defineEmits<{
 
 const input = ref("");
 const scrollEl = ref<HTMLElement | null>(null);
+const inputEl = ref<HTMLInputElement | null>(null);
 
 function submit() {
   const text = input.value.trim();
@@ -25,6 +26,25 @@ function submit() {
   emit("send", text);
 }
 
+// Cmd/Ctrl-K to focus input from anywhere; Esc to cancel a running run.
+// Matches the convention from Cursor / Claude / ChatGPT so users don't have
+// to relearn the chrome.
+function onGlobalKey(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    inputEl.value?.focus();
+    inputEl.value?.select();
+    return;
+  }
+  if (e.key === "Escape" && props.isRunning) {
+    e.preventDefault();
+    emit("cancel");
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", onGlobalKey));
+onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKey));
+
 watch(
   () => props.messages.length,
   () =>
@@ -32,6 +52,19 @@ watch(
       scrollEl.value?.scrollTo({
         top: scrollEl.value.scrollHeight,
         behavior: "smooth",
+      })
+    )
+);
+
+// Also scroll on streaming content changes, not just on count changes,
+// so live token deltas pull the view down as the assistant types.
+watch(
+  () => props.messages[props.messages.length - 1]?.content,
+  () =>
+    nextTick(() =>
+      scrollEl.value?.scrollTo({
+        top: scrollEl.value.scrollHeight,
+        behavior: "auto",
       })
     )
 );
@@ -160,22 +193,26 @@ watch(
         @submit.prevent="submit"
       >
         <input
+          ref="inputEl"
           v-model="input"
           :disabled="isRunning"
           class="flex-1 bg-transparent text-sm text-zinc-100 placeholder-zinc-500 outline-none disabled:opacity-50 py-1"
-          placeholder="Ask Scout..."
-          autofocus
+          placeholder="Ask Scout… (⌘K to focus, Esc to stop)"
         />
-        <!-- Stop button (while running) -->
+        <!-- Stop button (while running). Labelled so it's the most legible
+             control on screen at the moment it matters most. -->
         <button
           v-if="isRunning"
           type="button"
-          class="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-500 transition-colors"
+          aria-label="Stop run (Esc)"
+          title="Stop (Esc)"
+          class="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-500 transition-colors"
           @click="emit('cancel')"
         >
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
             <rect x="6" y="6" width="12" height="12" rx="1" />
           </svg>
+          <span>Stop</span>
         </button>
         <!-- Send button -->
         <button

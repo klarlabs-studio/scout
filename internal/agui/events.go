@@ -30,6 +30,8 @@ const (
 	EventStateDelta         EventType = "STATE_DELTA"
 	EventStepStarted        EventType = "STEP_STARTED"
 	EventStepFinished       EventType = "STEP_FINISHED"
+	EventRunBudgetExhausted EventType = "RUN_BUDGET_EXHAUSTED"
+	EventRunRepeatedCall    EventType = "RUN_REPEATED_CALL"
 )
 
 // RunStarted signals the beginning of an agent run.
@@ -51,6 +53,27 @@ type RunError struct {
 	Type    EventType `json:"type"`
 	Message string    `json:"message"`
 	Code    string    `json:"code,omitempty"`
+}
+
+// RunBudgetExhausted signals that the agentic loop hit its tool-call ceiling
+// before producing a final text-only response. Distinct from RunFinished so
+// callers can show a "stopped early — task incomplete" state.
+type RunBudgetExhausted struct {
+	Type      EventType `json:"type"`
+	ThreadID  string    `json:"threadId"`
+	RunID     string    `json:"runId"`
+	HopsUsed  int       `json:"hopsUsed"`
+	HopsLimit int       `json:"hopsLimit"`
+}
+
+// RunRepeatedCall signals that the same tool was invoked with identical
+// arguments more than the allowed window. Often a small-model failure mode.
+type RunRepeatedCall struct {
+	Type     EventType `json:"type"`
+	ThreadID string    `json:"threadId"`
+	RunID    string    `json:"runId"`
+	ToolName string    `json:"toolName"`
+	Repeats  int       `json:"repeats"`
 }
 
 // TextMessageStart initiates a streaming text message.
