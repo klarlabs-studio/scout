@@ -137,9 +137,28 @@ func (s *Session) ReplayPlaybook(pb *Playbook) (*PlaybookResult, error) {
 		Extracted:  make(map[string]string),
 	}
 
-	// Navigate to starting URL
+	// Navigate to starting URL. Use the same "close blank tab, open fresh"
+	// pattern as Session.Navigate — directly navigating the initial about:blank
+	// tab is unreliable (Chrome can hang on the load event when redirecting
+	// the very first page). We are already holding s.mu so we cannot call
+	// s.Navigate; inline the equivalent sequence.
 	if pb.URL != "" {
-		if err := s.page.Navigate(pb.URL); err != nil {
+		if s.page != nil {
+			_ = s.page.Close()
+		}
+		page, err := s.browser.NewPage()
+		if err != nil {
+			result.Error = fmt.Sprintf("failed to open page for %s: %v", pb.URL, err)
+			return result, nil
+		}
+		if s.stealth {
+			s.applyStealthPatches(page)
+		}
+		s.page = page
+		s.diffInstalled = false
+		s.frameID = ""
+		s.frameContextID = 0
+		if err := page.Navigate(pb.URL); err != nil {
 			result.Error = fmt.Sprintf("failed to navigate to starting URL %s: %v", pb.URL, err)
 			return result, nil
 		}
