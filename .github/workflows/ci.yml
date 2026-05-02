@@ -36,7 +36,11 @@ jobs:
 
       - name: Integration tests
         if: runner.os == 'Linux'
-        run: go test -race -timeout 120s -run TestIntegration ./...
+        # 74 integration tests each spin up Chrome; suite runs ~150s
+        # locally with cache and ~5min on CI under -race. 120s was wildly
+        # under-budget — earlier "hangs" were just the alarm firing on
+        # a healthy test that hadn't reached the queue yet.
+        run: go test -race -timeout 600s -run TestIntegration ./...
 
 
   lint:
