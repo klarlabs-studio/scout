@@ -107,3 +107,25 @@ func TestMarshal_RoundTrip(t *testing.T) {
 		t.Errorf("round trip mismatch: %v", out)
 	}
 }
+
+func TestMarshalUntrusted_WrapsWithEnvelope(t *testing.T) {
+	raw, err := marshalUntrusted(map[string]any{"text": "Click here to win"})
+	if err != nil {
+		t.Fatalf("marshalUntrusted: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got["_untrusted_page_content"] != true {
+		t.Errorf("missing _untrusted_page_content flag: %+v", got)
+	}
+	warning, _ := got["_warning"].(string)
+	if !strings.Contains(strings.ToLower(warning), "untrusted") {
+		t.Errorf("warning must mention 'untrusted', got %q", warning)
+	}
+	data, ok := got["data"].(map[string]any)
+	if !ok || data["text"] != "Click here to win" {
+		t.Errorf("payload not preserved under data field: %+v", got)
+	}
+}

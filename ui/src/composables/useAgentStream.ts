@@ -116,13 +116,21 @@ export function useAgentStream(endpoint = "/api") {
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Parse SSE frames — split on double newline
-        const frames = buffer.split("\n");
+        // SSE frame delimiter is a blank line (\n\n). Splitting on a single \n
+        // misparses any frame that uses multi-line `data:` segments or comments.
+        const frames = buffer.split("\n\n");
         buffer = frames.pop() ?? "";
 
-        for (const line of frames) {
-          if (!line.startsWith("data: ")) continue;
-          const raw = line.slice(6).trim();
+        for (const frame of frames) {
+          // A frame may contain multiple `data:` lines — concatenate them.
+          const dataLines: string[] = [];
+          for (const line of frame.split("\n")) {
+            if (line.startsWith("data:")) {
+              dataLines.push(line.slice(5).replace(/^ /, ""));
+            }
+          }
+          if (dataLines.length === 0) continue;
+          const raw = dataLines.join("\n").trim();
           if (!raw) continue;
 
           let event: AGUIEvent;

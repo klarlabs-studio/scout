@@ -8,6 +8,16 @@ function escape(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// Only http(s) and mailto links are allowed. javascript:, data:, vbscript:,
+// file: etc. become "#" so an LLM-emitted `[x](javascript:...)` cannot
+// execute code via v-html injection.
+function safeHref(url: string): string {
+  const trimmed = url.trim();
+  if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed.replace(/"/g, "%22");
+  if (/^[/#]/.test(trimmed)) return trimmed.replace(/"/g, "%22");
+  return "#";
+}
+
 export function renderMarkdown(md: string): string {
   if (!md) return "";
 
@@ -64,7 +74,8 @@ export function renderMarkdown(md: string): string {
       )
       .replace(
         /\[([^\]]+)\]\(([^)]+)\)/g,
-        '<a href="$2" class="text-blue-400 hover:underline" target="_blank" rel="noopener">$1</a>'
+        (_m, label: string, url: string) =>
+          `<a href="${safeHref(url)}" class="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">${label}</a>`
       );
 
     out.push(html || "<br/>");
