@@ -11,8 +11,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	browse "github.com/felixgeelhaar/scout"
 )
 
 // debugScreencast enables verbose tracing of frame arrival. Off in normal builds.
@@ -56,7 +54,12 @@ type screenRecording struct {
 	width     int
 	height    int
 	quality   int
-	page      *browse.Page
+
+	// session, not page. Session.Navigate replaces s.page on every navigate
+	// (closes the old, opens a fresh one) — pinning a *browse.Page would
+	// silently lose every frame after the first navigation. We dereference
+	// session.page under the session mutex on each tick instead.
+	session *Session
 
 	frames   []frameMeta
 	framesMu sync.Mutex
@@ -131,7 +134,7 @@ func (s *Session) StartScreenRecording(opts ScreenRecordingOptions) error {
 		width:     opts.Width,
 		height:    opts.Height,
 		quality:   opts.Quality,
-		page:      s.page,
+		session:   s,
 		stop:      make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -174,7 +177,18 @@ func (rec *screenRecording) captureLoop() {
 }
 
 func (rec *screenRecording) captureOne() {
-	result, err := rec.page.Call("Page.captureScreenshot", map[string]any{
+	// Resolve the current page under the session lock. Navigate / OpenTab /
+	// SwitchTab all swap s.page; reading it briefly here keeps recording
+	// alive across navigations and tab switches. Hold time is microseconds.
+	rec.session.mu.Lock()
+	page := rec.session.page
+	closed := rec.session.closed
+	rec.session.mu.Unlock()
+	if closed || page == nil {
+		return
+	}
+
+	result, err := page.Call("Page.captureScreenshot", map[string]any{
 		"format":  "jpeg",
 		"quality": rec.quality,
 	})
@@ -279,7 +293,7 @@ func (s *Session) IsScreenRecording() bool {
 	return s.screenRec != nil
 }
 
-func (rec *screenRecording) cleanup(_ *browse.Page) {
+func (rec *screenRecording) cleanup() {
 	if rec == nil {
 		return
 	}

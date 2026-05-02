@@ -324,7 +324,7 @@ func (s *Session) Close() error {
 	defer s.mu.Unlock()
 	s.closed = true
 	if s.screenRec != nil {
-		s.screenRec.cleanup(s.page)
+		s.screenRec.cleanup()
 		s.screenRec = nil
 	}
 	if s.page != nil {

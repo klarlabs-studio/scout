@@ -85,6 +85,74 @@ func TestIntegrationScreenRecording_WebM(t *testing.T) {
 	_ = os.RemoveAll(res.FramesDir)
 }
 
+// Recording must survive navigation. Session.Navigate replaces s.page with
+// a fresh page; an earlier implementation pinned a stale *browse.Page in
+// the recording and silently dropped every frame after the first navigate.
+func TestIntegrationScreenRecording_AcrossNavigations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+
+	pageHTML := func(label string) string {
+		return `<!DOCTYPE html><html><body style="margin:0;background:#000;color:#fff;font:80px system-ui;display:flex;align-items:center;justify-content:center;height:100vh">` + label + `</body></html>`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/a":
+			_, _ = w.Write([]byte(pageHTML("A")))
+		case "/b":
+			_, _ = w.Write([]byte(pageHTML("B")))
+		case "/c":
+			_, _ = w.Write([]byte(pageHTML("C")))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	s, err := agent.NewSession(agent.SessionConfig{Headless: true, AllowPrivateIPs: true})
+	if err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	if _, err := s.Navigate(srv.URL + "/a"); err != nil {
+		t.Fatalf("Navigate /a: %v", err)
+	}
+
+	if err := s.StartScreenRecording(agent.ScreenRecordingOptions{
+		FPS:    10,
+		Format: "frames",
+	}); err != nil {
+		t.Fatalf("StartScreenRecording: %v", err)
+	}
+
+	// Capture across two more navigations. The capture loop must keep
+	// shooting frames against the new page each time.
+	time.Sleep(400 * time.Millisecond)
+	if _, err := s.Navigate(srv.URL + "/b"); err != nil {
+		t.Fatalf("Navigate /b: %v", err)
+	}
+	time.Sleep(400 * time.Millisecond)
+	if _, err := s.Navigate(srv.URL + "/c"); err != nil {
+		t.Fatalf("Navigate /c: %v", err)
+	}
+	time.Sleep(400 * time.Millisecond)
+
+	res, err := s.StopScreenRecording()
+	if err != nil {
+		t.Fatalf("StopScreenRecording: %v", err)
+	}
+	// At 10 fps over ~1.2s with 2 navigations, we should still bank a
+	// double-digit number of frames if recording survived. The earlier
+	// stale-page bug would have us at ≤2.
+	if res.FrameCount < 5 {
+		t.Errorf("expected ≥5 frames across navigations, got %d (recording likely lost the session)", res.FrameCount)
+	}
+	t.Logf("captured %d frames across 3 pages over %dms", res.FrameCount, res.DurationMs)
+	_ = os.RemoveAll(res.FramesDir)
+}
+
 func TestIntegrationScreenRecording_FramesFallback(t *testing.T) {
 	if testing.Short() {
 		t.Skip("requires Chrome")
