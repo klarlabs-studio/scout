@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.command' | { read -r cmd; echo \"$cmd\" | grep -qE '^git commit' || exit 0; cd /Users/felixgeelhaar/Developer/projects/open_source/browse-go && bash scripts/pre-commit.sh 2>&1; rc=$?; if [ $rc -ne 0 ]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Pre-commit checks failed. Fix issues before committing.\"}}'; fi; }",
+            "command": "jq -r '.tool_input.command' | { read -r cmd; echo \"$cmd\" | grep -qE '^git commit' || exit 0; cd /Users/felixgeelhaar/Developer/projects/open_source/scout && bash scripts/pre-commit.sh 2>&1; rc=$?; if [ $rc -ne 0 ]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Pre-commit checks failed. Fix issues before committing.\"}}'; fi; }",
             "timeout": 180,
             "statusMessage": "Running pre-commit checks (gofmt, vet, lint, tests, coverctl, nox)..."
           }
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/felixgeelhaar/Developer/projects/open_source/browse-go && bash scripts/pre-commit.sh 2>&1 | tail -20; ec=${PIPESTATUS[0]}; if [ $ec -ne 0 ]; then printf '{\"decision\":\"block\",\"reason\":\"Pre-commit checks failed. Fix the issues before stopping.\"}'; fi",
+            "command": "cd /Users/felixgeelhaar/Developer/projects/open_source/scout && bash scripts/pre-commit.sh 2>&1 | tail -20; ec=${PIPESTATUS[0]}; if [ $ec -ne 0 ]; then printf '{\"decision\":\"block\",\"reason\":\"Pre-commit checks failed. Fix the issues before stopping.\"}'; fi",
             "timeout": 120,
             "statusMessage": "Running pre-commit checks (gofmt, vet, lint, tests, coverctl, nox)..."
           }
