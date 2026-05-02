@@ -4,7 +4,7 @@
 
 <h1 align="center">Scout</h1>
 
-<p align="center">AI-powered browser automation for Go. Pure CDP over WebSocket — no rod, no chromedp, no Node.js.</p>
+<p align="center"><strong>Browser automation, one binary.</strong> The simpler alternative to Playwright — no Node, no Python, no runtime. Drive a real browser from Go, any shell, any AI agent (built-in MCP server), or a chat UI.</p>
 
 <p align="center">
   <a href="https://github.com/felixgeelhaar/scout/releases"><img src="https://img.shields.io/github/v/release/felixgeelhaar/scout?style=flat-square&color=3b82f6" alt="Release"></a>
@@ -15,11 +15,24 @@
   <img src="docs/nox-badge.svg?v=2" alt="Security">
 </p>
 
-A single `scout` binary gives you a full CLI, a 66-tool MCP server, and a Go library with Gin-like middleware composition.
+A single statically-linked `scout` binary gives you a CLI, a 66-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
 
 ```bash
 brew install felixgeelhaar/tap/scout
 ```
+
+## vs. Playwright
+
+| | Scout | Playwright |
+|---|---|---|
+| Install | one ~15 MB binary | npm + ~600 MB browser cache |
+| Runtime dep | **none** (static) | Node.js always; Python/Java/.NET as wrappers |
+| Drive from | Go, any shell, MCP, chat UI | TS/JS first-class; others lag |
+| AI-agent native | **built-in** `scout mcp serve` | separate `playwright-mcp` project |
+| Token-aware extraction | DOM diff, distillation, observation budgets (50–80% fewer tokens) | not provided |
+| Action playbooks | record & replay deterministic JSON | codegen produces a script you maintain |
+| Container deploy | drop into `scratch` or `distroless` | carry Node + browser binaries |
+| CDP access | direct WebSocket, zero abstraction | internal protocol over CDP |
 
 ## Quick Start
 
@@ -57,7 +70,7 @@ go get github.com/felixgeelhaar/scout
 
 ## MCP Server — 66 Tools
 
-Single binary, zero runtime dependencies. Configure in any MCP client:
+Run `scout mcp serve` and any MCP-aware agent has a browser. No second project to install, no Node runtime, no Python interpreter — the binary is the server. Configure in any MCP client:
 
 ```bash
 claude mcp add scout -- scout mcp serve           # Claude Code
@@ -123,9 +136,9 @@ The UI streams AG-UI protocol events over SSE:
 
 The Go server handles the agentic loop: LLM decides which scout tools to call, executes them, streams browser state deltas back to the frontend. Supports any OpenAI-compatible endpoint via `--base-url`.
 
-## Agent Package
+## Agent Package (Go)
 
-High-level Go API for AI agents. Structured output, auto-wait, goroutine-safe.
+High-level Go API for callers that want to embed scout in a program. Structured output, auto-wait, goroutine-safe. Most users reach scout through the CLI or MCP server above — this section is for the Go-library path.
 
 ```go
 session, _ := agent.NewSession(agent.SessionConfig{Headless: true})
@@ -180,9 +193,9 @@ session.AccessibilityTree() // ~1-4KB semantic tree
 session.ObserveWithBudget(500) // fit in ~500 tokens
 ```
 
-## Core Library
+## Core Library (Go)
 
-Gin-like Engine/Context/Group/HandlerFunc with middleware composition:
+Gin-like Engine/Context/Group/HandlerFunc with middleware composition. The lowest-level Go API — use it when you want full control of task lifecycle, named groups, and middleware chains:
 
 ```go
 engine := browse.Default(browse.WithHeadless(true))
