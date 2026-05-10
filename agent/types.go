@@ -63,6 +63,7 @@ type Observation struct {
 	ActiveTab        string            `json:"active_tab,omitempty"`        // text of [role=tab][aria-selected=true]
 	ActiveTabID      string            `json:"active_tab_id,omitempty"`     // id/data-tab-id of selected tab
 	ActiveNavigation []string          `json:"active_navigation,omitempty"` // breadcrumb of [aria-current=page] / .active links + page H1
+	Cookies          *CookieSummary    `json:"cookies,omitempty"`
 }
 
 // LinkInfo describes a link on the page.
@@ -70,6 +71,12 @@ type LinkInfo struct {
 	Text string `json:"text"`
 	Href string `json:"href"`
 	Cost string `json:"cost,omitempty"` // "high" (navigation), "medium" (ajax), "low" (anchor)
+}
+
+// CookieSummary is a compact view of cookies for the current page (no values).
+type CookieSummary struct {
+	Count int      `json:"count"`
+	Names []string `json:"names,omitempty"`
 }
 
 // InputInfo describes an input element.

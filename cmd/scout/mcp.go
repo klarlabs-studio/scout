@@ -785,6 +785,36 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			return s().DismissCookieBanner()
 		})
 
+	srv.Tool("cookies_list").
+		ReadOnly().
+		Description("List all cookies for the active page (names + flags only — values are redacted). Useful for diagnosing stale-session issues after a backend restart.").
+		Handler(func(ctx context.Context, input ObserveInput) ([]agent.CookieInfo, error) {
+			return s().ListCookies()
+		})
+
+	srv.Tool("cookies_clear").
+		Description("Clear cookies. With no name, drops all cookies via Network.clearBrowserCookies. With a name, deletes only that cookie (optionally scoped by domain/path). Use this when a backend has been restarted and the previous session token is invalid.").
+		Handler(func(ctx context.Context, input struct {
+			Name   string `json:"name,omitempty" jsonschema:"description=Cookie name to delete. Leave empty to clear all cookies."`
+			Domain string `json:"domain,omitempty" jsonschema:"description=Optional domain scope when deleting a single cookie."`
+			Path   string `json:"path,omitempty" jsonschema:"description=Optional path scope when deleting a single cookie."`
+		}) (map[string]any, error) {
+			n, err := s().ClearCookies(input.Name, input.Domain, input.Path)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"removed": n}, nil
+		})
+
+	srv.Tool("cookies_set").
+		Description("Set a cookie on the active page. Useful for restoring sessions or seeding state.").
+		Handler(func(ctx context.Context, input agent.CookieInput) (string, error) {
+			if err := s().SetCookie(input); err != nil {
+				return "", err
+			}
+			return "ok", nil
+		})
+
 	srv.Tool("check_readiness").
 		ReadOnly().
 		Description("Check how ready the page is for interaction. Returns a 0-100 score, pending XHR count, skeleton/spinner presence, and suggestions for what to wait for.").

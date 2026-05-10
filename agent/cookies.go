@@ -4,7 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	browse "github.com/felixgeelhaar/scout"
 )
+
+func browseCookie(c CookieInput) browse.Cookie {
+	return browse.Cookie{
+		Name:     c.Name,
+		Value:    c.Value,
+		Domain:   c.Domain,
+		Path:     c.Path,
+		Expires:  c.Expires,
+		Secure:   c.Secure,
+		HTTPOnly: c.HTTPOnly,
+		SameSite: c.SameSite,
+	}
+}
 
 // DismissCookieBanner attempts to find and dismiss common cookie consent banners.
 // Tries common selectors and text patterns. Returns whether a banner was found and dismissed.
@@ -138,4 +153,109 @@ func (s *Session) autoNavigate(url string) (*PageResult, error) {
 	}
 
 	return result, nil
+}
+
+// CookieInfo is a redacted view of a browser cookie. Values are never returned.
+type CookieInfo struct {
+	Name     string  `json:"name"`
+	Domain   string  `json:"domain,omitempty"`
+	Path     string  `json:"path,omitempty"`
+	Expires  float64 `json:"expires,omitempty"`
+	Secure   bool    `json:"secure,omitempty"`
+	HTTPOnly bool    `json:"http_only,omitempty"`
+	SameSite string  `json:"same_site,omitempty"`
+	HasValue bool    `json:"has_value"`
+}
+
+// ListCookies returns redacted cookie metadata for the active page.
+// Values are intentionally omitted to avoid leaking session tokens via tool results.
+func (s *Session) ListCookies() ([]CookieInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.ensurePage(); err != nil {
+		return nil, err
+	}
+	cookies, err := s.page.Cookies()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CookieInfo, 0, len(cookies))
+	for _, c := range cookies {
+		out = append(out, CookieInfo{
+			Name:     c.Name,
+			Domain:   c.Domain,
+			Path:     c.Path,
+			Expires:  c.Expires,
+			Secure:   c.Secure,
+			HTTPOnly: c.HTTPOnly,
+			SameSite: c.SameSite,
+			HasValue: c.Value != "",
+		})
+	}
+	return out, nil
+}
+
+// ClearCookies removes cookies for the active session.
+// If name is empty, all cookies are dropped via Network.clearBrowserCookies.
+// Otherwise only the named cookie is removed (optionally scoped by domain/path).
+func (s *Session) ClearCookies(name, domain, path string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.ensurePage(); err != nil {
+		return 0, err
+	}
+	before, _ := s.page.Cookies()
+	if name == "" {
+		if err := s.page.ClearBrowserCookies(); err != nil {
+			return 0, err
+		}
+		return len(before), nil
+	}
+	url, _ := s.page.URL()
+	if err := s.page.DeleteCookie(name, url, domain, path); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
+// SetCookie sets a single cookie on the active page.
+func (s *Session) SetCookie(c CookieInput) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.ensurePage(); err != nil {
+		return err
+	}
+	return s.page.SetCookie(browseCookie(c))
+}
+
+// CookieInput describes a cookie to set. Mirrors the CDP shape minus internal fields.
+type CookieInput struct {
+	Name     string  `json:"name"`
+	Value    string  `json:"value"`
+	Domain   string  `json:"domain,omitempty"`
+	Path     string  `json:"path,omitempty"`
+	Expires  float64 `json:"expires,omitempty"`
+	Secure   bool    `json:"secure,omitempty"`
+	HTTPOnly bool    `json:"http_only,omitempty"`
+	SameSite string  `json:"same_site,omitempty"`
+}
+
+// cookieSummaryInternal returns the CookieSummary view for embedding in Observe.
+// Caller must hold s.mu.
+func (s *Session) cookieSummaryInternal() *CookieSummary {
+	if s.page == nil {
+		return nil
+	}
+	cookies, err := s.page.Cookies()
+	if err != nil || len(cookies) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(cookies))
+	for i, c := range cookies {
+		if i >= 12 { // cap to keep Observe compact
+			break
+		}
+		names = append(names, c.Name)
+	}
+	return &CookieSummary{Count: len(cookies), Names: names}
 }

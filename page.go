@@ -762,6 +762,30 @@ func (p *Page) SetCookie(c Cookie) error {
 	return err
 }
 
+// ClearBrowserCookies removes all browser cookies for this session.
+func (p *Page) ClearBrowserCookies() error {
+	_, _ = p.call("Network.enable", nil)
+	_, err := p.call("Network.clearBrowserCookies", nil)
+	return err
+}
+
+// DeleteCookie removes one cookie by name (and optional URL/domain/path).
+func (p *Page) DeleteCookie(name, url, domain, path string) error {
+	_, _ = p.call("Network.enable", nil)
+	params := map[string]any{"name": name}
+	if url != "" {
+		params["url"] = url
+	}
+	if domain != "" {
+		params["domain"] = domain
+	}
+	if path != "" {
+		params["path"] = path
+	}
+	_, err := p.call("Network.deleteCookies", params)
+	return err
+}
+
 // Close closes the page/tab and cleans up resources.
 func (p *Page) Close() error {
 	p.cancel()

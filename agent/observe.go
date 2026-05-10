@@ -203,6 +203,10 @@ func (s *Session) observeInternal() (*Observation, error) {
 		}
 	}
 
+	if cs := s.cookieSummaryInternal(); cs != nil {
+		obs.Cookies = cs
+	}
+
 	// Check for active dialogs/modals
 	dialogJS := `(function() {
 		for (const d of document.querySelectorAll('dialog[open],[aria-modal="true"],[role="dialog"],[role="alertdialog"]')) {
