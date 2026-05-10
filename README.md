@@ -305,6 +305,20 @@ scout/
 └── docs/                              # Landing page (GitHub Pages)
 ```
 
+## Security
+
+Vulnerability scanning runs on every push and PR via [`nox`](https://github.com/nox-hq/nox). Findings are uploaded to GitHub code scanning, annotated inline on PRs, and gated against `.nox/baseline.json` so regressions block merges. The status badge in the header reflects the latest main-branch scan.
+
+`nox` also drives dependency remediation in place of Dependabot — the [Nox Remediate](.github/workflows/nox-remediate.yml) workflow runs weekly (Monday 06:00 UTC) and on demand, executing `nox fix` against fresh OSV.dev findings and opening a single PR with the verified upgrades.
+
+```bash
+# Local scan
+nox scan -severity-threshold high .
+
+# Local fix
+nox fix -input findings.json
+```
+
 ## License
 
 MIT
