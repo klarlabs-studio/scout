@@ -902,9 +902,16 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("console_errors").
 		ReadOnly().
-		Description("Get captured console.error and console.warn messages from the page. Helps debug broken pages.").
-		Handler(func(ctx context.Context, input ObserveInput) ([]agent.ConsoleMessage, error) {
-			return s().ConsoleErrors()
+		Description("Get captured console.error / console.warn messages plus recent network 4xx/5xx failures. Auto-installs lightweight network observers, so failures recorded after the first call surface here without an explicit enable_network_capture.").
+		Handler(func(ctx context.Context, input ObserveInput) (*agent.DiagnosticsResult, error) {
+			return s().Diagnostics()
+		})
+
+	srv.Tool("failed_requests").
+		ReadOnly().
+		Description("Recent network requests with status >= 400 (4xx/5xx). URL + method + status + response body snippet. Use after a form submission that silently failed.").
+		Handler(func(ctx context.Context, input ObserveInput) ([]agent.NetworkFailure, error) {
+			return s().FailedRequests()
 		})
 
 	srv.Tool("detect_auth_wall").

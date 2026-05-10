@@ -12,6 +12,83 @@ type ConsoleMessage struct {
 	Source string `json:"source,omitempty"`
 }
 
+// NetworkFailure summarizes a failed network response (status >= 400) for diagnostics.
+type NetworkFailure struct {
+	URL                   string `json:"url"`
+	Method                string `json:"method"`
+	Status                int    `json:"status"`
+	MimeType              string `json:"mime_type,omitempty"`
+	ResponseBodySnippet   string `json:"response_body_snippet,omitempty"`
+	ResponseBodyTruncated bool   `json:"response_body_truncated,omitempty"`
+}
+
+// DiagnosticsResult bundles console messages and recent network failures.
+// Used by the console_errors MCP tool to give a single-call view of what's broken.
+type DiagnosticsResult struct {
+	Messages        []ConsoleMessage `json:"messages"`
+	NetworkFailures []NetworkFailure `json:"network_failures,omitempty"`
+}
+
+// Diagnostics returns console messages + recent 4xx/5xx network failures.
+// Auto-installs lightweight network observers so failures recorded after this
+// call surface in subsequent calls without an explicit enable_network_capture.
+func (s *Session) Diagnostics() (*DiagnosticsResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.ensurePage(); err != nil {
+		return nil, err
+	}
+
+	messages, err := s.consoleErrorsLocked()
+	if err != nil {
+		return nil, err
+	}
+	out := &DiagnosticsResult{Messages: messages}
+
+	if s.network == nil {
+		s.network = &networkState{
+			pending:      make(map[string]*NetworkCapture),
+			pendingAll:   make(map[string]*NetworkCapture),
+			historyLimit: 200,
+		}
+	}
+	if !s.network.observersInstalled {
+		_ = s.ensureNetworkObserversLocked()
+	}
+
+	s.network.mu.Lock()
+	for _, c := range s.network.history {
+		if c.Status >= 400 {
+			snippet := c.ResponseBody
+			if len(snippet) > 500 {
+				snippet = snippet[:500]
+			}
+			out.NetworkFailures = append(out.NetworkFailures, NetworkFailure{
+				URL:                   c.URL,
+				Method:                c.Method,
+				Status:                c.Status,
+				MimeType:              c.MimeType,
+				ResponseBodySnippet:   snippet,
+				ResponseBodyTruncated: c.ResponseBodyTruncated || len(c.ResponseBody) > 500,
+			})
+		}
+	}
+	s.network.mu.Unlock()
+
+	return out, nil
+}
+
+// FailedRequests returns recent 4xx/5xx network responses since observers were installed.
+// Auto-installs observers if not yet enabled — first call surfaces no history.
+func (s *Session) FailedRequests() ([]NetworkFailure, error) {
+	d, err := s.Diagnostics()
+	if err != nil {
+		return nil, err
+	}
+	return d.NetworkFailures, nil
+}
+
 // ConsoleErrors returns captured console.error and console.warn messages from the page.
 func (s *Session) ConsoleErrors() ([]ConsoleMessage, error) {
 	s.mu.Lock()
@@ -20,7 +97,11 @@ func (s *Session) ConsoleErrors() ([]ConsoleMessage, error) {
 	if err := s.ensurePage(); err != nil {
 		return nil, err
 	}
+	return s.consoleErrorsLocked()
+}
 
+// consoleErrorsLocked is the non-locking implementation. Caller must hold s.mu.
+func (s *Session) consoleErrorsLocked() ([]ConsoleMessage, error) {
 	js := `(function() {
 		if (!window.__scoutConsole) {
 			window.__scoutConsole = [];
