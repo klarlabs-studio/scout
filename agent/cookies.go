@@ -2,7 +2,6 @@ package agent
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	browse "github.com/felixgeelhaar/scout"
@@ -136,22 +135,6 @@ func (s *Session) NavigateAndDismissCookies(url string) (*PageResult, error) {
 		return nil, err
 	}
 	_, _ = s.DismissCookieBanner()
-	return result, nil
-}
-
-// AutoDismissCookies wraps Navigate to always dismiss cookie banners.
-func (s *Session) autoNavigate(url string) (*PageResult, error) {
-	result, err := s.Navigate(url)
-	if err != nil {
-		return nil, err
-	}
-
-	// Best-effort cookie dismissal
-	dismissResult, _ := s.DismissCookieBanner()
-	if dismissResult != nil && dismissResult.Found {
-		_ = fmt.Sprintf("Cookie banner dismissed: %s", dismissResult.Text)
-	}
-
 	return result, nil
 }
 

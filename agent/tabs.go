@@ -2,7 +2,6 @@ package agent
 
 import (
 	"fmt"
-	"sync"
 
 	browse "github.com/felixgeelhaar/scout"
 )
@@ -14,8 +13,9 @@ type tabEntry struct {
 }
 
 // tabManager manages multiple named tabs within a session.
+// Synchronization is provided by the enclosing Session.mu — tabManager
+// methods are only ever called with that lock held.
 type tabManager struct {
-	mu     sync.Mutex
 	tabs   map[string]*tabEntry
 	active string
 }

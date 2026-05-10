@@ -312,7 +312,7 @@ func writeConcatList(path string, frames []frameMeta) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	for i, fr := range frames {
 		if _, err := fmt.Fprintf(f, "file '%s'\n", fr.path); err != nil {

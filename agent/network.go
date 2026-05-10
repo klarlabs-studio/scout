@@ -165,9 +165,8 @@ func (s *Session) onRequestWillBeSent(params map[string]any) {
 		return
 	}
 	reqURL, _ := req["url"].(string)
-	if !s.matchesNetworkPattern(reqURL) {
-		// keep collecting request metadata for history even if active capture filter does not match
-	}
+	// History captures every request regardless of the active filter pattern;
+	// the filter only narrows what surfaces in CapturedRequests.
 
 	reqID, _ := params["requestId"].(string)
 	method, _ := req["method"].(string)

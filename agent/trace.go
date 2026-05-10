@@ -55,10 +55,10 @@ func (s *Session) writeTraceZip(path string, trace *traceState) (*TraceResult, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	w := zip.NewWriter(f)
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	cleanEvents := make([]TraceEvent, len(trace.events))
 	for i, ev := range trace.events {
