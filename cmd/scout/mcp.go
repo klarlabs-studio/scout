@@ -643,7 +643,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("screenshot").
 		ReadOnly().
-		Description("Capture a screenshot. Auto-compressed for LLM contexts (200KB). Use quality/max_width to control size. Returns base64 data URL.").
+		Description("Capture a screenshot. Defaults to JPEG quality 60 with 80KB cap (~20k tokens base64) so result fits MCP tool-result token limits. Pass quality to override; on overflow the image is progressively downscaled rather than failing. Returns base64 data URL.").
 		Handler(func(ctx context.Context, input ScreenshotInput) (string, error) {
 			if err := maybeNavigate(input.URL); err != nil {
 				return "", err
@@ -653,21 +653,22 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				return "", fmt.Errorf("no page open")
 			}
 			opts := browse.ScreenshotOptions{
-				MaxSize:  200 * 1024, // 200KB default — ~2.5k tokens in base64
+				MaxSize:  80 * 1024, // 80KB default — fits comfortably under MCP per-result token caps
 				FullPage: input.FullPage,
 				MaxWidth: input.MaxWidth,
+				Format:   "jpeg",
+				Quality:  60,
 			}
 			if input.Quality > 0 {
-				opts.Format = "jpeg"
 				opts.Quality = input.Quality
 			}
 			data, err := page.ScreenshotWithOptions(opts)
 			if err != nil {
 				return "", err
 			}
-			mime := "image/png"
-			if opts.Format == "jpeg" {
-				mime = "image/jpeg"
+			mime := "image/jpeg"
+			if opts.Format == "png" {
+				mime = "image/png"
 			}
 			return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 		})
