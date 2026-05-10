@@ -728,7 +728,10 @@ func (s *Session) WaitFor(selector string) error {
 	if err := s.ensurePage(); err != nil {
 		return err
 	}
-	return s.page.WaitForSelector(selector)
+	if err := s.page.WaitForSelector(selector); err != nil {
+		return s.enrichSelectorError(selector, err)
+	}
+	return nil
 }
 
 // Eval executes JavaScript and returns the result.
@@ -785,7 +788,7 @@ func (s *Session) waitAndResolve(selector string) error {
 	if resolveErr == nil {
 		return nil
 	}
-	return err // return original CSS error
+	return s.enrichSelectorError(selector, err) // wrap original CSS error with diagnostics
 }
 
 // querySelector resolves a selector to a nodeID, supporting Playwright-style syntax.
