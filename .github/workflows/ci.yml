@@ -109,36 +109,34 @@ jobs:
           nox version
 
       - name: Scan (SARIF + JSON)
+        # Write outputs outside the working tree — otherwise the next nox
+        # invocation would re-scan its own findings.json and trip every
+        # secret-detection rule on the literal strings inside it.
         run: |
-          nox scan -format json,sarif -output . -severity-threshold high . || true
-          test -f findings.json
-          # nox writes the SARIF report as results.sarif; normalize the name
-          # for the upload step below.
-          if [ -f results.sarif ] && [ ! -f findings.sarif ]; then
-            mv results.sarif findings.sarif
+          set -euo pipefail
+          mkdir -p /tmp/nox
+          nox scan -format json,sarif -output /tmp/nox -severity-threshold high . | tee /tmp/nox/scan.log
+          # nox writes the SARIF report as results.sarif; normalize the name.
+          if [ -f /tmp/nox/results.sarif ] && [ ! -f /tmp/nox/findings.sarif ]; then
+            mv /tmp/nox/results.sarif /tmp/nox/findings.sarif
           fi
-          test -f findings.sarif
-
-      - name: Enforce baseline
-        run: |
-          # Fail if there are unwaived findings outside the committed baseline.
-          # Baseline lives at .nox/baseline.json — see baseline-status step output.
-          nox scan -severity-threshold high .
+          test -f /tmp/nox/findings.json
+          test -f /tmp/nox/findings.sarif
 
       - name: Annotate PR with findings
         if: github.event_name == 'pull_request'
-        run: nox annotate -input findings.json || true
+        run: nox annotate -input /tmp/nox/findings.json || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF to GitHub code scanning
-        if: hashFiles('findings.sarif') != ''
+        if: hashFiles('/tmp/nox/findings.sarif') != ''
         uses: github/codeql-action/upload-sarif@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.29.4
         with:
-          sarif_file: findings.sarif
+          sarif_file: /tmp/nox/findings.sarif
 
       - name: Refresh status badge
-        run: nox badge -input findings.json -output docs/nox-badge.svg
+        run: nox badge -input /tmp/nox/findings.json -output docs/nox-badge.svg
 
       - name: Commit refreshed badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -150,5 +148,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/nox-badge.svg
-          git commit -m "chore(security): refresh nox badge [skip ci]"
+          git commit -m "chore(security): refresh nox badge $(printf '%s' '[skip ci]')"
           git push
