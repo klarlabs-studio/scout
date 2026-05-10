@@ -525,6 +525,7 @@ a:focus-visible,button:focus-visible{
       <li><a href="#examples">Examples</a></li>
       <li><a href="#features">Features</a></li>
       <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#security">Security</a></li>
       <li><a href="#install">Install</a></li>
     </ul>
     <a href="https://github.com/felixgeelhaar/scout" class="nav-gh" aria-label="GitHub repository">
@@ -539,7 +540,7 @@ a:focus-visible,button:focus-visible{
   <div class="container">
     <div class="hero-badge">
       <span>Browser automation, one binary</span>
-      <code>v1.4.1</code>
+      <code>v1.6.1</code>
     </div>
     <img src="logo.svg" alt="Scout — Observer Eye logo" class="hero-logo" width="120" height="120">
     <h1>Scout</h1>
@@ -591,7 +592,7 @@ a:focus-visible,button:focus-visible{
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 7h14M7 7v10"/></svg>
         </div>
         <h3>MCP built in.</h3>
-        <p>Run <code style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">scout mcp serve</code> and any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has 69 browser tools. No second project to install.</p>
+        <p>Run <code style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">scout mcp serve</code> and any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has 74 browser tools. No second project to install.</p>
       </div>
 
       <div class="why-card">
@@ -786,7 +787,7 @@ nextjs</code></pre>
     <div class="tab-panel" role="tabpanel" id="panel-mcp" aria-labelledby="tab-mcp">
       <div style="padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0;">
         <p style="color:var(--purple);font-weight:600;font-size:14px;margin-bottom:6px;">For giving AI assistants (Claude, Cursor, etc.) browser superpowers</p>
-        <p style="color:var(--text-dim);font-size:14px;line-height:1.5;">Use the MCP server to let your AI assistant browse the web, fill forms, extract data, and take screenshots — all via the standard Model Context Protocol. A single Go binary with 69 tools, zero runtime dependencies. Just install and add one line to your MCP config. The AI decides which tools to call; Scout handles the browser.</p>
+        <p style="color:var(--text-dim);font-size:14px;line-height:1.5;">Use the MCP server to let your AI assistant browse the web, fill forms, extract data, and take screenshots — all via the standard Model Context Protocol. A single Go binary with 74 tools, zero runtime dependencies. Just install and add one line to your MCP config. The AI decides which tools to call; Scout handles the browser.</p>
       </div>
       <pre style="border-radius:0 0 var(--radius) var(--radius);"><code><span class="cm"># Add to Claude Code</span>
 <span class="fl">$</span> claude mcp add scout -- scout mcp serve
@@ -801,7 +802,7 @@ nextjs</code></pre>
   }
 }
 
-<span class="cm"># 69 tools available:</span>
+<span class="cm"># 74 tools available:</span>
 <span class="cm">#</span>
 <span class="cm"># Navigation:  navigate, observe, observe_diff, observe_with_budget,</span>
 <span class="cm">#              hybrid_observe</span>
@@ -892,6 +893,12 @@ nextjs</code></pre>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Batch operations</strong> for multi-action</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Trace export</strong> to zip files</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Web vitals</strong> LCP/CLS/INP extraction</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>click_text</strong> visible-text shortcut</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Cookie tools</strong> list/clear/set for stale-session repair</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Network 4xx/5xx</strong> in console_errors + failed_requests</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Active tab/route</strong> in observe</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Selector diagnostics</strong> with similar candidates</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Checkbox/radio</strong> in fill_form_semantic with state echo</span></div>
       </div>
     </div>
 
@@ -942,7 +949,7 @@ nextjs</code></pre>
 
       <div class="arch-layer">
         <div class="arch-box arch-l1">CLI<br><span style="font-weight:400;font-size:11px;opacity:.7">scout observe / screenshot / extract</span></div>
-        <div class="arch-box arch-l1">MCP Server<br><span style="font-weight:400;font-size:11px;opacity:.7">69 tools via stdio</span></div>
+        <div class="arch-box arch-l1">MCP Server<br><span style="font-weight:400;font-size:11px;opacity:.7">74 tools via stdio</span></div>
       </div>
       <div class="arch-arrow" aria-hidden="true">|</div>
 
@@ -970,6 +977,29 @@ nextjs</code></pre>
       <p class="arch-caption">
         Built on <code>bolt</code> (structured logging), <code>fortify</code> (resilience patterns), <code>statekit</code> (state machines), and <code>mcp-go</code> (Model Context Protocol).
       </p>
+    </div>
+  </div>
+</section>
+
+<!-- Security -->
+<section id="security" class="fade-in">
+  <div class="container">
+    <p class="section-label">Supply chain</p>
+    <h2 class="section-title">Vulnerability-driven security.</h2>
+    <p class="section-desc">Every push and PR runs <a href="https://github.com/nox-hq/nox" target="_blank" rel="noopener noreferrer"><code>nox</code></a> — findings flow to GitHub code scanning, gate against a committed baseline, and annotate PRs inline. <strong>Dependabot is replaced by <code>nox-remediate</code></strong>: a weekly + on-demand workflow that runs <code>nox fix</code> against fresh OSV.dev findings and opens a single review-ready PR.</p>
+    <div class="install-grid">
+      <div class="install-card">
+        <h3>Local scan</h3>
+        <pre><code><span class="fl">$</span> nox scan -severity-threshold high .</code></pre>
+      </div>
+      <div class="install-card">
+        <h3>Local fix</h3>
+        <pre><code><span class="fl">$</span> nox fix -input findings.json</code></pre>
+      </div>
+      <div class="install-card">
+        <h3>Status badge</h3>
+        <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">Auto-refreshed from each main-branch CI run. The README header reflects the current grade.</p>
+      </div>
     </div>
   </div>
 </section>

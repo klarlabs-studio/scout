@@ -15,7 +15,7 @@
   <img src="docs/nox-badge.svg?v=2" alt="Security">
 </p>
 
-A single statically-linked `scout` binary gives you a CLI, a 69-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
+A single statically-linked `scout` binary gives you a CLI, a 74-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
 
 ```bash
 brew install felixgeelhaar/tap/scout
@@ -68,7 +68,7 @@ go install github.com/felixgeelhaar/scout/cmd/scout@latest
 go get github.com/felixgeelhaar/scout
 ```
 
-## MCP Server — 66 Tools
+## MCP Server — 74 Tools
 
 Run `scout mcp serve` and any MCP-aware agent has a browser. No second project to install, no Node runtime, no Python interpreter — the binary is the server. Configure in any MCP client:
 
@@ -85,8 +85,8 @@ claude mcp add scout -- scout mcp serve           # Claude Code
 | Category | Tools |
 |----------|-------|
 | **Navigation** | `navigate`, `observe`, `observe_diff`, `observe_with_budget` |
-| **Interaction** | `click`, `click_label`, `type`, `hover`, `double_click`, `right_click`, `select_option`, `scroll_to`, `scroll_by`, `focus`, `drag_drop`, `dispatch_event` |
-| **Forms** | `fill_form`, `fill_form_semantic`, `discover_form` |
+| **Interaction** | `click`, `click_label`, `click_text`, `type`, `hover`, `double_click`, `right_click`, `select_option`, `scroll_to`, `scroll_by`, `focus`, `drag_drop`, `dispatch_event` |
+| **Forms** | `fill_form`, `fill_form_semantic` (checkbox/radio + state echo), `discover_form` |
 | **Extraction** | `extract`, `extract_all`, `extract_table`, `auto_extract`, `scroll_and_collect`, `markdown`, `readable_text`, `accessibility_tree` |
 | **Capture** | `screenshot`, `annotated_screenshot`, `pdf` |
 | **Network** | `enable_network_capture`, `network_requests` |
@@ -94,12 +94,13 @@ claude mcp add scout -- scout mcp serve           # Claude Code
 | **Frameworks** | `wait_spa`, `detect_frameworks`, `component_state`, `app_state` |
 | **Playback** | `start_recording`, `stop_recording`, `save_playbook`, `replay_playbook` |
 | **Video** | `start_screen_recording`, `stop_screen_recording` |
-| **Smart Helpers** | `dismiss_cookies`, `check_readiness`, `suggest_selectors`, `session_history` |
+| **Smart Helpers** | `check_readiness`, `suggest_selectors`, `session_history` |
 | **Vision** | `hybrid_observe`, `find_by_coordinates` |
 | **Batch** | `execute_batch` |
 | **Iframe** | `switch_to_frame`, `switch_to_main_frame` |
 | **Trace** | `start_trace`, `stop_trace` |
-| **Diagnostics** | `detect_dialog`, `detect_auth_wall`, `console_errors`, `compare_tabs`, `upload_file` |
+| **Cookies** | `cookies_list`, `cookies_clear`, `cookies_set`, `dismiss_cookies` |
+| **Diagnostics** | `detect_dialog`, `detect_auth_wall`, `console_errors` (incl. network 4xx/5xx), `failed_requests`, `compare_tabs`, `upload_file` |
 | **Utility** | `has_element`, `wait_for`, `configure`, `web_vitals`, `select_by_prompt` |
 
 All tools have MCP annotations (`ReadOnly`, `OpenWorld`, `ClosedWorld`, `Idempotent`) for smart auto-approval. Read-only tools like `observe`, `extract`, and `screenshot` run without permission prompts.
@@ -301,7 +302,7 @@ scout/
 │   └── vitals.go                      # WebVitals (LCP/CLS/INP)
 ├── internal/cdp/                      # WebSocket CDP client (context-aware)
 ├── internal/launcher/                 # Chrome process management
-├── cmd/scout/                         # CLI + MCP server (69 tools)
+├── cmd/scout/                         # CLI + MCP server (74 tools)
 └── docs/                              # Landing page (GitHub Pages)
 ```
 
