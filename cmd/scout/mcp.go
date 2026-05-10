@@ -137,7 +137,7 @@ type DiscoverFormInput struct {
 }
 
 type FillFormSemanticInput struct {
-	Fields map[string]string `json:"fields" jsonschema:"required,description=Field values keyed by human-readable field name"`
+	Fields map[string]any `json:"fields" jsonschema:"required,description=Field values keyed by human-readable field name. Strings fill text inputs/textareas/selects. Booleans toggle checkboxes (or pick a radio when paired with a string label)."`
 }
 
 type EnableNetworkInput struct {
@@ -533,9 +533,9 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 		})
 
 	srv.Tool("fill_form_semantic").
-		Description("Fill form fields by label or name.").
+		Description("Fill form fields by label or name. Strings fill text inputs; booleans toggle checkboxes; for radios pass the label/value as a string. Each result includes the value re-read after dispatching input/change events plus a warning when framework binding (Vue v-model / React onChange) didn't pick up the change.").
 		Handler(func(ctx context.Context, input FillFormSemanticInput) (*agent.SemanticFillResult, error) {
-			out, err := s().FillFormSemantic(input.Fields)
+			out, err := s().FillFormSemanticAny(input.Fields)
 			return out, mcpErr(err)
 		})
 

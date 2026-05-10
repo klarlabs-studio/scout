@@ -86,6 +86,8 @@ type InputInfo struct {
 	Type        string `json:"type"`
 	Value       string `json:"value,omitempty"`
 	Placeholder string `json:"placeholder,omitempty"`
+	Checked     *bool  `json:"checked,omitempty"` // populated for checkbox/radio inputs only
+	Label       string `json:"label,omitempty"`   // resolved label/aria-label, helpful for checkbox/radio identification
 }
 
 // ButtonInfo describes a button element.
@@ -237,11 +239,15 @@ type AnnotatedElement struct {
 
 // SemanticFieldResult describes the outcome of filling one semantically-matched field.
 type SemanticFieldResult struct {
-	HumanName string `json:"human_name"`
-	Selector  string `json:"selector,omitempty"`
-	Value     string `json:"value,omitempty"`
-	Success   bool   `json:"success"`
-	Error     string `json:"error,omitempty"`
+	HumanName         string `json:"human_name"`
+	Selector          string `json:"selector,omitempty"`
+	Type              string `json:"type,omitempty"`
+	Value             string `json:"value,omitempty"`              // value the caller asked us to set (string form)
+	ValueObserved     string `json:"value_observed,omitempty"`     // value re-read after the mutation
+	FrameworkReactive bool   `json:"framework_reactive,omitempty"` // true when set==observed (Vue/React state followed)
+	Success           bool   `json:"success"`
+	Warning           string `json:"warning,omitempty"`
+	Error             string `json:"error,omitempty"`
 }
 
 // --- Natural Language Selection types ---

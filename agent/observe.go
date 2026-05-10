@@ -43,14 +43,36 @@ func (s *Session) observeInternal() (*Observation, error) {
 		}
 
 		// Collect inputs
+		function inputLabel(el) {
+			if (el.id) {
+				const l = document.querySelector('label[for="' + CSS.escape(el.id) + '"]');
+				if (l) return l.textContent.trim().slice(0, 80);
+			}
+			const ariaLabel = el.getAttribute('aria-label');
+			if (ariaLabel) return ariaLabel.slice(0, 80);
+			const wrapping = el.closest('label');
+			if (wrapping) {
+				const c = wrapping.cloneNode(true);
+				c.querySelectorAll('input,textarea,select').forEach(i => i.remove());
+				return c.textContent.trim().slice(0, 80);
+			}
+			return '';
+		}
 		for (const input of document.querySelectorAll('input, textarea, select')) {
-			obs.inputs.push({
+			const t = (input.type || input.tagName.toLowerCase()).toLowerCase();
+			const item = {
 				id: input.id || '',
 				name: input.name || '',
-				type: input.type || input.tagName.toLowerCase(),
+				type: t,
 				value: input.value || '',
 				placeholder: input.placeholder || ''
-			});
+			};
+			if (t === 'checkbox' || t === 'radio') {
+				item.checked = !!input.checked;
+				const lbl = inputLabel(input);
+				if (lbl) item.label = lbl;
+			}
+			obs.inputs.push(item);
 		}
 
 		// Collect buttons
@@ -151,13 +173,18 @@ func (s *Session) observeInternal() (*Observation, error) {
 				break
 			}
 			if im, ok := inp.(map[string]any); ok {
-				obs.Inputs = append(obs.Inputs, InputInfo{
+				info := InputInfo{
 					ID:          strVal(im, "id"),
 					Name:        strVal(im, "name"),
 					Type:        strVal(im, "type"),
 					Value:       strVal(im, "value"),
 					Placeholder: strVal(im, "placeholder"),
-				})
+					Label:       strVal(im, "label"),
+				}
+				if c, ok := im["checked"].(bool); ok {
+					info.Checked = &c
+				}
+				obs.Inputs = append(obs.Inputs, info)
 			}
 		}
 	}

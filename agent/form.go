@@ -57,6 +57,11 @@ func (s *Session) DiscoverForm(formSelector string) (*FormDiscoveryResult, error
 
 		function buildSelector(el) {
 			if (el.id) return '#' + CSS.escape(el.id);
+			const t = (el.type || '').toLowerCase();
+			if ((t==='radio' || t==='checkbox') && el.name) {
+				const v = el.value || '';
+				if (v) return 'input[type="'+t+'"][name="'+el.name+'"][value="'+v+'"]';
+			}
 			if (el.name) return el.tagName.toLowerCase() + '[name="' + el.name + '"]';
 			const parent = el.closest('form');
 			if (parent) {
@@ -120,6 +125,21 @@ func (s *Session) DiscoverForm(formSelector string) (*FormDiscoveryResult, error
 // Keys are names like "Email", "Password", "First Name".
 // The method auto-discovers form fields and matches by label, name, placeholder, and id.
 func (s *Session) FillFormSemantic(fields map[string]string) (*SemanticFillResult, error) {
+	any := make(map[string]any, len(fields))
+	for k, v := range fields {
+		any[k] = v
+	}
+	return s.FillFormSemanticAny(any)
+}
+
+// FillFormSemanticAny is like FillFormSemantic but accepts any value type per field.
+// Booleans toggle checkboxes (or set radios when paired with a string value matching a label).
+// Strings fill text inputs, textareas, and select options.
+//
+// For every field the result includes the value that was set, the value re-read from
+// the DOM after dispatching input/change events, and a warning when the framework's
+// reactive binding (Vue v-model / React onChange) didn't pick up the change.
+func (s *Session) FillFormSemanticAny(fields map[string]any) (*SemanticFillResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -127,7 +147,6 @@ func (s *Session) FillFormSemantic(fields map[string]string) (*SemanticFillResul
 		return nil, err
 	}
 
-	// Discover form fields (unlock not needed since we hold the lock)
 	discovery, err := s.discoverFormInternal("")
 	if err != nil {
 		return nil, err
@@ -139,48 +158,205 @@ func (s *Session) FillFormSemantic(fields map[string]string) (*SemanticFillResul
 	}
 
 	for humanName, value := range fields {
-		best := MatchFormField(humanName, discovery.Fields)
-		if best == nil {
-			result.Fields = append(result.Fields, SemanticFieldResult{
-				HumanName: humanName,
-				Error:     fmt.Sprintf("no matching field found for %q", humanName),
-			})
+		fr := s.fillSemanticField(humanName, value, discovery.Fields)
+		if !fr.Success {
 			result.Success = false
-			continue
 		}
-
-		nodeID, err := s.page.QuerySelector(best.Selector)
-		if err != nil {
-			result.Fields = append(result.Fields, SemanticFieldResult{
-				HumanName: humanName,
-				Selector:  best.Selector,
-				Error:     err.Error(),
-			})
-			result.Success = false
-			continue
-		}
-
-		sel := browse.NewSelection(s.page, nodeID, best.Selector)
-		if err := sel.Input(value); err != nil {
-			result.Fields = append(result.Fields, SemanticFieldResult{
-				HumanName: humanName,
-				Selector:  best.Selector,
-				Error:     err.Error(),
-			})
-			result.Success = false
-			continue
-		}
-
-		actual, _ := sel.Value()
-		result.Fields = append(result.Fields, SemanticFieldResult{
-			HumanName: humanName,
-			Selector:  best.Selector,
-			Value:     actual,
-			Success:   true,
-		})
+		result.Fields = append(result.Fields, fr)
 	}
 
 	return result, nil
+}
+
+// fillSemanticField fills one field and returns a structured outcome.
+// Caller must hold s.mu.
+func (s *Session) fillSemanticField(humanName string, value any, candidates []FormFieldInfo) SemanticFieldResult {
+	best := MatchFormField(humanName, candidates)
+	if best == nil {
+		return SemanticFieldResult{
+			HumanName: humanName,
+			Error:     fmt.Sprintf("no matching field found for %q", humanName),
+		}
+	}
+
+	switch strings.ToLower(best.Type) {
+	case "checkbox":
+		return s.fillCheckbox(humanName, *best, value)
+	case "radio":
+		return s.fillRadio(humanName, *best, value, candidates)
+	default:
+		return s.fillTextField(humanName, *best, value)
+	}
+}
+
+func (s *Session) fillTextField(humanName string, field FormFieldInfo, value any) SemanticFieldResult {
+	str := fmt.Sprint(value)
+	nodeID, err := s.page.QuerySelector(field.Selector)
+	if err != nil {
+		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: err.Error()}
+	}
+	sel := browse.NewSelection(s.page, nodeID, field.Selector)
+	if err := sel.Input(str); err != nil {
+		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: err.Error()}
+	}
+	// Dispatch input + change so frameworks update their bound state.
+	dispatchEvents(s.page, field.Selector, "input", "change")
+	observed, _ := sel.Value()
+	reactive := observed == str
+	res := SemanticFieldResult{
+		HumanName:         humanName,
+		Selector:          field.Selector,
+		Type:              field.Type,
+		Value:             str,
+		ValueObserved:     observed,
+		FrameworkReactive: reactive,
+		Success:           true,
+	}
+	if !reactive {
+		res.Warning = "DOM value matched but observed value differs — framework binding may not have updated"
+	}
+	return res
+}
+
+func (s *Session) fillCheckbox(humanName string, field FormFieldInfo, value any) SemanticFieldResult {
+	want, ok := toBool(value)
+	if !ok {
+		return SemanticFieldResult{
+			HumanName: humanName,
+			Selector:  field.Selector,
+			Type:      field.Type,
+			Error:     fmt.Sprintf("checkbox %q expects bool, got %T", humanName, value),
+		}
+	}
+
+	checked, err := readChecked(s.page, field.Selector)
+	if err != nil {
+		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: err.Error()}
+	}
+	wantStr := boolStr(want)
+
+	if checked == want {
+		return SemanticFieldResult{
+			HumanName: humanName, Selector: field.Selector, Type: field.Type,
+			Value: wantStr, ValueObserved: wantStr, FrameworkReactive: true, Success: true,
+		}
+	}
+
+	if err := clickCheckbox(s.page, field.Selector); err != nil {
+		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: err.Error()}
+	}
+	dispatchEvents(s.page, field.Selector, "input", "change")
+
+	observed, _ := readChecked(s.page, field.Selector)
+	reactive := observed == want
+	res := SemanticFieldResult{
+		HumanName:         humanName,
+		Selector:          field.Selector,
+		Type:              field.Type,
+		Value:             wantStr,
+		ValueObserved:     boolStr(observed),
+		FrameworkReactive: reactive,
+		Success:           true,
+	}
+	if !reactive {
+		res.Warning = "checkbox click fired but observed checked state didn't change — framework binding may not have updated"
+		res.Success = false
+	}
+	return res
+}
+
+func (s *Session) fillRadio(humanName string, field FormFieldInfo, value any, candidates []FormFieldInfo) SemanticFieldResult {
+	str := fmt.Sprint(value)
+	// Radio set: pick the radio whose label matches str within the same name group.
+	target := field
+	for _, c := range candidates {
+		if strings.EqualFold(c.Type, "radio") && c.Name == field.Name {
+			if strings.EqualFold(c.Label, str) || strings.EqualFold(c.ID, str) {
+				target = c
+				break
+			}
+		}
+	}
+	if err := clickCheckbox(s.page, target.Selector); err != nil {
+		return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Error: err.Error()}
+	}
+	dispatchEvents(s.page, target.Selector, "input", "change")
+
+	observed, _ := readChecked(s.page, target.Selector)
+	res := SemanticFieldResult{
+		HumanName:         humanName,
+		Selector:          target.Selector,
+		Type:              target.Type,
+		Value:             str,
+		ValueObserved:     boolStr(observed),
+		FrameworkReactive: observed,
+		Success:           observed,
+	}
+	if !observed {
+		res.Warning = "radio click fired but observed checked state is false — framework binding may not have updated"
+	}
+	return res
+}
+
+func toBool(v any) (bool, bool) {
+	switch x := v.(type) {
+	case bool:
+		return x, true
+	case string:
+		switch strings.ToLower(strings.TrimSpace(x)) {
+		case "true", "yes", "on", "1", "checked":
+			return true, true
+		case "false", "no", "off", "0", "unchecked", "":
+			return false, true
+		}
+	case float64:
+		return x != 0, true
+	case int:
+		return x != 0, true
+	}
+	return false, false
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func dispatchEvents(p *browse.Page, selector string, events ...string) {
+	selJSON, _ := json.Marshal(selector)
+	for _, ev := range events {
+		evJSON, _ := json.Marshal(ev)
+		js := fmt.Sprintf(`(function(){const el=document.querySelector(%s);if(!el)return false;el.dispatchEvent(new Event(%s,{bubbles:true,cancelable:true}));return true;})()`, selJSON, evJSON)
+		_, _ = p.Evaluate(js)
+	}
+}
+
+func readChecked(p *browse.Page, selector string) (bool, error) {
+	selJSON, _ := json.Marshal(selector)
+	js := fmt.Sprintf(`(function(){const el=document.querySelector(%s);return el?!!el.checked:false;})()`, selJSON)
+	r, err := p.Evaluate(js)
+	if err != nil {
+		return false, err
+	}
+	if b, ok := r.(bool); ok {
+		return b, nil
+	}
+	return false, nil
+}
+
+func clickCheckbox(p *browse.Page, selector string) error {
+	selJSON, _ := json.Marshal(selector)
+	js := fmt.Sprintf(`(function(){const el=document.querySelector(%s);if(!el)return false;el.scrollIntoView({block:'center'});el.click();return true;})()`, selJSON)
+	r, err := p.Evaluate(js)
+	if err != nil {
+		return err
+	}
+	if b, ok := r.(bool); ok && !b {
+		return fmt.Errorf("element not found for click")
+	}
+	return nil
 }
 
 // discoverFormInternal is the non-locking version of DiscoverForm.
@@ -206,6 +382,11 @@ func (s *Session) discoverFormInternal(formSelector string) (*FormDiscoveryResul
 		}
 		function buildSelector(el) {
 			if (el.id) return '#'+CSS.escape(el.id);
+			const t = (el.type || '').toLowerCase();
+			if ((t==='radio' || t==='checkbox') && el.name) {
+				const v = el.value || '';
+				if (v) return 'input[type="'+t+'"][name="'+el.name+'"][value="'+v+'"]';
+			}
 			if (el.name) return el.tagName.toLowerCase()+'[name="'+el.name+'"]';
 			return el.tagName.toLowerCase();
 		}
@@ -280,11 +461,4 @@ func MatchFormField(humanName string, fields []FormFieldInfo) *FormFieldInfo {
 	}
 
 	return best
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
