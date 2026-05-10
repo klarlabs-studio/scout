@@ -112,6 +112,11 @@ jobs:
         run: |
           nox scan -format json,sarif -output . -severity-threshold high . || true
           test -f findings.json
+          # nox writes the SARIF report as results.sarif; normalize the name
+          # for the upload step below.
+          if [ -f results.sarif ] && [ ! -f findings.sarif ]; then
+            mv results.sarif findings.sarif
+          fi
           test -f findings.sarif
 
       - name: Enforce baseline

@@ -42,62 +42,6 @@
       "created_at": "2026-04-30T17:13:20.96463Z"
     },
     {
-      "fingerprint": "47150b89dabd41cf65476715fac39974c9cdc759ca406667df610e34ef629e50",
-      "rule_id": "SEC-163",
-      "file_path": ".goreleaser.yaml",
-      "severity": "medium",
-      "reason": "False positive - GoReleaser template variable {{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}, not a secret",
-      "created_at": "2026-04-30T17:13:33.509529Z"
-    },
-    {
-      "fingerprint": "7c1e59f705c29aa183c3b3d9e0520bc7a2105868baff3cb93c2ce7ce46c8cd4d",
-      "rule_id": "SEC-163",
-      "file_path": "agent/diagnostics.go",
-      "severity": "medium",
-      "reason": "False positive - JavaScript CSS selector string in diagnostics code",
-      "created_at": "2026-04-30T17:13:35.150264Z"
-    },
-    {
-      "fingerprint": "441ea7b50ca65853a2f39b52cdaac1c18017685eaa962faa89e8d92e5b760df1",
-      "rule_id": "SEC-163",
-      "file_path": "agent/session.go",
-      "severity": "medium",
-      "reason": "False positive - field name remoteBrowserURL contains hex-like characters",
-      "created_at": "2026-04-30T17:13:36.705199Z"
-    },
-    {
-      "fingerprint": "c6a2d1d7632ca7e61b11cb12b1627c687486e4625ccd882205502d49a1415fc5",
-      "rule_id": "SEC-163",
-      "file_path": "agent/session.go",
-      "severity": "medium",
-      "reason": "False positive - field name remoteBrowserURL contains hex-like characters",
-      "created_at": "2026-04-30T17:13:38.25569Z"
-    },
-    {
-      "fingerprint": "06ed542581208aeef7554ca878db34e1d9f72e95e3a061ff57d1373b65723298",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "reason": "False positive - jsonschema description text for tool input",
-      "created_at": "2026-04-30T17:13:39.762313Z"
-    },
-    {
-      "fingerprint": "d5174cde8a61b32802efe644f726d652a50a0003ce350d309e286b7c71c4ee89",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "reason": "False positive - jsonschema description text for tool input",
-      "created_at": "2026-04-30T17:13:41.588734Z"
-    },
-    {
-      "fingerprint": "c50f47907243276e2708f831aaa5413e64ba58ac36b040e8f1461474fc8fbfb8",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "reason": "False positive - jsonschema description text for tool input",
-      "created_at": "2026-04-30T17:13:42.786952Z"
-    },
-    {
       "fingerprint": "4d37020e43a1c94e17d166d5bf1825a526fca39cdaf7fada1cbe2b4dafaa953c",
       "rule_id": "SEC-163",
       "file_path": "internal/agui/tools.go",
@@ -106,12 +50,137 @@
       "created_at": "2026-04-30T17:13:47.356212Z"
     },
     {
-      "fingerprint": "d1d2474ec412c4318cedbca10d1566e5593fe3a7d684ef96fc8871adb0de1e07",
-      "rule_id": "SEC-629",
-      "file_path": "middleware/stealth.go",
+      "fingerprint": "9383e88656d8ffca847335d0ab57e0d871b9ec4617a434fe6f5053acfa0fead9",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/nox-remediate.yml",
+      "severity": "low",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "56d46e9b4469b3d4d832aa1f772083e8a41971fa42887ddf302e5ddf556b5fe5",
+      "rule_id": "IAC-314",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "cf6ef4441523b3a5b9accc4d0b20a31abdb2a12e5aae855bbdcef3e7e97c5054",
+      "rule_id": "IAC-314",
+      "file_path": ".github/workflows/nox-remediate.yml",
+      "severity": "low",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "ce103d3cd9752fe28d167d911da65f5a35c9b44cf9aaf029fa70496fb4da0989",
+      "rule_id": "SEC-161",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "35b862d9172436e7feb9098c2ee12f8b02e9e682c70069613d5127749dd30118",
+      "rule_id": "SEC-161",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "b51a953591cdcc79a515155c782bc175d51f1034659160cdb1af72310d21bacd",
+      "rule_id": "SEC-161",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "f54dd933ef57ec714f2ff36bb6954b365357eab20488ce7916f61c1a733a5427",
+      "rule_id": "SEC-162",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "c9ba17cfd6d5467cf4a570fb57288db4d17b86d80421905015d76537b0c5bcac",
+      "rule_id": "SEC-163",
+      "file_path": "agent/diagnostics.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "faaa1347a78b0e72daa96bebe86f245808dd47b6b48ebfa4593f55d497db6da3",
+      "rule_id": "SEC-163",
+      "file_path": "agent/session.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "e40b7793faafdc94b9ca0deab79de574e932b52e8a17096c90d97589c6ec95bf",
+      "rule_id": "SEC-163",
+      "file_path": "agent/session.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "28e575647588ae722a6e5822c59fa0fdb01aaf03b05c95d8b152e5c80671eb53",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "81c9373e347d9d45f01606e0b99a7f0571f41032a2b75c8f16b95c9896f02b5f",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "938dc126d0d43ed53977d144fe1dc3f5a475ff179f9b01d071dd4494e31ebc42",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "1cd4df6df735999531c27fd9181f55b96bb9b56223d6e3e6ce53cb26f3c5f26d",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "a7d89b705505f81de891e70e6a4471985e23f3e71360c72edd26ba545b9cc939",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "e105859e1abffa1022adc96767e12fc2d1b6df995e1830a08d2dbefb27064dad",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "8ef7382d94da9701b36bd5c7746da397229fa16b60f61d8d3de8e43d84dbf1ce",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "5f7c60a728c4beb3c30622d2f6f6974babf4ed7b5223668e7a6d0fcd783e3f58",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-05-10T08:56:15.329011Z"
+    },
+    {
+      "fingerprint": "39de8c114d41672218b1d0cbaa365947e92917fa8321c3b637022a9de9ab5297",
+      "rule_id": "SEC-574",
+      "file_path": "agent/cookies.go",
       "severity": "high",
-      "reason": "False positive - JavaScript code in stealth middleware, no actual API key",
-      "created_at": "2026-04-30T17:13:48.892177Z"
+      "created_at": "2026-05-10T08:56:15.329011Z"
     }
   ]
 }
