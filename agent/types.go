@@ -49,17 +49,20 @@ type FieldResult struct {
 
 // Observation is a structured snapshot of the visible page for agent context.
 type Observation struct {
-	URL         string            `json:"url"`
-	Title       string            `json:"title"`
-	Text        string            `json:"text"`
-	Links       []LinkInfo        `json:"links,omitempty"`
-	Inputs      []InputInfo       `json:"inputs,omitempty"`
-	Buttons     []ButtonInfo      `json:"buttons,omitempty"`
-	Interactive int               `json:"interactive_elements"`
-	Meta        map[string]string `json:"meta,omitempty"`
-	HasDialog   bool              `json:"has_dialog,omitempty"`
-	DialogType  string            `json:"dialog_type,omitempty"` // dialog, modal, overlay
-	DialogText  string            `json:"dialog_text,omitempty"`
+	URL              string            `json:"url"`
+	Title            string            `json:"title"`
+	Text             string            `json:"text"`
+	Links            []LinkInfo        `json:"links,omitempty"`
+	Inputs           []InputInfo       `json:"inputs,omitempty"`
+	Buttons          []ButtonInfo      `json:"buttons,omitempty"`
+	Interactive      int               `json:"interactive_elements"`
+	Meta             map[string]string `json:"meta,omitempty"`
+	HasDialog        bool              `json:"has_dialog,omitempty"`
+	DialogType       string            `json:"dialog_type,omitempty"` // dialog, modal, overlay
+	DialogText       string            `json:"dialog_text,omitempty"`
+	ActiveTab        string            `json:"active_tab,omitempty"`        // text of [role=tab][aria-selected=true]
+	ActiveTabID      string            `json:"active_tab_id,omitempty"`     // id/data-tab-id of selected tab
+	ActiveNavigation []string          `json:"active_navigation,omitempty"` // breadcrumb of [aria-current=page] / .active links + page H1
 }
 
 // LinkInfo describes a link on the page.

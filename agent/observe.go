@@ -69,6 +69,33 @@ func (s *Session) observeInternal() (*Observation, error) {
 			if (key && val) obs.meta[key] = val.slice(0, 200);
 		}
 
+		// Active tab — [role=tab][aria-selected=true]
+		const selectedTab = document.querySelector('[role="tab"][aria-selected="true"]');
+		if (selectedTab) {
+			obs.active_tab = (selectedTab.textContent || '').trim().slice(0, 80);
+			obs.active_tab_id = selectedTab.id || selectedTab.getAttribute('data-tab-id') || selectedTab.getAttribute('aria-controls') || '';
+		}
+
+		// Active navigation breadcrumb — [aria-current=page] links + page H1
+		const nav = [];
+		for (const el of document.querySelectorAll('[aria-current="page"]')) {
+			const t = (el.textContent || '').trim();
+			if (t) nav.push(t.slice(0, 60));
+		}
+		if (nav.length === 0) {
+			for (const el of document.querySelectorAll('nav a.active, nav a.is-active, nav a[aria-selected="true"]')) {
+				const t = (el.textContent || '').trim();
+				if (t) nav.push(t.slice(0, 60));
+				if (nav.length >= 4) break;
+			}
+		}
+		const h1 = document.querySelector('h1');
+		if (h1) {
+			const ht = (h1.textContent || '').trim().slice(0, 80);
+			if (ht && (nav.length === 0 || nav[nav.length-1] !== ht)) nav.push(ht);
+		}
+		if (nav.length > 0) obs.active_navigation = nav;
+
 		obs.interactive = obs.links.length + obs.inputs.length + obs.buttons.length;
 		return obs;
 	})()`
@@ -158,6 +185,20 @@ func (s *Session) observeInternal() (*Observation, error) {
 		for k, v := range meta {
 			if s, ok := v.(string); ok {
 				obs.Meta[k] = s
+			}
+		}
+	}
+
+	if v, ok := m["active_tab"].(string); ok {
+		obs.ActiveTab = v
+	}
+	if v, ok := m["active_tab_id"].(string); ok {
+		obs.ActiveTabID = v
+	}
+	if nav, ok := m["active_navigation"].([]any); ok {
+		for _, n := range nav {
+			if str, ok := n.(string); ok {
+				obs.ActiveNavigation = append(obs.ActiveNavigation, str)
 			}
 		}
 	}
