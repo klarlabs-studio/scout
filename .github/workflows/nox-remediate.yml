@@ -38,10 +38,11 @@ jobs:
       - name: Install nox
         run: |
           set -euo pipefail
-          curl -fsSL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz" -o nox.tgz
+          ASSET="nox_${NOX_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/${ASSET}" -o "${ASSET}"
           curl -fsSL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/checksums.txt" -o nox.sums
-          grep "nox_${NOX_VERSION}_linux_amd64.tar.gz" nox.sums | sha256sum -c -
-          tar -xzf nox.tgz nox
+          grep " ${ASSET}\$" nox.sums | sha256sum -c -
+          tar -xzf "${ASSET}" nox
           sudo mv nox /usr/local/bin/nox
           nox version
 
