@@ -508,6 +508,16 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			return s().ClickLabel(label)
 		})
 
+	srv.Tool("click_text").
+		Description("Click an element by its visible text. Resolution: aria-label exact match, then button/link text match, then closest interactive ancestor of a matching text node. Pass role=\"button\"|\"link\" to disambiguate when text appears in both. Cheaper than annotated_screenshot for the common 'click that thing I can see' case.").
+		Handler(func(ctx context.Context, input struct {
+			Text string `json:"text" jsonschema:"required,description=Visible text to match (exact, case-insensitive)."`
+			Role string `json:"role,omitempty" jsonschema:"description=Optional role filter: button or link."`
+		}) (*agent.ClickTextResult, error) {
+			out, err := s().ClickText(input.Text, input.Role)
+			return out, mcpErr(err)
+		})
+
 	srv.Tool("type").
 		Description("Type text into an input element. Clears existing value first.").
 		Handler(func(ctx context.Context, input TypeInput) (*agent.ElementResult, error) {
