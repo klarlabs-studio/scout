@@ -166,3 +166,51 @@ Resolve current security scanner findings by addressing dependency/container/IaC
 Tighten local security scanning so generated frontend dependency and build directories do not dominate nox results. Acceptance criteria: project scan excludes generated UI artifacts, security checks still cover source files and manifests, and existing verification remains green.
 
 ---
+
+## Issue #5 — fill_form_semantic checkbox/radio support
+
+GitHub issue felixgeelhaar/scout#5. fill_form_semantic skips input[type=checkbox] and input[type=radio]. observe inputs[] omits them. Extend semantic form filling to accept boolean values for checkboxes (and string values for radios) via fuzzy label match. Resolve checkbox even when nested inside parent <label>. Dispatch input + change events so Vue v-model / React onChange fires. Also include checkbox/radio entries in agent.Observe inputs slice with type:"checkbox|radio" and current checked state. Acceptance: filling boolean field toggles checkbox, downstream submit becomes enabled, success report shows value_set/value_observed. Unit test with HTML fixture covers checked→unchecked and unchecked→checked transitions.
+
+---
+
+## Issue #6 — screenshot default budget tightening
+
+GitHub issue felixgeelhaar/scout#6. Default screenshot tool result blows MCP token cap with max_width=1024. Tighten ScreenshotCompact default MaxSize from 5MB to ~200KB to honor "auto-compressed for LLM contexts" claim. When budget can't fit, return downscaled image + warning {downsampled:true, original_size:..., final_size:...} instead of failing. Update tool description to state explicit default budget. Acceptance: screenshot at max_width=1024 on rich page returns base64 under 200KB, never trips harness token cap. Adds quality/scale used into response metadata so callers can detect lossy capture.
+
+---
+
+## Issue #7 — observe active route/tab introspection
+
+GitHub issue felixgeelhaar/scout#7. observe lacks active-route/tab info — SPAs that fall back silently when query-string tab id is invalid leave caller blind. Extend observe response with active_tab (text + id derived from [role=tab][aria-selected=true] or [aria-current=page]) and active_navigation breadcrumb (chain of [aria-current=page] / .active nav links + page H1). Heuristics: aria-selected, aria-current, role=tab, .active class on nav links. Acceptance: observe on tabbed SPA returns active_tab string; navigation breadcrumb includes top nav + page H1.
+
+---
+
+## Issue #8 — selector failure diagnostics
+
+GitHub issue felixgeelhaar/scout#8. wait_for / click on missing selector returns bare timeout. Need diagnostic context. On selector-not-found error from Click/WaitFor (and friends), return structured payload: {error:"selector_not_found", selector, matched:0, similar:[{selector,text,score}], page_title, page_h1}. Reuse existing suggestSelectorsInternal (agent/selector.go) to populate similar[]. Wrap MCP error so message contains formatted suggestions while structured field is reachable in MCP error data. Acceptance: clicking nonexistent selector with near-miss element returns at least one similar suggestion; existing tests still pass.
+
+---
+
+## Issue #9 — console_errors include network 4xx/5xx
+
+GitHub issue felixgeelhaar/scout#9. console_errors only surfaces console.error/warn. Network 4xx/5xx are invisible. Extend ConsoleErrors response with network_failures: [{url, method, status, status_text, response_body_snippet, timestamp}]. Reuse existing network capture infra — auto-enable lightweight failure-only capture when console_errors is requested (no body for non-failure requests). Add new failed_requests MCP tool for explicit access. Acceptance: registration form submitting against backend returning 400 surfaces the failed request in console_errors.network_failures with URL + status + body snippet.
+
+---
+
+## Issue #10 — click_text shortcut tool
+
+GitHub issue felixgeelhaar/scout#10. Add click_text({text, role?}) MCP tool + agent.Session.ClickText. Resolution order: aria-label exact match → button/a/role=button visible text match → closest interactive ancestor of matching text node. Optional role disambiguator (button vs link). Returns matched selector + element bounding box. Acceptance: click_text("Record Weight") clicks correct button on test fixture without prior observe call; ambiguity returns structured error with candidate list. Should work alongside existing select_by_prompt but cheaper (no fuzzy matching, exact visible text).
+
+---
+
+## Issue #11 — cookie management tools
+
+GitHub issue felixgeelhaar/scout#11. Stale cookies survive backend restart and break subsequent flows silently. Add three MCP tools: cookies_list (returns [{name,domain,has_value,expires}]), cookies_clear (drops all cookies for current page domain or all if scope=all), cookies_set (set a cookie). Also add cookies_summary into observe() output: count + names only. Implement via CDP Network.getCookies / Network.clearBrowserCookies / Network.setCookie. Acceptance: cookies_clear after stale cookie state lets fresh login succeed; cookies_list shows session cookies with redacted values.
+
+---
+
+## Issue #12 — fill_form_semantic post-mutation state echo
+
+GitHub issue felixgeelhaar/scout#12. fill_form_semantic returns success based only on whether DOM value was set, not whether framework reactive binding (Vue v-model / React onChange) updated. After setting value + dispatching input/change events, re-read the value and echo {value_set, value_observed, framework_reactive:bool, warning?}. If observed != set, set warning string. Same instrumentation for click on input[type=checkbox|radio]. Acceptance: setting field that has missing onInput handler returns warning; healthy v-model field returns matching set/observed; tests cover both paths.
+
+---

@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Repository
+
+GitHub: `felixgeelhaar/scout`. Use `gh` CLI with this repo for issues, PRs, releases (e.g. `gh issue list -R felixgeelhaar/scout`).
+
 ## What This Is
 
 scout is a Gin-like browser automation library for Go using a pure Chrome DevTools Protocol (CDP) implementation over WebSocket. No rod, no chromedp. It has two API layers: a core `browse` package (Engine/Context/Group/HandlerFunc for developers) and an `agent` package (Session-based, structured-output API for AI agents). Includes an MCP server binary at `cmd/scout` and a conversational browser UI at `cmd/scout ui serve`.
