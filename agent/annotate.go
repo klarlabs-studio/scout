@@ -110,9 +110,10 @@ func (s *Session) AnnotatedScreenshot() (*AnnotatedResult, error) {
 	}
 
 	return &AnnotatedResult{
-		Image:    screenshot,
-		Elements: elements,
-		Count:    len(elements),
+		Image:      screenshot,
+		Elements:   elements,
+		Count:      len(elements),
+		LabelScope: "per_call",
 	}, nil
 }
 

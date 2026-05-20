@@ -20,12 +20,9 @@ func (s *Session) Hover(selector string) (*PageResult, error) {
 		return nil, err
 	}
 
-	nodeID, err := s.querySelector(selector)
-	if err != nil {
-		return nil, err
-	}
-	sel := browse.NewSelection(s.page, nodeID, selector)
-	if err := sel.Hover(); err != nil {
+	if err := s.withStaleNodeRetry(selector, func(nodeID int64) error {
+		return browse.NewSelection(s.page, nodeID, selector).Hover()
+	}); err != nil {
 		return nil, err
 	}
 

@@ -359,7 +359,112 @@ func (s *Session) WaitForSPA() error {
 	return err
 }
 
+// WaitForSPAIdle waits until the page is hydrated and visually quiet:
+//   - document.readyState === "complete"
+//   - Astro's "astro:page-load" / "astro:end" event has fired (if Astro detected)
+//   - Vue / React mount markers exist (data-v-app populated, root has children)
+//   - no pending XHR/fetch (tracked via PerformanceObserver)
+//   - no visible spinners / skeletons / aria-busy elements
+//   - DOM stable (no mutations) for `quietWindow` milliseconds
+//
+// This is a stronger signal than WaitForSPA. Use it after a navigation or
+// click that triggers hydration before extracting content or asserting state.
+func (s *Session) WaitForSPAIdle(quietMS, timeoutMS int) (*PageResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.ensurePage(); err != nil {
+		return nil, err
+	}
+
+	if quietMS <= 0 {
+		quietMS = 400
+	}
+	if timeoutMS <= 0 {
+		timeoutMS = 15000
+	}
+
+	js := fmt.Sprintf(`new Promise(resolve => {
+		const QUIET = %d;
+		const HARD = %d;
+		const start = Date.now();
+		const isAstro = !!document.querySelector('[data-astro-island]') || !!window.__ASTRO__;
+		let astroDone = !isAstro;
+		if (isAstro) {
+			document.addEventListener('astro:page-load', () => { astroDone = true; }, {once: true});
+			document.addEventListener('astro:end', () => { astroDone = true; }, {once: true});
+			// fallback: assume hydration done after 1s if event never fires
+			setTimeout(() => { astroDone = true; }, 1000);
+		}
+
+		// Track in-flight fetch + XHR. Patch once.
+		if (!window.__scoutPending) {
+			window.__scoutPending = {n: 0};
+			const origFetch = window.fetch;
+			window.fetch = function() {
+				window.__scoutPending.n++;
+				return origFetch.apply(this, arguments).finally(() => { window.__scoutPending.n--; });
+			};
+			const XHR = window.XMLHttpRequest;
+			if (XHR && XHR.prototype) {
+				const origSend = XHR.prototype.send;
+				XHR.prototype.send = function() {
+					window.__scoutPending.n++;
+					this.addEventListener('loadend', () => { window.__scoutPending.n--; });
+					return origSend.apply(this, arguments);
+				};
+			}
+		}
+
+		let lastMutation = Date.now();
+		const obs = new MutationObserver(() => { lastMutation = Date.now(); });
+		obs.observe(document.documentElement, {childList: true, subtree: true, attributes: true});
+
+		function ready() {
+			if (document.readyState !== 'complete') return false;
+			if (!astroDone) return false;
+			const pending = (window.__scoutPending && window.__scoutPending.n) || 0;
+			if (pending > 0) return false;
+			// Visual busy markers
+			const busy = document.querySelector('[aria-busy="true"], .spinner, .loading, [class*="skeleton"]:not([class*="hide"])');
+			if (busy) {
+				const r = busy.getBoundingClientRect();
+				const cs = window.getComputedStyle(busy);
+				if (r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden') return false;
+			}
+			// Mount markers — at least one of these should be populated
+			const root = document.getElementById('root') || document.getElementById('app') || document.getElementById('__next') || document.getElementById('__nuxt');
+			if (root && root.children.length === 0 && !document.querySelector('[data-v-app]') && !document.querySelector('[ng-version]')) return false;
+			// Quiet window since last mutation
+			return (Date.now() - lastMutation) >= QUIET;
+		}
+
+		function tick() {
+			if (ready()) { obs.disconnect(); resolve({ok: true, elapsed: Date.now() - start}); return; }
+			if ((Date.now() - start) >= HARD) { obs.disconnect(); resolve({ok: false, elapsed: Date.now() - start, reason: 'timeout'}); return; }
+			setTimeout(tick, 100);
+		}
+		tick();
+	})`, quietMS, timeoutMS)
+
+	_, err := s.page.Evaluate(js)
+	if err != nil {
+		return nil, err
+	}
+	return s.pageResult()
+}
+
 // DispatchEvent dispatches a DOM event on an element.
+//
+// Special cases:
+//   - eventType "submit" calls form.requestSubmit() instead of dispatching a
+//     bare Event('submit'). requestSubmit fires @submit / @submit.prevent
+//     listeners reliably across Vue/React/native forms and runs HTML5
+//     validation — the behaviour callers expect when they say "submit this
+//     form". If selector points at a non-form element, the closest enclosing
+//     <form> is used.
+//   - eventType "click" calls .click() so the click triggers the element's
+//     default action (e.g. form submission for type=submit).
 func (s *Session) DispatchEvent(selector, eventType string, detail map[string]any) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -371,12 +476,36 @@ func (s *Session) DispatchEvent(selector, eventType string, detail map[string]an
 	selectorJSON, _ := json.Marshal(selector)
 	detailJSON, _ := json.Marshal(detail)
 
-	js := fmt.Sprintf(`(function() {
-		const el = document.querySelector(%s);
-		if (!el) return false;
-		el.dispatchEvent(new CustomEvent(%q, {detail: %s, bubbles: true, cancelable: true}));
-		return true;
-	})()`, selectorJSON, eventType, string(detailJSON))
+	var js string
+	switch eventType {
+	case "submit":
+		js = fmt.Sprintf(`(function() {
+			const el = document.querySelector(%s);
+			if (!el) return false;
+			const form = el.tagName === 'FORM' ? el : el.closest('form');
+			if (!form) return false;
+			if (typeof form.requestSubmit === 'function') {
+				form.requestSubmit();
+			} else {
+				form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+			}
+			return true;
+		})()`, selectorJSON)
+	case "click":
+		js = fmt.Sprintf(`(function() {
+			const el = document.querySelector(%s);
+			if (!el) return false;
+			el.click();
+			return true;
+		})()`, selectorJSON)
+	default:
+		js = fmt.Sprintf(`(function() {
+			const el = document.querySelector(%s);
+			if (!el) return false;
+			el.dispatchEvent(new CustomEvent(%q, {detail: %s, bubbles: true, cancelable: true}));
+			return true;
+		})()`, selectorJSON, eventType, string(detailJSON))
+	}
 
 	result, err := s.page.Evaluate(js)
 	if err != nil {
@@ -386,6 +515,161 @@ func (s *Session) DispatchEvent(selector, eventType string, detail map[string]an
 		return fmt.Errorf("element %s not found", selector)
 	}
 	return nil
+}
+
+// SubmitFormResult is returned by SubmitForm.
+type SubmitFormResult struct {
+	Submitted     bool   `json:"submitted"`
+	FormSelector  string `json:"form_selector,omitempty"`
+	RequestURL    string `json:"request_url,omitempty"`
+	RequestMethod string `json:"request_method,omitempty"`
+	StatusCode    int    `json:"status_code,omitempty"`
+	URLAfter      string `json:"url_after,omitempty"`
+	Note          string `json:"note,omitempty"`
+}
+
+// SubmitForm submits a form using form.requestSubmit() — the only reliable
+// cross-framework way to trigger @submit / @submit.prevent listeners and
+// run HTML5 validation. The selector can be the form itself or any element
+// inside it; the closest enclosing <form> is used.
+//
+// If matchURL is non-empty, the call waits for an XHR/fetch matching that
+// substring (default 8s) and returns its response status. Otherwise it waits
+// for either a network response or a URL change (whichever comes first)
+// before returning.
+func (s *Session) SubmitForm(selector, matchURL string, timeoutMS int) (*SubmitFormResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.ensurePage(); err != nil {
+		return nil, err
+	}
+
+	if timeoutMS <= 0 {
+		timeoutMS = 8000
+	}
+
+	urlBefore, _ := s.page.URL()
+
+	selectorJSON, _ := json.Marshal(selector)
+	matchJSON, _ := json.Marshal(matchURL)
+	js := fmt.Sprintf(`new Promise(resolve => {
+		const sel = %s;
+		const matchURL = %s;
+		const HARD = %d;
+		const el = document.querySelector(sel);
+		if (!el) { resolve({ok: false, reason: 'form_not_found'}); return; }
+		const form = el.tagName === 'FORM' ? el : el.closest('form');
+		if (!form) { resolve({ok: false, reason: 'no_enclosing_form'}); return; }
+
+		const result = {ok: true, formSelector: (form.id ? '#'+form.id : 'form'), method: (form.method || 'GET').toUpperCase()};
+		const urlBefore = window.location.href;
+
+		// Patch fetch + XHR to capture the first matching response after submit.
+		let captured = null;
+		const origFetch = window.fetch;
+		const fetchPatch = function() {
+			const args = arguments;
+			const url = (typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url) || '';
+			return origFetch.apply(this, args).then(res => {
+				if (!captured && (!matchURL || url.includes(matchURL))) {
+					captured = {url: res.url || url, status: res.status, method: (args[1] && args[1].method) || 'GET'};
+				}
+				return res;
+			});
+		};
+		window.fetch = fetchPatch;
+
+		const XHR = window.XMLHttpRequest;
+		const origOpen = XHR.prototype.open;
+		const origSend = XHR.prototype.send;
+		XHR.prototype.open = function(method, url) {
+			this.__scout = {method: method, url: url};
+			return origOpen.apply(this, arguments);
+		};
+		XHR.prototype.send = function() {
+			this.addEventListener('loadend', () => {
+				if (!captured && this.__scout && (!matchURL || this.__scout.url.includes(matchURL))) {
+					captured = {url: this.__scout.url, status: this.status, method: this.__scout.method};
+				}
+			});
+			return origSend.apply(this, arguments);
+		};
+
+		function done(payload) {
+			window.fetch = origFetch;
+			XHR.prototype.open = origOpen;
+			XHR.prototype.send = origSend;
+			resolve(Object.assign(result, payload));
+		}
+
+		// Trigger submission — requestSubmit fires @submit listeners + validation.
+		if (typeof form.requestSubmit === 'function') {
+			try { form.requestSubmit(); } catch(e) { form.submit(); }
+		} else {
+			form.submit();
+		}
+
+		const start = Date.now();
+		function tick() {
+			if (captured) { done({captured: captured}); return; }
+			if (window.location.href !== urlBefore) { done({navigated: true, urlAfter: window.location.href}); return; }
+			if ((Date.now() - start) >= HARD) { done({timeout: true}); return; }
+			setTimeout(tick, 80);
+		}
+		tick();
+	})`, string(selectorJSON), string(matchJSON), timeoutMS)
+
+	raw, err := s.page.Evaluate(js)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &SubmitFormResult{}
+	m, _ := raw.(map[string]any)
+	if m == nil {
+		return nil, fmt.Errorf("submit_form: unexpected result")
+	}
+	if ok, _ := m["ok"].(bool); !ok {
+		reason, _ := m["reason"].(string)
+		switch reason {
+		case "form_not_found":
+			return nil, fmt.Errorf("submit_form: no element matched %q", selector)
+		case "no_enclosing_form":
+			return nil, fmt.Errorf("submit_form: %q is not inside a <form>", selector)
+		}
+		return nil, fmt.Errorf("submit_form failed: %s", reason)
+	}
+	out.Submitted = true
+	out.FormSelector, _ = m["formSelector"].(string)
+	out.RequestMethod, _ = m["method"].(string)
+
+	if cap, ok := m["captured"].(map[string]any); ok {
+		out.RequestURL, _ = cap["url"].(string)
+		if st, ok := cap["status"].(float64); ok {
+			out.StatusCode = int(st)
+		}
+		if meth, ok := cap["method"].(string); ok && meth != "" {
+			out.RequestMethod = meth
+		}
+	} else if nav, _ := m["navigated"].(bool); nav {
+		if u, ok := m["urlAfter"].(string); ok {
+			out.URLAfter = u
+		}
+		out.Note = "form submitted; navigated without an observable XHR/fetch — likely a full-page POST"
+	} else if to, _ := m["timeout"].(bool); to {
+		out.Note = fmt.Sprintf("requestSubmit fired but no response observed within %dms. The handler may have preventDefault'd without making a request, or matched url not seen.", timeoutMS)
+	}
+
+	if out.URLAfter == "" {
+		if u, err := s.page.URL(); err == nil && u != urlBefore {
+			out.URLAfter = u
+		}
+	}
+
+	s.recordAction(Action{Type: "submit_form", Selector: selector})
+	s.addHistory("submit_form", selector, "", matchURL)
+	return out, nil
 }
 
 // WaitForRouteChange waits for a SPA client-side route change (pushState/replaceState/hashchange).

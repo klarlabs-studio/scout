@@ -149,14 +149,22 @@ type NetworkRequestsInput struct {
 	MaxRecent int    `json:"max_recent,omitempty" jsonschema:"description=Maximum number of most recent requests to return (0 = all)"`
 }
 
+type NetworkRequestsResult struct {
+	Requests       []agent.NetworkCapture `json:"requests"`
+	Count          int                    `json:"count"`
+	CaptureEnabled bool                   `json:"capture_enabled"`
+	Hint           string                 `json:"hint,omitempty"`
+}
+
 type AnnotatedScreenshotInput struct {
 	IncludeImage bool `json:"include_image,omitempty" jsonschema:"description=Include base64 image data in response. Default false to avoid large responses. Use screenshot tool separately if you need the image."`
 }
 
 type AnnotatedScreenshotResult struct {
-	Image    string                   `json:"image,omitempty"`
-	Elements []agent.AnnotatedElement `json:"elements"`
-	Count    int                      `json:"count"`
+	Image      string                   `json:"image,omitempty"`
+	Elements   []agent.AnnotatedElement `json:"elements"`
+	Count      int                      `json:"count"`
+	LabelScope string                   `json:"label_scope"`
 }
 
 type ClickLabelInput struct {
@@ -176,6 +184,7 @@ type DispatchEventInput struct {
 type ConfigureInput struct {
 	Headless        bool `json:"headless" jsonschema:"description=Run browser in headless mode (no visible window). Default true."`
 	AllowPrivateIPs bool `json:"allow_private_ips,omitempty" jsonschema:"description=Allow navigation to loopback (127.0.0.1, localhost) and private IPs (10.*, 192.168.*, etc). Required for local-dev workflows. Default false."`
+	Fresh           bool `json:"fresh,omitempty" jsonschema:"description=Kill the current page and browser and start a fresh session even if headless/allow_private_ips didn't change. Use after observing session_dead=true in status or when accumulated SPA state needs to be cleared."`
 }
 
 type ResetInput struct{}
@@ -394,13 +403,19 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("configure").
 		ClosedWorld().Idempotent().
-		Description("Change browser settings without restarting. Use headless=false to see the browser window. Set allow_private_ips=true for local-dev workflows (localhost, 127.0.0.1, private IPs).").
+		Description("Change browser settings without restarting. Use headless=false to see the browser window. Set allow_private_ips=true for local-dev workflows (localhost, 127.0.0.1, private IPs). Pass fresh=true to force-kill the current page and start clean (use after observing session_dead in status).").
 		Handler(func(ctx context.Context, input ConfigureInput) (string, error) {
 			if err := reconfigure(agent.SessionConfig{
 				Headless:        input.Headless,
 				AllowPrivateIPs: input.AllowPrivateIPs,
 			}); err != nil {
 				return "", err
+			}
+			if input.Fresh {
+				// Eagerly create the new session so the next tool call starts clean.
+				if err := ensureSession(); err != nil {
+					return "", err
+				}
 			}
 			mode := "headless"
 			if !input.Headless {
@@ -410,7 +425,11 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			if input.AllowPrivateIPs {
 				privIPs = "allowed"
 			}
-			return fmt.Sprintf("Browser reconfigured: %s mode, private IPs %s. Next navigation will use the new settings.", mode, privIPs), nil
+			freshNote := ""
+			if input.Fresh {
+				freshNote = " (fresh browser session started)"
+			}
+			return fmt.Sprintf("Browser reconfigured: %s mode, private IPs %s%s. Next navigation will use the new settings.", mode, privIPs, freshNote), nil
 		})
 
 	srv.Tool("reset").
@@ -540,12 +559,23 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 		})
 
 	srv.Tool("dispatch_event").
-		Description("Dispatch a DOM event on an element. Useful for triggering SPA event handlers.").
+		Description("Dispatch a DOM event on an element. Useful for triggering SPA event handlers. Special cases: event_type='submit' on a <form> (or any element inside one) calls form.requestSubmit() — the only reliable way to fire Vue @submit.prevent / React onSubmit and run HTML5 validation. event_type='click' invokes el.click() so the default action runs (e.g. submitting the owning form when target is type=submit).").
 		Handler(func(ctx context.Context, input DispatchEventInput) (string, error) {
 			if err := s().DispatchEvent(input.Selector, input.EventType, input.Detail); err != nil {
 				return "", err
 			}
 			return fmt.Sprintf("Dispatched %s on %s", input.EventType, input.Selector), nil
+		})
+
+	srv.Tool("submit_form").
+		Description("Submit a form using form.requestSubmit() — fires Vue @submit.prevent / React onSubmit / native @submit listeners and runs HTML5 validation. Pass the form selector or any selector inside it. If match_url is set, waits for an XHR/fetch whose URL contains that substring and returns its status code. Returns the request URL, method, status, and post-submit URL so a single tool call replaces click + sleep + check_readiness + network_requests.").
+		Handler(func(ctx context.Context, input struct {
+			Selector  string `json:"selector" jsonschema:"required,description=CSS selector of the <form> element or any element inside it."`
+			MatchURL  string `json:"match_url,omitempty" jsonschema:"description=Optional URL substring. When set, waits for an XHR/fetch whose URL contains this and reports its status."`
+			TimeoutMS int    `json:"timeout_ms,omitempty" jsonschema:"description=Hard cap to wait for response/navigation in ms. Default 8000."`
+		}) (*agent.SubmitFormResult, error) {
+			out, err := s().SubmitForm(input.Selector, input.MatchURL, input.TimeoutMS)
+			return out, mcpErr(err)
 		})
 
 	srv.Tool("hover").
@@ -653,7 +683,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("screenshot").
 		ReadOnly().
-		Description("Capture a screenshot. Defaults to JPEG quality 60 with 80KB cap (~20k tokens base64) so result fits MCP tool-result token limits. Pass quality to override; on overflow the image is progressively downscaled rather than failing. Returns base64 data URL.").
+		Description("Capture a screenshot. Defaults: JPEG quality 60, max_width 1024, 80KB cap (~20k tokens base64) so result fits MCP tool-result token limits. Pass quality / max_width to override; on overflow the image is progressively downscaled rather than failing. Returns base64 data URL.").
 		Handler(func(ctx context.Context, input ScreenshotInput) (string, error) {
 			if err := maybeNavigate(input.URL); err != nil {
 				return "", err
@@ -662,10 +692,14 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			if page == nil {
 				return "", fmt.Errorf("no page open")
 			}
+			maxWidth := input.MaxWidth
+			if maxWidth == 0 {
+				maxWidth = 1024 // sane default — keeps result under ~80KB without aggressive quality cuts
+			}
 			opts := browse.ScreenshotOptions{
 				MaxSize:  80 * 1024, // 80KB default — fits comfortably under MCP per-result token caps
 				FullPage: input.FullPage,
-				MaxWidth: input.MaxWidth,
+				MaxWidth: maxWidth,
 				Format:   "jpeg",
 				Quality:  60,
 			}
@@ -685,15 +719,16 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("annotated_screenshot").
 		ReadOnly().
-		Description("Label all interactive elements with numbers and return their selectors/info. By default returns only the element list (compact). Set include_image=true to also get the screenshot with labels drawn on it.").
+		Description("Label all interactive elements with numbers and return their selectors/info. By default returns only the element list (compact). Set include_image=true to also get the screenshot with labels drawn on it. NOTE: label numbers are per-call only — after any DOM mutation (re-render, modal open, route change), the same label may point to a different element. Pair click_label with the most recent annotated_screenshot in the same turn; for stable identity across mutations use the returned selector.").
 		Handler(func(ctx context.Context, input AnnotatedScreenshotInput) (*AnnotatedScreenshotResult, error) {
 			result, err := s().AnnotatedScreenshot()
 			if err != nil {
 				return nil, err
 			}
 			out := &AnnotatedScreenshotResult{
-				Elements: result.Elements,
-				Count:    result.Count,
+				Elements:   result.Elements,
+				Count:      result.Count,
+				LabelScope: result.LabelScope,
 			}
 			if input.IncludeImage {
 				out.Image = "data:image/png;base64," + base64.StdEncoding.EncodeToString(result.Image)
@@ -726,13 +761,21 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("network_requests").
 		ReadOnly().
-		Description("Get captured network requests/responses including request bodies (POST/PUT/PATCH) and response bodies (max 32KB each, truncated if larger). Includes recent buffered requests so you can inspect traffic even if capture was enabled late.").
-		Handler(func(ctx context.Context, input NetworkRequestsInput) ([]agent.NetworkCapture, error) {
+		Description("Get captured network requests/responses including request bodies (POST/PUT/PATCH) and response bodies (max 32KB each, truncated if larger). Includes recent buffered requests so you can inspect traffic even if capture was enabled late. If the list is empty and capture was never enabled, the response includes a hint pointing at enable_network_capture.").
+		Handler(func(ctx context.Context, input NetworkRequestsInput) (*NetworkRequestsResult, error) {
 			out := s().CapturedRequests(input.Pattern)
 			if input.MaxRecent > 0 && len(out) > input.MaxRecent {
 				out = out[len(out)-input.MaxRecent:]
 			}
-			return out, nil
+			res := &NetworkRequestsResult{
+				Requests:       out,
+				Count:          len(out),
+				CaptureEnabled: s().IsNetworkCaptureEnabled(),
+			}
+			if len(out) == 0 && !res.CaptureEnabled {
+				res.Hint = "no requests captured. Call enable_network_capture BEFORE the action that triggers the request — capture is a future-tense subscription, not a backfill."
+			}
+			return res, nil
 		})
 
 	// --- Framework support ---
@@ -745,6 +788,17 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				return nil, err
 			}
 			return s().Snapshot()
+		})
+
+	srv.Tool("wait_for_spa_idle").
+		ReadOnly().
+		Description("Stronger SPA wait than wait_spa: blocks until document complete, framework hydration events fired (Astro 'astro:page-load' / 'astro:end', Vue/React mount markers populated), no pending XHR/fetch, no visible spinners/skeletons, and the DOM has been mutation-free for quiet_ms. Use after a click that triggers route change or hydration when check_readiness returns 100 too eagerly.").
+		Handler(func(ctx context.Context, input struct {
+			QuietMS   int `json:"quiet_ms,omitempty" jsonschema:"description=Required mutation-free quiet window in ms. Default 400."`
+			TimeoutMS int `json:"timeout_ms,omitempty" jsonschema:"description=Hard cap in ms. Default 15000."`
+		}) (*agent.PageResult, error) {
+			out, err := s().WaitForSPAIdle(input.QuietMS, input.TimeoutMS)
+			return out, mcpErr(err)
 		})
 
 	srv.Tool("detect_frameworks").
@@ -944,6 +998,18 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 		})
 
 	// --- Utility ---
+
+	srv.Tool("assert_text_contains").
+		ReadOnly().
+		Description("Check that the given text appears on the page in one round-trip. If selector is set, searches only that element's text; otherwise searches body innerText. Returns ok=true with a surrounding snippet on hit, ok=false with a short page-tail snippet on miss. Replaces extract+string-match for post-action verification.").
+		Handler(func(ctx context.Context, input struct {
+			Text            string `json:"text" jsonschema:"required,description=Text to search for."`
+			Selector        string `json:"selector,omitempty" jsonschema:"description=Optional CSS selector to scope the search."`
+			CaseInsensitive bool   `json:"case_insensitive,omitempty" jsonschema:"description=Fold case when comparing. Default false."`
+		}) (*agent.AssertResult, error) {
+			out, err := s().AssertTextContains(input.Text, input.Selector, input.CaseInsensitive)
+			return out, mcpErr(err)
+		})
 
 	srv.Tool("has_element").
 		ReadOnly().

@@ -191,13 +191,12 @@ func (s *Session) fillSemanticField(humanName string, value any, candidates []Fo
 
 func (s *Session) fillTextField(humanName string, field FormFieldInfo, value any) SemanticFieldResult {
 	str := fmt.Sprint(value)
-	nodeID, err := s.page.QuerySelector(field.Selector)
-	if err != nil {
-		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: err.Error()}
-	}
-	sel := browse.NewSelection(s.page, nodeID, field.Selector)
-	if err := sel.Input(str); err != nil {
-		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: err.Error()}
+	var sel *browse.Selection
+	if err := s.withStaleNodeRetry(field.Selector, func(nodeID int64) error {
+		sel = browse.NewSelection(s.page, nodeID, field.Selector)
+		return sel.Input(str)
+	}); err != nil {
+		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: s.decodeNodeError(field.Selector, err).Error()}
 	}
 	// Dispatch input + change so frameworks update their bound state.
 	dispatchEvents(s.page, field.Selector, "input", "change")

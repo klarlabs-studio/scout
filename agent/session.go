@@ -54,6 +54,8 @@ type Session struct {
 	lastSuccessAt       time.Time
 	lastRecoveryAt      time.Time
 	inflightCommands    int
+	sessionDead         bool
+	deadReason          string
 }
 
 // SessionConfig configures a new Session.
@@ -150,7 +152,14 @@ func (s *Session) runWithRecovery(phase string, fn func() error) error {
 	if err == nil {
 		s.consecutiveTimeouts = 0
 		s.lastSuccessAt = time.Now()
+		s.sessionDead = false
+		s.deadReason = ""
 		return nil
+	}
+
+	if reason := connectionDeadReason(err); reason != "" {
+		s.sessionDead = true
+		s.deadReason = reason
 	}
 
 	wrapped := s.wrapDetailedError(phase, err)
@@ -174,6 +183,43 @@ func isTimeoutLike(err error) bool {
 	}
 	msg := err.Error()
 	return containsAny(msg, "timeout", "deadline exceeded", "context canceled")
+}
+
+// markIfDead inspects err and, if it looks like a dead CDP socket, sets the
+// session-dead flag so a follow-up Status call surfaces it. Returns err unchanged.
+// Caller must hold s.mu.
+func (s *Session) markIfDead(err error) error {
+	if err == nil {
+		return nil
+	}
+	if reason := connectionDeadReason(err); reason != "" {
+		s.sessionDead = true
+		s.deadReason = reason
+	}
+	return err
+}
+
+// connectionDeadReason returns a short non-empty reason when err looks like a
+// dead CDP socket (broken pipe, reset, websocket closed). Empty string means
+// the connection is still considered usable.
+func connectionDeadReason(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "broken pipe"):
+		return "broken_pipe"
+	case strings.Contains(msg, "connection reset"):
+		return "connection_reset"
+	case strings.Contains(msg, "use of closed network connection"):
+		return "connection_closed"
+	case strings.Contains(msg, "websocket: close"):
+		return "websocket_closed"
+	case strings.Contains(msg, "eof") && strings.Contains(msg, "websocket"):
+		return "websocket_eof"
+	}
+	return ""
 }
 
 func containsAny(s string, subs ...string) bool {
@@ -283,6 +329,8 @@ func (s *Session) Reset() error {
 		s.lastRecoveryAt = time.Now()
 		s.consecutiveTimeouts = 0
 		s.lastError = ""
+		s.sessionDead = false
+		s.deadReason = ""
 	}
 	return err
 }
@@ -295,6 +343,8 @@ func (s *Session) Status() *SessionStatus {
 	st := &SessionStatus{
 		BrowserAlive:        s.browser != nil && !s.closed,
 		SessionAlive:        !s.closed,
+		SessionDead:         s.sessionDead,
+		DeadReason:          s.deadReason,
 		InFlightCommands:    s.inflightCommands,
 		ConsecutiveTimeouts: s.consecutiveTimeouts,
 		LastError:           s.lastError,
@@ -306,8 +356,14 @@ func (s *Session) Status() *SessionStatus {
 		st.LastRecoveryAt = s.lastRecoveryAt.Format(time.RFC3339)
 	}
 	if s.page != nil {
-		if u, err := s.page.URL(); err == nil {
+		u, err := s.page.URL()
+		if err == nil {
 			st.CurrentURL = u
+		} else if reason := connectionDeadReason(err); reason != "" {
+			s.sessionDead = true
+			s.deadReason = reason
+			st.SessionDead = true
+			st.DeadReason = reason
 		}
 	}
 	if s.network != nil {
@@ -442,13 +498,9 @@ func (s *Session) Click(selector string) (*PageResult, error) {
 		return nil, err
 	}
 
-	nodeID, err := s.querySelector(selector)
-	if err != nil {
-		s.traceAfterAction(start, before, "click", selector, "", "", err)
-		return nil, err
-	}
-	sel := browse.NewSelection(s.page, nodeID, selector)
-	if err := sel.Click(); err != nil {
+	if err := s.withStaleNodeRetry(selector, func(nodeID int64) error {
+		return browse.NewSelection(s.page, nodeID, selector).Click()
+	}); err != nil {
 		s.traceAfterAction(start, before, "click", selector, "", "", err)
 		return nil, err
 	}
@@ -470,12 +522,9 @@ func (s *Session) ClickAndWait(selector string) (*PageResult, error) {
 		return nil, err
 	}
 
-	nodeID, err := s.querySelector(selector)
-	if err != nil {
-		return nil, err
-	}
-	sel := browse.NewSelection(s.page, nodeID, selector)
-	if err := sel.Click(); err != nil {
+	if err := s.withStaleNodeRetry(selector, func(nodeID int64) error {
+		return browse.NewSelection(s.page, nodeID, selector).Click()
+	}); err != nil {
 		return nil, err
 	}
 
@@ -501,15 +550,13 @@ func (s *Session) Type(selector, text string) (*ElementResult, error) {
 		return nil, err
 	}
 
-	nodeID, err := s.querySelector(selector)
-	if err != nil {
+	var sel *browse.Selection
+	if err := s.withStaleNodeRetry(selector, func(nodeID int64) error {
+		sel = browse.NewSelection(s.page, nodeID, selector)
+		return sel.Input(text)
+	}); err != nil {
 		s.traceAfterAction(start, before, "type", selector, text, "", err)
-		return nil, err
-	}
-	sel := browse.NewSelection(s.page, nodeID, selector)
-	if err := sel.Input(text); err != nil {
-		s.traceAfterAction(start, before, "type", selector, text, "", err)
-		return nil, err
+		return nil, s.decodeNodeError(selector, err)
 	}
 
 	val, _ := sel.Value()
@@ -536,19 +583,14 @@ func (s *Session) FillForm(fields map[string]string) (*FormResult, error) {
 	}
 
 	for selector, value := range fields {
-		nodeID, err := s.querySelector(selector)
-		if err != nil {
+		var sel *browse.Selection
+		if err := s.withStaleNodeRetry(selector, func(nodeID int64) error {
+			sel = browse.NewSelection(s.page, nodeID, selector)
+			return sel.Input(value)
+		}); err != nil {
 			result.Fields = append(result.Fields, FieldResult{
 				Selector: selector,
-				Error:    err.Error(),
-			})
-			continue
-		}
-		sel := browse.NewSelection(s.page, nodeID, selector)
-		if err := sel.Input(value); err != nil {
-			result.Fields = append(result.Fields, FieldResult{
-				Selector: selector,
-				Error:    err.Error(),
+				Error:    s.decodeNodeError(selector, err).Error(),
 			})
 			continue
 		}
@@ -710,13 +752,18 @@ func (s *Session) ExtractTable(tableSelector string) (*TableResult, error) {
 	return tr, nil
 }
 
-// HasElement checks if an element exists on the page.
+// HasElement reports whether an element matching the selector exists right now.
+// It uses the same resolver path as Click/Type so the contract is consistent:
+// if HasElement returns true, a follow-up action will find the same element
+// (modulo intervening DOM mutations, which the stale-node retry handles).
 func (s *Session) HasElement(selector string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.page == nil {
 		return false
 	}
+	// Invalidate root cache so we don't return a positive based on a stale tree.
+	s.page.InvalidateNodeCache()
 	_, err := s.querySelector(selector)
 	return err == nil
 }
@@ -794,6 +841,30 @@ func (s *Session) waitAndResolve(selector string) error {
 // querySelector resolves a selector to a nodeID, supporting Playwright-style syntax.
 func (s *Session) querySelector(selector string) (int64, error) {
 	return s.resolveSelector(selector)
+}
+
+// withStaleNodeRetry runs an action with a freshly-resolved nodeID. If the action
+// fails with a CDP "Could not find node" error — typically Vue/React reconciling
+// the DOM between resolution and action — the selector is re-resolved against a
+// fresh DOM cache and the action is retried once. Caller must hold s.mu.
+func (s *Session) withStaleNodeRetry(selector string, action func(nodeID int64) error) error {
+	nodeID, err := s.querySelector(selector)
+	if err != nil {
+		return s.markIfDead(err)
+	}
+	if err = action(nodeID); err == nil {
+		return nil
+	}
+	if !browse.IsStaleNodeError(err) {
+		return s.markIfDead(err)
+	}
+	// Re-resolve from a fresh DOM cache and retry once.
+	s.page.InvalidateNodeCache()
+	nodeID, resolveErr := s.querySelector(selector)
+	if resolveErr != nil {
+		return s.markIfDead(resolveErr)
+	}
+	return s.markIfDead(action(nodeID))
 }
 
 func jsonQuote(s string) string {

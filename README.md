@@ -15,7 +15,7 @@
   <img src="docs/nox-badge.svg?v=2" alt="Security">
 </p>
 
-A single statically-linked `scout` binary gives you a CLI, a 74-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
+A single statically-linked `scout` binary gives you a CLI, a 77-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
 
 ```bash
 brew install felixgeelhaar/tap/scout
@@ -68,7 +68,7 @@ go install github.com/felixgeelhaar/scout/cmd/scout@latest
 go get github.com/felixgeelhaar/scout
 ```
 
-## MCP Server — 74 Tools
+## MCP Server — 77 Tools
 
 Run `scout mcp serve` and any MCP-aware agent has a browser. No second project to install, no Node runtime, no Python interpreter — the binary is the server. Configure in any MCP client:
 
@@ -302,7 +302,7 @@ scout/
 │   └── vitals.go                      # WebVitals (LCP/CLS/INP)
 ├── internal/cdp/                      # WebSocket CDP client (context-aware)
 ├── internal/launcher/                 # Chrome process management
-├── cmd/scout/                         # CLI + MCP server (74 tools)
+├── cmd/scout/                         # CLI + MCP server (77 tools)
 └── docs/                              # Landing page (GitHub Pages)
 ```
 

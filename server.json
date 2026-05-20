@@ -2,16 +2,16 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.felixgeelhaar/scout",
   "title": "Scout",
-  "description": "Browser automation MCP server with 66 tools. Pure CDP, DOM diffing, vision hybrid.",
+  "description": "Browser automation MCP server with 77 tools. Pure CDP, DOM diffing, vision hybrid.",
   "repository": {
     "url": "https://github.com/felixgeelhaar/scout",
     "source": "github"
   },
-  "version": "1.0.6",
+  "version": "1.7.0",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/felixgeelhaar/scout:v1.0.6",
+      "identifier": "ghcr.io/felixgeelhaar/scout:v1.7.0",
       "transport": {
         "type": "stdio"
       },

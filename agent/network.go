@@ -120,6 +120,14 @@ func (s *Session) CapturedRequests(pattern string) []NetworkCapture {
 	return filtered
 }
 
+// IsNetworkCaptureEnabled reports whether enable_network_capture has been called
+// for the current session. Used to surface a hint when network_requests is empty.
+func (s *Session) IsNetworkCaptureEnabled() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.network != nil && s.network.enabled
+}
+
 // ClearCapturedRequests clears all captured requests.
 func (s *Session) ClearCapturedRequests() {
 	s.mu.Lock()

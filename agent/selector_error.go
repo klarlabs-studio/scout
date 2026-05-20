@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	browse "github.com/felixgeelhaar/scout"
 )
 
 // SelectorNotFoundError is returned when a selector cannot be resolved.
@@ -53,6 +55,123 @@ func (e *SelectorNotFoundError) MarshalJSON() ([]byte, error) {
 		Error string `json:"error"`
 		*alias
 	}{Error: "selector_not_found", alias: (*alias)(e)})
+}
+
+// NodeErrorClass categorizes why a node-targeted action failed. Returned to
+// callers as part of the decoded error so agents can react accordingly instead
+// of pattern-matching raw CDP error strings.
+type NodeErrorClass string
+
+const (
+	NodeErrFieldMissing NodeErrorClass = "field_missing"
+	NodeErrStaleNode    NodeErrorClass = "stale_node"
+	NodeErrHidden       NodeErrorClass = "hidden"
+	NodeErrDisabled     NodeErrorClass = "disabled"
+	NodeErrUnknown      NodeErrorClass = "unknown"
+)
+
+// NodeActionError wraps a CDP-level failure on a node-targeted action
+// (type, click, fill) with a stable classification.
+type NodeActionError struct {
+	Selector string         `json:"selector"`
+	Class    NodeErrorClass `json:"class"`
+	Hint     string         `json:"hint"`
+	Cause    error          `json:"-"`
+}
+
+func (e *NodeActionError) Error() string {
+	if e.Hint != "" {
+		return fmt.Sprintf("%s on %q: %s", e.Class, e.Selector, e.Hint)
+	}
+	if e.Cause != nil {
+		return fmt.Sprintf("%s on %q: %s", e.Class, e.Selector, e.Cause.Error())
+	}
+	return fmt.Sprintf("%s on %q", e.Class, e.Selector)
+}
+
+func (e *NodeActionError) Unwrap() error { return e.Cause }
+
+func (e *NodeActionError) MarshalJSON() ([]byte, error) {
+	type alias NodeActionError
+	cause := ""
+	if e.Cause != nil {
+		cause = e.Cause.Error()
+	}
+	return json.Marshal(struct {
+		Error string `json:"error"`
+		Cause string `json:"cause,omitempty"`
+		*alias
+	}{Error: "node_action_failed", Cause: cause, alias: (*alias)(e)})
+}
+
+// decodeNodeError converts a raw CDP/Selection failure into a classified
+// NodeActionError so callers (e.g. fill_form_semantic) get an actionable class
+// instead of "cdp: error -32000". Caller must hold s.mu.
+func (s *Session) decodeNodeError(selector string, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	// Don't re-wrap already-classified errors.
+	var existing *NodeActionError
+	if errors.As(cause, &existing) {
+		return cause
+	}
+	var notFound *SelectorNotFoundError
+	if errors.As(cause, &notFound) {
+		return cause
+	}
+
+	class := NodeErrUnknown
+	hint := ""
+	if browse.IsStaleNodeError(cause) {
+		class = NodeErrStaleNode
+		hint = "DOM reconciled between resolution and action; retried once and still stale"
+	}
+
+	// Inspect live DOM to refine classification.
+	if s.page != nil && selector != "" {
+		if _, err := s.page.QuerySelector(selector); err != nil {
+			class = NodeErrFieldMissing
+			hint = "selector does not match any element on the current page"
+		} else if vis := elementVisibility(s.page, selector); vis != "" {
+			switch vis {
+			case "hidden":
+				class = NodeErrHidden
+				hint = "element exists but is hidden (display:none, visibility:hidden, or aria-hidden)"
+			case "disabled":
+				class = NodeErrDisabled
+				hint = "element exists but is disabled — cannot be interacted with"
+			}
+		}
+	}
+
+	return &NodeActionError{
+		Selector: selector,
+		Class:    class,
+		Hint:     hint,
+		Cause:    cause,
+	}
+}
+
+// elementVisibility returns "hidden" | "disabled" | "" depending on the live
+// state of the element. Caller must hold s.mu.
+func elementVisibility(page *browse.Page, selector string) string {
+	selJSON, _ := json.Marshal(selector)
+	js := fmt.Sprintf(`(function(){
+		const el=document.querySelector(%s);
+		if(!el)return '';
+		const s=window.getComputedStyle(el);
+		if(s.display==='none'||s.visibility==='hidden'||s.opacity==='0')return 'hidden';
+		if(el.getAttribute('aria-hidden')==='true')return 'hidden';
+		if(el.disabled||el.getAttribute('aria-disabled')==='true')return 'disabled';
+		return '';
+	})()`, selJSON)
+	r, err := page.Evaluate(js)
+	if err != nil {
+		return ""
+	}
+	s, _ := r.(string)
+	return s
 }
 
 // enrichSelectorError augments a raw selector failure with diagnostic context.

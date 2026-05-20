@@ -509,7 +509,18 @@ func (p *Page) getRootNodeID() (int64, error) {
 }
 
 // QuerySelector finds the first element matching the CSS selector and returns its node ID.
+// On a stale root nodeId (SPA reconciled the document), the cache is invalidated and
+// the lookup is retried once.
 func (p *Page) QuerySelector(selector string) (int64, error) {
+	nodeID, err := p.querySelectorOnce(selector)
+	if err != nil && isStaleNodeError(err) {
+		p.InvalidateNodeCache()
+		nodeID, err = p.querySelectorOnce(selector)
+	}
+	return nodeID, err
+}
+
+func (p *Page) querySelectorOnce(selector string) (int64, error) {
 	rootID, err := p.getRootNodeID()
 	if err != nil {
 		return 0, err
@@ -534,6 +545,30 @@ func (p *Page) QuerySelector(selector string) (int64, error) {
 	}
 	return qResp.NodeID, nil
 }
+
+// InvalidateNodeCache clears the cached root nodeId + flattened DOM, forcing the
+// next selector lookup to re-fetch from CDP. Call this after observing a stale
+// nodeId error (-32000 "Could not find node with given id") to force re-resolution.
+func (p *Page) InvalidateNodeCache() {
+	p.rootNodeID = 0
+	p.flattenedNodes = nil
+}
+
+// isStaleNodeError reports whether an error indicates a CDP nodeId that no
+// longer maps to a live DOM node — typically after a framework re-render.
+func isStaleNodeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "could not find node") ||
+		strings.Contains(msg, "no node with given id") ||
+		strings.Contains(msg, "no node found")
+}
+
+// IsStaleNodeError is the exported predicate for callers wrapping Selection methods
+// who want to detect stale-nodeId errors and retry resolution.
+func IsStaleNodeError(err error) bool { return isStaleNodeError(err) }
 
 // QuerySelectorAll finds all elements matching the CSS selector.
 func (p *Page) QuerySelectorAll(selector string) ([]int64, error) {

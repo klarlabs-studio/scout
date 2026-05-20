@@ -147,8 +147,13 @@ type NetworkCapture struct {
 
 // SessionStatus provides health and diagnostics for the active browser session.
 type SessionStatus struct {
-	BrowserAlive        bool   `json:"browser_alive"`
-	SessionAlive        bool   `json:"session_alive"`
+	BrowserAlive bool `json:"browser_alive"`
+	SessionAlive bool `json:"session_alive"`
+	// SessionDead is set when the most recent CDP call returned a connection
+	// failure (broken pipe, connection reset, websocket closed). Callers should
+	// reset the session via configure { fresh: true } before retrying.
+	SessionDead         bool   `json:"session_dead,omitempty"`
+	DeadReason          string `json:"dead_reason,omitempty"`
 	CurrentURL          string `json:"current_url,omitempty"`
 	PendingRequests     int    `json:"pending_requests"`
 	InFlightCommands    int    `json:"inflight_command_count"`
@@ -217,10 +222,20 @@ type SemanticFillResult struct {
 // --- Visual Grounding types ---
 
 // AnnotatedResult holds an annotated screenshot with element-label mapping.
+//
+// IMPORTANT: label numbers are scoped to a single annotated_screenshot call.
+// They are recomputed every call by traversal order of visible interactive
+// elements. If the DOM mutates between calls — Vue/React re-render, modal
+// open, route change — label N may refer to a different element. Always
+// pair click_label with the most recent annotated_screenshot in the same
+// turn. For stable identity across mutations, prefer the selector field.
 type AnnotatedResult struct {
 	Image    []byte             `json:"-"` // PNG/JPEG image data
 	Elements []AnnotatedElement `json:"elements"`
 	Count    int                `json:"count"`
+	// LabelScope is always "per_call" — included so consumers can serialize
+	// the contract explicitly instead of inferring it from documentation.
+	LabelScope string `json:"label_scope"`
 }
 
 // AnnotatedElement maps a numbered label to an interactive element.
