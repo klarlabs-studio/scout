@@ -157,6 +157,13 @@ type NetworkRequestsInput struct {
 	MaxRecent int    `json:"max_recent,omitempty" jsonschema:"description=Maximum number of most recent requests to return (0 = all)"`
 }
 
+type WaitForNavigationInput struct {
+	Mode      string `json:"mode,omitempty" jsonschema:"description=One of full|spa|any. full = real document load. spa = History API push/replace/popstate. any = first to fire. Default any."`
+	TimeoutMs int    `json:"timeout_ms,omitempty" jsonschema:"description=Maximum wait in milliseconds. Default 5000."`
+}
+
+type AriaViolationsInput struct{}
+
 type NetworkRequestsResult struct {
 	Requests       []agent.NetworkCapture `json:"requests"`
 	Count          int                    `json:"count"`
@@ -549,6 +556,22 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				return "", mcpErr(err)
 			}
 			return "submit tracker installed", nil
+		})
+
+	srv.Tool("wait_for_navigation").
+		ReadOnly().
+		OutputSchema(agent.NavigationOutcome{}).
+		Description("Wait for the page to navigate. mode: 'full' (real document load) | 'spa' (History API push/replace/popstate) | 'any' (default, first to fire). Use when an external action — a button outside scout's control, a JS-triggered route change — moves the page; click(wait=true) covers the case where scout is the one triggering.").
+		Handler(func(ctx context.Context, input WaitForNavigationInput) (*agent.NavigationOutcome, error) {
+			return s().WaitForNavigation(input.Mode, input.TimeoutMs)
+		})
+
+	srv.Tool("aria_violations").
+		ReadOnly().
+		OutputSchema(agent.AriaViolationReport{}).
+		Description("Minimal accessibility scan grouped by impact (critical/serious/moderate/minor). Covers image-alt, button-name, link-name, label, duplicate-id, html-has-lang, landmark-one-main. Zero dependency — for full WCAG coverage run axe-core in your test pipeline.").
+		Handler(func(ctx context.Context, input AriaViolationsInput) (*agent.AriaViolationReport, error) {
+			return s().AriaViolations()
 		})
 
 		// --- Interaction ---
