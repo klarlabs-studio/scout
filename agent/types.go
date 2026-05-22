@@ -253,6 +253,11 @@ type AnnotatedElement struct {
 }
 
 // SemanticFieldResult describes the outcome of filling one semantically-matched field.
+//
+// MatchConfidence exposes the matcher's score (0–100) so callers can flag
+// low-confidence resolutions and decide whether to proceed. Anything below
+// ~50 means the matcher fell back to a placeholder/type hint — verify
+// before treating the fill as authoritative.
 type SemanticFieldResult struct {
 	HumanName         string `json:"human_name"`
 	Selector          string `json:"selector,omitempty"`
@@ -260,6 +265,7 @@ type SemanticFieldResult struct {
 	Value             string `json:"value,omitempty"`              // value the caller asked us to set (string form)
 	ValueObserved     string `json:"value_observed,omitempty"`     // value re-read after the mutation
 	FrameworkReactive bool   `json:"framework_reactive,omitempty"` // true when set==observed (Vue/React state followed)
+	MatchConfidence   int    `json:"match_confidence,omitempty"`   // 0–100, how confidently humanName mapped to this field
 	Success           bool   `json:"success"`
 	Warning           string `json:"warning,omitempty"`
 	Error             string `json:"error,omitempty"`
