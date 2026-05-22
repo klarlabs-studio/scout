@@ -7,11 +7,20 @@ type PageResult struct {
 }
 
 // ElementResult is the structured response for single-element operations.
+//
+// For Type, `Value` is what the caller asked us to type. `ValueCommitted`
+// is the value re-read from the DOM after dispatching input/change/blur
+// — these diverge under Vue v-model / React controlled inputs when the
+// framework either wasn't hydrated yet (race) or transformed the input
+// (trim, mask). `FrameworkReactive` is true when both match.
 type ElementResult struct {
-	Selector string `json:"selector"`
-	Text     string `json:"text,omitempty"`
-	Value    string `json:"value,omitempty"`
-	Action   string `json:"action"`
+	Selector          string `json:"selector"`
+	Text              string `json:"text,omitempty"`
+	Value             string `json:"value,omitempty"`
+	ValueCommitted    string `json:"value_committed,omitempty"`
+	FrameworkReactive bool   `json:"framework_reactive,omitempty"`
+	FrameworkDetected string `json:"framework_detected,omitempty"` // "vue", "react", "none"
+	Action            string `json:"action"`
 }
 
 // ExtractAllResult is the structured response for multi-element extraction.

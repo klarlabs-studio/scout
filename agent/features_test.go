@@ -175,7 +175,7 @@ func TestFillFormSemantic(t *testing.T) {
 
 	// Verify values were set
 	el, _ := s.Extract("#email")
-	t.Logf("Email value via Extract: %q", el)
+	t.Logf("Email value via Extract: %+v", el)
 
 	for _, f := range result.Fields {
 		t.Logf("Semantic fill: %q -> %q (selector=%q)", f.HumanName, f.Value, f.Selector)
