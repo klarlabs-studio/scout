@@ -55,6 +55,31 @@ func (s *Session) DiscoverForm(formSelector string) (*FormDiscoveryResult, error
 			return el.name || el.id || '';
 		}
 
+		// uniquePath walks parents up to the nearest stable anchor (id or
+		// document root) and emits a CSS path with :nth-of-type so the
+		// resulting selector matches exactly one element. Required for
+		// Vue v-model / React forms where inputs lack id and name.
+		function uniquePath(el) {
+			const segments = [];
+			let cur = el;
+			while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+				if (cur.id) {
+					segments.unshift('#' + CSS.escape(cur.id));
+					break;
+				}
+				const tag = cur.tagName.toLowerCase();
+				let idx = 1;
+				let sib = cur.previousElementSibling;
+				while (sib) {
+					if (sib.tagName === cur.tagName) idx++;
+					sib = sib.previousElementSibling;
+				}
+				segments.unshift(tag + ':nth-of-type(' + idx + ')');
+				cur = cur.parentElement;
+			}
+			return segments.join(' > ');
+		}
+
 		function buildSelector(el) {
 			if (el.id) return '#' + CSS.escape(el.id);
 			const t = (el.type || '').toLowerCase();
@@ -62,22 +87,27 @@ func (s *Session) DiscoverForm(formSelector string) (*FormDiscoveryResult, error
 				const v = el.value || '';
 				if (v) return 'input[type="'+t+'"][name="'+el.name+'"][value="'+v+'"]';
 			}
-			if (el.name) return el.tagName.toLowerCase() + '[name="' + el.name + '"]';
-			const parent = el.closest('form');
-			if (parent) {
-				const siblings = parent.querySelectorAll(el.tagName.toLowerCase());
-				const idx = Array.from(siblings).indexOf(el);
-				if (idx >= 0) return (parent.id ? '#' + CSS.escape(parent.id) + ' ' : 'form ') + el.tagName.toLowerCase() + ':nth-of-type(' + (idx+1) + ')';
+			if (el.name) {
+				const candidate = el.tagName.toLowerCase() + '[name="' + el.name + '"]';
+				if (document.querySelectorAll(candidate).length === 1) return candidate;
 			}
-			return el.tagName.toLowerCase();
+			return uniquePath(el);
 		}
 
 		const fields = [];
 		const inputs = root.querySelectorAll('input,textarea,select');
 		for (const el of inputs) {
 			if (el.type === 'hidden' || el.type === 'submit') continue;
+			let sel = buildSelector(el);
+			// Defensive: if any earlier heuristic produced an ambiguous
+			// selector, fall back to the unique path. Without this, two
+			// inputs can share a selector and the second fill silently
+			// overwrites the first.
+			if (document.querySelectorAll(sel).length !== 1) {
+				sel = uniquePath(el);
+			}
 			const field = {
-				selector: buildSelector(el),
+				selector: sel,
 				label: findLabel(el),
 				type: el.type || el.tagName.toLowerCase(),
 				name: el.name || '',
@@ -171,7 +201,7 @@ func (s *Session) FillFormSemanticAny(fields map[string]any) (*SemanticFillResul
 // fillSemanticField fills one field and returns a structured outcome.
 // Caller must hold s.mu.
 func (s *Session) fillSemanticField(humanName string, value any, candidates []FormFieldInfo) SemanticFieldResult {
-	best := MatchFormField(humanName, candidates)
+	best, score := MatchFormFieldWithScore(humanName, candidates)
 	if best == nil {
 		return SemanticFieldResult{
 			HumanName: humanName,
@@ -179,14 +209,24 @@ func (s *Session) fillSemanticField(humanName string, value any, candidates []Fo
 		}
 	}
 
+	var res SemanticFieldResult
 	switch strings.ToLower(best.Type) {
 	case "checkbox":
-		return s.fillCheckbox(humanName, *best, value)
+		res = s.fillCheckbox(humanName, *best, value)
 	case "radio":
-		return s.fillRadio(humanName, *best, value, candidates)
+		res = s.fillRadio(humanName, *best, value, candidates)
 	default:
-		return s.fillTextField(humanName, *best, value)
+		res = s.fillTextField(humanName, *best, value)
 	}
+	res.MatchConfidence = score
+	// Low-confidence matches (placeholder/type hint fallback only) are
+	// almost always a sign that the form lacks distinguishing labels —
+	// surface a warning so callers don't act on a guess. Doesn't fail
+	// the fill (the value did land somewhere), but flags it loudly.
+	if score > 0 && score < 50 && res.Warning == "" && res.Error == "" {
+		res.Warning = fmt.Sprintf("low-confidence field match (score %d/100) — verify before submitting", score)
+	}
+	return res
 }
 
 func (s *Session) fillTextField(humanName string, field FormFieldInfo, value any) SemanticFieldResult {
@@ -379,6 +419,20 @@ func (s *Session) discoverFormInternal(formSelector string) (*FormDiscoveryResul
 			const prev = el.previousElementSibling; if (prev && ['LABEL','SPAN','DIV','P','TD','TH'].includes(prev.tagName)) return prev.textContent.trim();
 			return el.name || el.id || '';
 		}
+		function uniquePath(el) {
+			const segs = [];
+			let cur = el;
+			while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+				if (cur.id) { segs.unshift('#' + CSS.escape(cur.id)); break; }
+				const tag = cur.tagName.toLowerCase();
+				let idx = 1;
+				let sib = cur.previousElementSibling;
+				while (sib) { if (sib.tagName === cur.tagName) idx++; sib = sib.previousElementSibling; }
+				segs.unshift(tag + ':nth-of-type(' + idx + ')');
+				cur = cur.parentElement;
+			}
+			return segs.join(' > ');
+		}
 		function buildSelector(el) {
 			if (el.id) return '#'+CSS.escape(el.id);
 			const t = (el.type || '').toLowerCase();
@@ -386,13 +440,18 @@ func (s *Session) discoverFormInternal(formSelector string) (*FormDiscoveryResul
 				const v = el.value || '';
 				if (v) return 'input[type="'+t+'"][name="'+el.name+'"][value="'+v+'"]';
 			}
-			if (el.name) return el.tagName.toLowerCase()+'[name="'+el.name+'"]';
-			return el.tagName.toLowerCase();
+			if (el.name) {
+				const cand = el.tagName.toLowerCase()+'[name="'+el.name+'"]';
+				if (document.querySelectorAll(cand).length === 1) return cand;
+			}
+			return uniquePath(el);
 		}
 		const fields = [];
 		for (const el of root.querySelectorAll('input,textarea,select')) {
 			if (el.type==='hidden'||el.type==='submit') continue;
-			const f = {selector:buildSelector(el),label:findLabel(el),type:el.type||el.tagName.toLowerCase(),name:el.name||'',id:el.id||'',placeholder:el.placeholder||'',required:el.required||false};
+			let s = buildSelector(el);
+			if (document.querySelectorAll(s).length !== 1) s = uniquePath(el);
+			const f = {selector:s,label:findLabel(el),type:el.type||el.tagName.toLowerCase(),name:el.name||'',id:el.id||'',placeholder:el.placeholder||'',required:el.required||false};
 			if (el.tagName==='SELECT') f.options=Array.from(el.options).slice(0,10).map(o=>o.text.trim());
 			fields.push(f);
 		}
@@ -419,6 +478,14 @@ func (s *Session) discoverFormInternal(formSelector string) (*FormDiscoveryResul
 // weighted fuzzy matching on label, name, id, placeholder, and type.
 // Returns nil if no match is found. Exported for direct testing and reuse.
 func MatchFormField(humanName string, fields []FormFieldInfo) *FormFieldInfo {
+	best, _ := MatchFormFieldWithScore(humanName, fields)
+	return best
+}
+
+// MatchFormFieldWithScore is like MatchFormField but also returns the
+// match score (0–100). Callers can use this to detect low-confidence
+// resolutions and ask the user for confirmation before acting on them.
+func MatchFormFieldWithScore(humanName string, fields []FormFieldInfo) (*FormFieldInfo, int) {
 	humanLower := strings.ToLower(humanName)
 	var best *FormFieldInfo
 	bestScore := 0
@@ -459,5 +526,5 @@ func MatchFormField(humanName string, fields []FormFieldInfo) *FormFieldInfo {
 		}
 	}
 
-	return best
+	return best, bestScore
 }

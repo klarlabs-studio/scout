@@ -91,6 +91,53 @@ func TestMatchFormField_NameExactBeatsLabelPartial(t *testing.T) {
 	}
 }
 
+func TestMatchFormFieldWithScore(t *testing.T) {
+	fields := []FormFieldInfo{
+		{Selector: "#email", Label: "Email Address", Type: "email", Name: "email", ID: "email", Placeholder: "you@example.com"},
+		{Selector: "#password", Label: "Password", Type: "password", Name: "password", ID: "password"},
+		{Selector: "#ph-only", Label: "", Type: "text", Placeholder: "looks like fax"},
+		{Selector: "#type-only", Label: "", Type: "tel"},
+	}
+
+	cases := []struct {
+		name      string
+		humanName string
+		wantSel   string
+		minScore  int
+		maxScore  int
+	}{
+		{"exact label", "Email Address", "#email", 100, 100},
+		{"name + label exact", "password", "#password", 100, 100},
+		{"name exact + partial label", "Email", "#email", 90, 90},
+		{"placeholder only (low confidence)", "fax", "#ph-only", 50, 50},
+		{"type hint only (low confidence)", "tel", "#type-only", 40, 40},
+		{"no match", "nonexistent", "", 0, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, score := MatchFormFieldWithScore(tc.humanName, fields)
+			if tc.wantSel == "" {
+				if got != nil {
+					t.Fatalf("expected nil, got %+v (score %d)", got, score)
+				}
+				if score != 0 {
+					t.Errorf("expected zero score, got %d", score)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("expected match for %q, got nil", tc.humanName)
+			}
+			if got.Selector != tc.wantSel {
+				t.Errorf("selector = %q, want %q", got.Selector, tc.wantSel)
+			}
+			if score < tc.minScore || score > tc.maxScore {
+				t.Errorf("score = %d, want [%d,%d]", score, tc.minScore, tc.maxScore)
+			}
+		})
+	}
+}
+
 func TestMax(t *testing.T) {
 	tests := []struct {
 		a, b, want int
