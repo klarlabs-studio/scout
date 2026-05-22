@@ -536,6 +536,20 @@ func (s *Session) ClickAndWait(selector string) (*PageResult, error) {
 }
 
 // Type types text into an input element.
+//
+// On Vue v-model / React controlled inputs the framework reactive
+// binding can miss a write when the island is still hydrating, or
+// when the framework's value setter trap wasn't fired. Type guards
+// against this by:
+//  1. Briefly waiting for framework hydration on the element.
+//  2. Dispatching synthetic input/change/blur events after the CDP
+//     keystrokes — belt-and-suspenders for frameworks that listen on
+//     dispatched events only.
+//  3. Re-reading the value via the prototype getter, so React's
+//     internal stateful value tracker doesn't return the stale string.
+//
+// The result carries both the typed value and the committed value so
+// callers can detect races without an extra round-trip.
 func (s *Session) Type(selector, text string) (*ElementResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -550,6 +564,13 @@ func (s *Session) Type(selector, text string) (*ElementResult, error) {
 		return nil, err
 	}
 
+	// Probe + briefly wait for framework hydration. If the input has
+	// no fiber/Vue props yet, the listeners that update reactive state
+	// aren't wired and our keystrokes vanish into the DOM. 500ms is
+	// long enough for client:visible islands to mount but short enough
+	// not to noticeably slow real typing on already-hydrated pages.
+	framework := s.waitForHydration(selector, 500*time.Millisecond)
+
 	var sel *browse.Selection
 	if err := s.withStaleNodeRetry(selector, func(nodeID int64) error {
 		sel = browse.NewSelection(s.page, nodeID, selector)
@@ -559,15 +580,121 @@ func (s *Session) Type(selector, text string) (*ElementResult, error) {
 		return nil, s.decodeNodeError(selector, err)
 	}
 
-	val, _ := sel.Value()
+	// Dispatch synthetic input + change + blur as a backup for
+	// frameworks that only react to dispatched events (not raw CDP
+	// keystrokes). Also use React's native value setter so React's
+	// internal change tracker picks the new value up.
+	s.commitInputValue(selector, text)
+
+	// Brief settle so the framework's microtask queue flushes before
+	// we re-read. 50ms is empirically enough for Vue/React to commit.
+	_ = s.page.WaitStable(50 * time.Millisecond)
+
+	committed := s.readCommittedValue(selector)
+	if committed == "" {
+		// Fall back to the raw DOM read if the prototype-getter path
+		// failed for any reason (non-input element, missing prototype).
+		committed, _ = sel.Value()
+	}
+
 	s.traceAfterAction(start, before, "type", selector, text, "", nil)
 	s.recordAction(Action{Type: "type", Selector: selector, Value: text})
 	s.addHistory("type", selector, "", text)
 	return &ElementResult{
-		Selector: selector,
-		Value:    val,
-		Action:   "typed",
+		Selector:          selector,
+		Value:             text,
+		ValueCommitted:    committed,
+		FrameworkReactive: committed == text,
+		FrameworkDetected: framework,
+		Action:            "typed",
 	}, nil
+}
+
+// waitForHydration polls for Vue/React framework hooks on the element
+// and returns the detected framework name ("vue", "react", or "none").
+// Returns as soon as a hook is seen or budget runs out — never blocks
+// longer than budget. Caller must hold s.mu.
+func (s *Session) waitForHydration(selector string, budget time.Duration) string {
+	selJSON, _ := json.Marshal(selector)
+	js := fmt.Sprintf(`(function(){
+		const el = document.querySelector(%s);
+		if (!el) return 'none';
+		// Vue 3: __vueParentComponent on the element or any ancestor.
+		let cur = el;
+		while (cur) {
+			if (cur.__vueParentComponent || cur.__vue_app__) return 'vue';
+			cur = cur.parentElement;
+		}
+		// React: __reactProps$<root>/__reactFiber$<root> on the element.
+		for (const k of Object.keys(el)) {
+			if (k.indexOf('__reactProps$') === 0 || k.indexOf('__reactFiber$') === 0) return 'react';
+		}
+		return 'none';
+	})()`, selJSON)
+
+	deadline := time.Now().Add(budget)
+	for {
+		result, err := s.page.Evaluate(js)
+		if err == nil {
+			if str, ok := result.(string); ok && str != "none" {
+				return str
+			}
+		}
+		if time.Now().After(deadline) {
+			return "none"
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+}
+
+// commitInputValue forces a framework-aware value update on the input.
+// It uses the prototype value setter (so React's __changeBeforeChange
+// detects the write) and dispatches input/change/blur so Vue v-model
+// and similar listeners commit the value to reactive state.
+// Caller must hold s.mu.
+func (s *Session) commitInputValue(selector, text string) {
+	selJSON, _ := json.Marshal(selector)
+	textJSON, _ := json.Marshal(text)
+	js := fmt.Sprintf(`(function(){
+		const el = document.querySelector(%s);
+		if (!el) return false;
+		const proto = el.tagName === 'TEXTAREA'
+			? HTMLTextAreaElement.prototype
+			: HTMLInputElement.prototype;
+		const setter = Object.getOwnPropertyDescriptor(proto, 'value');
+		if (setter && setter.set) setter.set.call(el, %s);
+		el.dispatchEvent(new Event('input', {bubbles: true}));
+		el.dispatchEvent(new Event('change', {bubbles: true}));
+		el.dispatchEvent(new Event('blur', {bubbles: true}));
+		return true;
+	})()`, selJSON, textJSON)
+	_, _ = s.page.Evaluate(js)
+}
+
+// readCommittedValue reads the input's current value via the prototype
+// getter, bypassing any framework-level value-property trap that might
+// return the stale internal state instead of the live DOM value.
+// Caller must hold s.mu.
+func (s *Session) readCommittedValue(selector string) string {
+	selJSON, _ := json.Marshal(selector)
+	js := fmt.Sprintf(`(function(){
+		const el = document.querySelector(%s);
+		if (!el) return '';
+		const proto = el.tagName === 'TEXTAREA'
+			? HTMLTextAreaElement.prototype
+			: HTMLInputElement.prototype;
+		const getter = Object.getOwnPropertyDescriptor(proto, 'value');
+		if (getter && getter.get) return String(getter.get.call(el) || '');
+		return String(el.value || '');
+	})()`, selJSON)
+	result, err := s.page.Evaluate(js)
+	if err != nil {
+		return ""
+	}
+	if str, ok := result.(string); ok {
+		return str
+	}
+	return ""
 }
 
 // FillForm fills multiple form fields and returns their resulting values.
