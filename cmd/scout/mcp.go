@@ -130,6 +130,14 @@ type ObserveWithBudgetInput struct {
 	Budget int `json:"budget" jsonschema:"required,description=Approximate token budget for the response"`
 }
 
+type ObserveScopedInput struct {
+	Sections     []string `json:"sections,omitempty" jsonschema:"description=Landmark roles to limit the observation to: nav, main, header, footer, aside, article, search. Or pass raw CSS selectors (#sidebar, .product-grid). Empty = whole page."`
+	LimitChars   int      `json:"limit_chars,omitempty" jsonschema:"description=Maximum length of the returned text blob."`
+	LinksLimit   int      `json:"links_limit,omitempty" jsonschema:"description=Cap on returned links (0 = session default)."`
+	InputsLimit  int      `json:"inputs_limit,omitempty" jsonschema:"description=Cap on returned inputs (0 = session default)."`
+	ButtonsLimit int      `json:"buttons_limit,omitempty" jsonschema:"description=Cap on returned buttons (0 = session default)."`
+}
+
 type PDFInput struct{}
 
 type DiscoverFormInput struct {
@@ -502,6 +510,20 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 		Description("Observe the page within a token budget.").
 		Handler(func(ctx context.Context, input ObserveWithBudgetInput) (*agent.Observation, error) {
 			return s().ObserveWithBudget(input.Budget)
+		})
+
+	srv.Tool("observe_scoped").
+		ReadOnly().
+		OutputSchema(agent.Observation{}).
+		Description("Observe a subset of the page. Limit by landmark roles (nav/main/footer/...) and/or cap text length and element counts. Use on listing pages where the unscoped observation eats more tokens than the task needs.").
+		Handler(func(ctx context.Context, input ObserveScopedInput) (*agent.Observation, error) {
+			return s().ObserveScoped(agent.ObserveOptions{
+				Sections:     input.Sections,
+				LimitChars:   input.LimitChars,
+				LinksLimit:   input.LinksLimit,
+				InputsLimit:  input.InputsLimit,
+				ButtonsLimit: input.ButtonsLimit,
+			})
 		})
 
 		// --- Interaction ---
