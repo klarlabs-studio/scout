@@ -156,6 +156,10 @@ type NetworkRequestsResult struct {
 	Hint           string                 `json:"hint,omitempty"`
 }
 
+type NetworkSummaryInput struct {
+	Pattern string `json:"pattern,omitempty" jsonschema:"description=Optional URL substring filter."`
+}
+
 type AnnotatedScreenshotInput struct {
 	IncludeImage bool `json:"include_image,omitempty" jsonschema:"description=Include base64 image data in response. Default false to avoid large responses. Use screenshot tool separately if you need the image."`
 }
@@ -757,6 +761,14 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				return "", err
 			}
 			return "Network capture enabled", nil
+		})
+
+	srv.Tool("network_summary").
+		ReadOnly().
+		OutputSchema(agent.NetworkSummary{}).
+		Description("Rolled-up view of captured network traffic. Returns total count, bucketed by status class (1xx/2xx/3xx/4xx/5xx/0), every request with status >= 400 inline, and the pending count. Single call replaces enable_network_capture → act → failed_requests for the common 'did this action succeed at the network layer' question.").
+		Handler(func(ctx context.Context, input NetworkSummaryInput) (*agent.NetworkSummary, error) {
+			return s().NetworkSummary(input.Pattern), nil
 		})
 
 	srv.Tool("network_requests").
