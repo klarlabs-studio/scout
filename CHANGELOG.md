@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-05-22
+
+### Added
+- `observe_scoped` MCP tool — limit observation to landmark roles
+  (`nav`/`main`/`footer`/`header`/`aside`/`article`/`search`) or raw CSS
+  selectors, with `limit_chars` / `links_limit` / `inputs_limit` /
+  `buttons_limit` caps. Cuts token usage on listing pages.
+- `submit_outcome` + `install_submit_tracker` MCP tools — diagnose silent
+  form-submit failures. Returns `defaultPrevented`, the submitted form id,
+  visible `[role=alert]` text, aria-invalid field labels, dev-server error
+  overlay text (Vite/Next/Webpack), XHR count, and `navigation_committed`.
+  Tracker auto-installs at every `Navigate` so the first submit is caught.
+- `network_summary` MCP tool — rolled-up view of captured traffic with
+  `total`, `by_status` (1xx/2xx/3xx/4xx/5xx/0), inline `failures`, `pending`
+  count, and `capture_enabled` flag with hint. Replaces enable-capture +
+  failed-requests + console-errors round-trip.
+- `click_handle` MCP tool + `AnnotatedElement.NodeHandle` — `annotated_screenshot`
+  now stamps a `data-scout-handle` attribute on every annotated element.
+  Handles survive DOM mutations that would shuffle label numbers; clicking
+  a stale handle returns a structured `stale_handle` `OperationError`.
+- `wait_for_navigation` MCP tool — wait for the next full document load,
+  SPA route change (History API push/replace/popstate), or either (mode
+  `full`/`spa`/`any`). Use when an external action moves the page.
+- `aria_violations` MCP tool — zero-dependency a11y scan grouped by impact.
+  Catches `image-alt`, `button-name`, `link-name`, `label`, `duplicate-id`,
+  `html-has-lang`, `landmark-one-main`. Run axe-core in your test pipeline
+  for full WCAG coverage.
+- Watchdog middleware in `cmd/scout` (`SCOUT_TOOL_TIMEOUT`, default 60s) —
+  every MCP tool call runs in a goroutine with a per-call deadline. On
+  timeout the RPC returns a structured `SCOUT_TIMEOUT` envelope instead
+  of stalling the calling agent indefinitely.
+- `MatchFormFieldWithScore` + `SemanticFieldResult.MatchConfidence` —
+  matcher's 0–100 score exposed so callers can flag low-confidence
+  resolutions. `FillFormSemantic` warns when the score < 50.
+- `ElementResult.ValueCommitted` / `FrameworkReactive` / `FrameworkDetected`
+  on `Type` — re-reads the input via the prototype getter after a microtask
+  flush, so React's stateful value tracker doesn't return stale strings,
+  and surfaces whether the framework actually committed the write.
+
+### Fixed
+- `fill_form_semantic` mapped values to the wrong input when two fields
+  shared the same generic selector (Vue v-model / React controlled inputs
+  with no `id`/`name`). `DiscoverForm` now produces a unique CSS path via
+  `:nth-of-type` from the nearest stable ancestor, with a defensive
+  re-check that any heuristic-built selector resolves to exactly one node.
+- Vue/React hydration race: `Type` lost its input on `client:visible`
+  islands when the framework's listeners weren't attached yet. `Type` now
+  polls for Vue (`__vueParentComponent`/`__vue_app__`) and React
+  (`__reactProps$*`/`__reactFiber$*`) hooks before typing, dispatches
+  synthetic `input` + `change` + `blur` after the CDP keystrokes, and
+  re-reads via the prototype getter.
+- `observe` returned `text: ""` for card-style anchors (anchor wraps image
+  + heading block, no direct text node). New accessible-name fallback:
+  direct text → `aria-label` → `aria-labelledby` → first nested heading
+  → first `<img alt>` → `title` → URL slug.
+- `NewPageAt` could return before Chrome committed the first navigation,
+  so callers reading `URL()` immediately saw `about:blank`. Now waits for
+  load (best-effort; failures still return the page).
+
+### Changed
+- `cmd/scout` MCP server wires the watchdog middleware via
+  `mcp.ServeStdio(ctx, srv, mcp.WithMiddleware(watchdogMiddleware(...)))`.
+- CI nox version bumped to `0.10.0` (drops a 0.9.5 false-positive
+  `Secrets:1` finding on `cmd/scout/mcp.go`).
+
 ## [1.7.0] - 2026-05-20
 
 ### Added

@@ -302,7 +302,7 @@ scout/
 │   └── vitals.go                      # WebVitals (LCP/CLS/INP)
 ├── internal/cdp/                      # WebSocket CDP client (context-aware)
 ├── internal/launcher/                 # Chrome process management
-├── cmd/scout/                         # CLI + MCP server (77 tools)
+├── cmd/scout/                         # CLI + MCP server (84 tools)
 └── docs/                              # Landing page (GitHub Pages)
 ```
 
