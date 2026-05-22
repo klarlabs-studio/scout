@@ -534,6 +534,23 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			})
 		})
 
+	srv.Tool("submit_outcome").
+		ReadOnly().
+		OutputSchema(agent.SubmitOutcome{}).
+		Description("Diagnose silent form-submit failures. Returns defaultPrevented for the latest submit, visible [role=alert] messages, aria-invalid field labels, dev-server error overlay text, XHR count since tracker install, and whether navigation committed. Auto-installs the tracker on first call.").
+		Handler(func(ctx context.Context, input struct{}) (*agent.SubmitOutcome, error) {
+			return s().LastSubmitOutcome()
+		})
+
+	srv.Tool("install_submit_tracker").
+		Description("Pre-install the submit tracker so the next submit event records defaultPrevented + XHR count. Call after navigate, before triggering a form submit, if you plan to read submit_outcome afterwards.").
+		Handler(func(ctx context.Context, input struct{}) (string, error) {
+			if err := s().InstallSubmitTracker(); err != nil {
+				return "", mcpErr(err)
+			}
+			return "submit tracker installed", nil
+		})
+
 		// --- Interaction ---
 
 	srv.Tool("click").
