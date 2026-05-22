@@ -1176,7 +1176,14 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			return s().StopTrace(input.Path)
 		})
 
-	if err := mcp.ServeStdio(ctx, srv); err != nil && err != context.Canceled {
+	// Watchdog: cap every tool call at SCOUT_TOOL_TIMEOUT (default 60s)
+	// so a wedged CDP session can't stall the calling agent. On
+	// overrun the MCP RPC returns a structured SCOUT_TIMEOUT envelope
+	// instead of hanging — see watchdog.go for details and #15.
+	serveOpts := []mcp.ServeOption{
+		mcp.WithMiddleware(watchdogMiddleware(resolveToolTimeout())),
+	}
+	if err := mcp.ServeStdio(ctx, srv, serveOpts...); err != nil && err != context.Canceled {
 		fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
 		os.Exit(1)
 	}
