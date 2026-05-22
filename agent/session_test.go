@@ -20,6 +20,16 @@ func testServer() *httptest.Server {
   <h1 id="title">Hello Agent</h1>
   <a href="/about">About Us</a>
   <a href="/contact">Contact</a>
+  <!-- Card-style anchor: wraps image + heading, no direct text node.
+       Exercises the link-text fallback chain (heading inside). -->
+  <a href="/recipes/rye-70" class="card">
+    <img src="/img/rye.jpg" alt="">
+    <h3>70 % Rye Sourdough</h3>
+  </a>
+  <a href="/products/lievito-madre" aria-label="Lievito Madre starter kit">
+    <img src="/img/lm.jpg" alt="">
+  </a>
+  <a href="/blog/kaisersemmel-2024"><img src="/img/sem.jpg" alt=""></a>
   <form>
     <input id="name" name="name" type="text" placeholder="Your name" />
     <input id="email" name="email" type="email" placeholder="Email" />
@@ -103,6 +113,51 @@ func TestObserve(t *testing.T) {
 
 	t.Logf("Observation: %d links, %d inputs, %d buttons, %d interactive",
 		len(obs.Links), len(obs.Inputs), len(obs.Buttons), obs.Interactive)
+}
+
+func TestObserveLinkTextFallback(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping agent test in short mode")
+	}
+	ts := testServer()
+	defer ts.Close()
+
+	s := newSession(t)
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
+
+	obs, err := s.Observe()
+	if err != nil {
+		t.Fatalf("Observe: %v", err)
+	}
+
+	got := make(map[string]string, len(obs.Links))
+	for _, l := range obs.Links {
+		got[l.Href] = l.Text
+	}
+
+	cases := []struct {
+		href string
+		want string
+		why  string
+	}{
+		{"/recipes/rye-70", "70 % Rye Sourdough", "heading inside anchor"},
+		{"/products/lievito-madre", "Lievito Madre starter kit", "aria-label on anchor"},
+		// No heading, no aria-label, no img alt → slug fallback.
+		{"/blog/kaisersemmel-2024", "kaisersemmel 2024", "url slug"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.why, func(t *testing.T) {
+			text, ok := got[tc.href]
+			if !ok {
+				t.Fatalf("href %q not in Links %+v", tc.href, obs.Links)
+			}
+			if text != tc.want {
+				t.Errorf("href %q text = %q, want %q", tc.href, text, tc.want)
+			}
+		})
+	}
 }
 
 func TestClick(t *testing.T) {

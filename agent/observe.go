@@ -34,9 +34,48 @@ func (s *Session) observeInternal() (*Observation, error) {
 			meta: {}
 		};
 
-		// Collect links
+		// Collect links. Accessible name fallback so card-style anchors
+		// (anchor wraps image + heading block, no direct text node) still
+		// give the agent something to disambiguate. Order matches the
+		// ARIA accessible-name computation, then a URL-slug last resort.
+		function linkText(a) {
+			const direct = a.textContent.trim();
+			if (direct) return direct;
+			const aria = a.getAttribute('aria-label');
+			if (aria && aria.trim()) return aria.trim();
+			const labelledBy = a.getAttribute('aria-labelledby');
+			if (labelledBy) {
+				const ref = document.getElementById(labelledBy);
+				if (ref) {
+					const t = (ref.textContent || '').trim();
+					if (t) return t;
+				}
+			}
+			const heading = a.querySelector('h1,h2,h3,h4,h5,h6');
+			if (heading) {
+				const t = (heading.textContent || '').trim();
+				if (t) return t;
+			}
+			const img = a.querySelector('img[alt]');
+			if (img) {
+				const alt = (img.getAttribute('alt') || '').trim();
+				if (alt) return alt;
+			}
+			const title = a.getAttribute('title');
+			if (title && title.trim()) return title.trim();
+			// Last resort: human-ify the URL slug.
+			try {
+				const url = new URL(a.href, window.location.href);
+				const segs = url.pathname.split('/').filter(Boolean);
+				if (segs.length > 0) {
+					const last = decodeURIComponent(segs[segs.length - 1]);
+					return last.replace(/[-_]+/g, ' ').trim();
+				}
+			} catch (_) {}
+			return '';
+		}
 		for (const a of document.querySelectorAll('a[href]')) {
-			const text = a.textContent.trim();
+			const text = linkText(a);
 			if (text || a.href) {
 				obs.links.push({text: text.slice(0, 100), href: a.getAttribute('href')});
 			}
