@@ -456,6 +456,12 @@ func (s *Session) Navigate(url string) (*PageResult, error) {
 		s.network.observersInstalled = false
 	}
 
+	// Pre-install the submit-outcome tracker so the first submit on
+	// the new page is captured. Best-effort: failures here shouldn't
+	// abort the navigation — the tracker is a diagnostic affordance,
+	// not a correctness requirement.
+	_, _ = s.page.Evaluate(scoutSubmitTrackerJS)
+
 	s.traceAfterAction(start, before, "navigate", "", "", url, nil)
 	s.recordAction(Action{Type: "navigate", Value: url})
 	s.addHistory("navigate", "", url, "")
