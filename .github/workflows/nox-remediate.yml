@@ -19,7 +19,7 @@ permissions:
   pull-requests: write
 
 env:
-  NOX_VERSION: "0.9.5"
+  NOX_VERSION: "0.10.0"
 
 jobs:
   remediate:
