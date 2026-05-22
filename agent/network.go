@@ -128,6 +128,80 @@ func (s *Session) IsNetworkCaptureEnabled() bool {
 	return s.network != nil && s.network.enabled
 }
 
+// NetworkSummary aggregates captured network traffic into a single
+// view designed for the "did this action succeed at the network
+// layer" question. Replaces a typical three-step dance
+// (enable_network_capture → act → failed_requests + console_errors).
+type NetworkSummary struct {
+	Total          int              `json:"total"`
+	ByStatus       map[string]int   `json:"by_status"`
+	Failures       []NetworkCapture `json:"failures,omitempty"`
+	Pending        int              `json:"pending"`
+	CaptureEnabled bool             `json:"capture_enabled"`
+	Hint           string           `json:"hint,omitempty"`
+}
+
+// NetworkSummary returns a rolled-up view of the current capture
+// buffer, optionally filtered by URL substring. Failures are
+// every request with status >= 400.
+func (s *Session) NetworkSummary(pattern string) *NetworkSummary {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	out := &NetworkSummary{
+		ByStatus: map[string]int{},
+	}
+	if s.network == nil {
+		out.Hint = "Network capture not enabled. Call enable_network_capture before triggering actions you want to observe."
+		return out
+	}
+	out.CaptureEnabled = s.network.enabled
+
+	s.network.mu.Lock()
+	defer s.network.mu.Unlock()
+	for _, r := range s.network.requests {
+		if pattern != "" && !strings.Contains(r.URL, pattern) {
+			continue
+		}
+		out.Total++
+		bucket := statusBucket(r.Status)
+		out.ByStatus[bucket]++
+		if r.Status >= 400 {
+			out.Failures = append(out.Failures, r)
+		}
+	}
+	for _, p := range s.network.pending {
+		if pattern != "" && !strings.Contains(p.URL, pattern) {
+			continue
+		}
+		out.Pending++
+	}
+	if !out.CaptureEnabled && out.Total == 0 {
+		out.Hint = "Network capture not enabled. Call enable_network_capture before triggering actions you want to observe."
+	}
+	return out
+}
+
+// statusBucket groups HTTP status codes for the by_status map.
+// Status 0 = pending or no response (CDP failed-load) → bucketed
+// separately so callers can tell network failures from 4xx/5xx.
+func statusBucket(status int) string {
+	switch {
+	case status == 0:
+		return "0"
+	case status < 200:
+		return "1xx"
+	case status < 300:
+		return "2xx"
+	case status < 400:
+		return "3xx"
+	case status < 500:
+		return "4xx"
+	default:
+		return "5xx"
+	}
+}
+
 // ClearCapturedRequests clears all captured requests.
 func (s *Session) ClearCapturedRequests() {
 	s.mu.Lock()
