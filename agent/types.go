@@ -239,17 +239,25 @@ type AnnotatedResult struct {
 }
 
 // AnnotatedElement maps a numbered label to an interactive element.
+//
+// NodeHandle is a stable identifier scout stamps onto the DOM element
+// as `data-scout-handle`. Unlike Label (recomputed per call), the
+// handle survives DOM mutations and re-renders that don't replace
+// the element — pair it with ClickByHandle for multi-step flows
+// where label numbers would shuffle. Resolving a handle whose element
+// has been removed returns a structured "stale" error.
 type AnnotatedElement struct {
-	Label    int    `json:"label"`
-	Selector string `json:"selector"`
-	Tag      string `json:"tag"`
-	Type     string `json:"type,omitempty"`
-	Text     string `json:"text,omitempty"`
-	Href     string `json:"href,omitempty"`
-	X        int    `json:"x"`
-	Y        int    `json:"y"`
-	Width    int    `json:"width"`
-	Height   int    `json:"height"`
+	Label      int    `json:"label"`
+	NodeHandle string `json:"node_handle,omitempty"`
+	Selector   string `json:"selector"`
+	Tag        string `json:"tag"`
+	Type       string `json:"type,omitempty"`
+	Text       string `json:"text,omitempty"`
+	Href       string `json:"href,omitempty"`
+	X          int    `json:"x"`
+	Y          int    `json:"y"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
 }
 
 // SemanticFieldResult describes the outcome of filling one semantically-matched field.
