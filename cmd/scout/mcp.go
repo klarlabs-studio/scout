@@ -183,6 +183,10 @@ type ClickLabelInput struct {
 	Label json.Number `json:"label" jsonschema:"required,description=Label number from annotated screenshot (e.g. 8)"`
 }
 
+type ClickHandleInput struct {
+	Handle string `json:"handle" jsonschema:"required,description=Stable node handle from a previous annotated_screenshot call (the node_handle field). Survives DOM mutations that would shuffle label numbers; returns a stale_handle error if the element has since been detached."`
+}
+
 type ComponentStateInput struct {
 	Selector string `json:"selector" jsonschema:"required,description=CSS selector of the component root element"`
 }
@@ -551,6 +555,16 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				return nil, fmt.Errorf("label must be a number (e.g. 8), got %q", input.Label.String())
 			}
 			return s().ClickLabel(label)
+		})
+
+	srv.Tool("click_handle").
+		Description("Click the element identified by a stable node_handle from a previous annotated_screenshot. Unlike click_label, the handle survives DOM mutations that would shuffle label numbers. Returns a stale_handle error when the element is no longer in the DOM — re-annotate and retry.").
+		Handler(func(ctx context.Context, input ClickHandleInput) (*agent.PageResult, error) {
+			out, err := s().ClickByHandle(input.Handle)
+			if err != nil {
+				return nil, mcpErr(err)
+			}
+			return out, nil
 		})
 
 	srv.Tool("click_text").

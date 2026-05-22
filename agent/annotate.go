@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	browse "github.com/felixgeelhaar/scout"
 )
@@ -19,11 +20,16 @@ func (s *Session) AnnotatedScreenshot() (*AnnotatedResult, error) {
 		return nil, err
 	}
 
-	// Inject labels and collect element mapping
-	js := `(function() {
+	// Inject labels and collect element mapping. Each annotated
+	// element also gets a data-scout-handle attribute — that's the
+	// stable identifier ClickByHandle resolves against later, so the
+	// caller can survive DOM mutations that would shuffle the
+	// per-call label numbers.
+	js := fmt.Sprintf(`(function() {
 		// Remove any previous annotations
 		document.querySelectorAll('.__browse_label').forEach(el => el.remove());
 
+		const handlePrefix = 'h_%d_';
 		const elements = [];
 		let idx = 0;
 		const selectors = 'a[href], button, input, textarea, select, [role="button"], [onclick], [tabindex]';
@@ -37,6 +43,8 @@ func (s *Session) AnnotatedScreenshot() (*AnnotatedResult, error) {
 
 			idx++;
 			const tag = el.tagName.toLowerCase();
+			const handle = el.getAttribute('data-scout-handle') || (handlePrefix + idx);
+			el.setAttribute('data-scout-handle', handle);
 
 			// Build selector
 			let selector = tag;
@@ -55,6 +63,7 @@ func (s *Session) AnnotatedScreenshot() (*AnnotatedResult, error) {
 
 			elements.push({
 				label: idx,
+				node_handle: handle,
 				selector: selector,
 				tag: tag,
 				type: el.type || '',
@@ -80,7 +89,7 @@ func (s *Session) AnnotatedScreenshot() (*AnnotatedResult, error) {
 		}
 
 		return JSON.stringify(elements);
-	})()`
+	})()`, time.Now().UnixNano())
 
 	result, err := s.page.Evaluate(js)
 	if err != nil {
@@ -115,6 +124,51 @@ func (s *Session) AnnotatedScreenshot() (*AnnotatedResult, error) {
 		Count:      len(elements),
 		LabelScope: "per_call",
 	}, nil
+}
+
+// ClickByHandle clicks the element associated with a stable node
+// handle stamped during AnnotatedScreenshot. Unlike ClickLabel, the
+// lookup happens by attribute, so DOM mutations that shuffle label
+// numbers don't break the action — as long as the element itself
+// wasn't detached. If the element is gone, a "stale" OperationError
+// is returned so the caller can re-annotate instead of clicking
+// blindly into the wrong node.
+func (s *Session) ClickByHandle(handle string) (*PageResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.ensurePage(); err != nil {
+		return nil, err
+	}
+
+	handleJSON, _ := json.Marshal(handle)
+	js := fmt.Sprintf(`(function(){
+		const el = document.querySelector('[data-scout-handle=' + JSON.stringify(%s) + ']');
+		if (!el) return 'stale';
+		const rect = el.getBoundingClientRect();
+		const style = window.getComputedStyle(el);
+		if (rect.width < 1 || rect.height < 1) return 'stale';
+		if (style.display === 'none' || style.visibility === 'hidden') return 'stale';
+		el.scrollIntoView({block:'center'});
+		el.click();
+		return 'clicked';
+	})()`, string(handleJSON))
+
+	result, err := s.page.Evaluate(js)
+	if err != nil {
+		return nil, err
+	}
+	if str, ok := result.(string); ok && str == "stale" {
+		return nil, &OperationError{
+			Phase:         "click_by_handle",
+			Cause:         "stale_handle",
+			Detail:        "handle " + handle + " no longer resolves to a visible element — re-annotate the page",
+			OriginalError: "stale node handle",
+		}
+	}
+
+	_ = s.page.WaitStable(300 * 1e6)
+	return s.pageResult()
 }
 
 // ClickLabel clicks the element with the given annotation label number.
