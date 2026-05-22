@@ -89,12 +89,24 @@ func (e *Engine) ExistingPage() (*Page, error) {
 
 // NewPageAt creates a new browser page/tab and navigates directly to the URL.
 // Faster than NewPage + Navigate because Chrome loads the URL during target creation.
+//
+// Waits for the page load event before returning so callers can read URL/title
+// immediately. Returning before the navigation committed produced a flake in
+// integration_full_test.go:TestIntegrationEngineNewPageAndNewPageAt — under
+// load, URL() would still report "about:blank" because the target swap hadn't
+// finished. WaitLoad failures are non-fatal: we return the page anyway so the
+// caller can decide what to do (the previous behavior).
 func (e *Engine) NewPageAt(url string) (*Page, error) {
 	targetID, err := e.conn.CreateTarget(url)
 	if err != nil {
 		return nil, fmt.Errorf("browse: failed to create page: %w", err)
 	}
-	return newPage(e.conn, targetID, e.opts.timeout, URLValidator{AllowPrivateIPs: e.opts.allowPrivateIPs})
+	page, err := newPage(e.conn, targetID, e.opts.timeout, URLValidator{AllowPrivateIPs: e.opts.allowPrivateIPs})
+	if err != nil {
+		return nil, err
+	}
+	_ = page.WaitLoad()
+	return page, nil
 }
 
 // Close shuts down the browser and releases resources.
