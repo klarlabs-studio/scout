@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-05-24
+
+### Added
+
+- **Shadow DOM piercing in form discovery + fill.** `DiscoverForm`,
+  `FillFormSemantic`, and every interaction tool that routes through
+  `resolveSelector` (`type`, `click`, batch actions) now walk into
+  open shadow roots. Inputs inside Lit / Stencil / Vue / React custom
+  elements are discovered and fillable without changing call shape.
+  Discovered inputs are tagged with a stable `data-scout-id` so
+  subsequent fills round-trip across shadow boundaries.
+- **Attribute selectors in `QuerySelectorPiercing`.** The flat-node
+  matcher now handles `[attr="value"]` and `tag[attr="value"]` in
+  addition to `#id`, `.class`, and bare tags. Lets piercing resolve
+  the `data-scout-id` selectors emitted by form discovery without
+  another evaluate round-trip.
+- **`resolveSelector` falls back to piercing** before invoking the
+  text / natural-language paths. Any selector that fails standard
+  `document.querySelector` automatically retries against the flat
+  DOM tree before the slower fallbacks run.
+
+### Tests
+
+- New `agent/shadow_dom_test.go` exercises the full discover → fill
+  → click → submit loop against a custom element that wraps its form
+  in an open shadow root.
+
 ## [1.8.0] - 2026-05-22
 
 ### Added
