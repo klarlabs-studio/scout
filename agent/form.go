@@ -95,16 +95,66 @@ func (s *Session) DiscoverForm(formSelector string) (*FormDiscoveryResult, error
 		}
 
 		const fields = [];
-		const inputs = root.querySelectorAll('input,textarea,select');
+
+		// Deep query: collects matching elements from "start" AND every
+		// shadow root reachable below it. Lets us pull inputs out of
+		// Lit / Vue / React custom elements whose internals are
+		// invisible to querySelectorAll alone. The walker also descends
+		// into slot assignments implicitly via getRootNode chains.
+		function deepQueryAll(start, selectorList) {
+			const out = [];
+			const seen = new Set();
+			function walk(node) {
+				if (!node || seen.has(node)) return;
+				seen.add(node);
+				try {
+					node.querySelectorAll(selectorList).forEach(el => out.push(el));
+				} catch (_) { /* DocumentFragments without querySelectorAll */ }
+				const candidates = node.querySelectorAll ? node.querySelectorAll('*') : [];
+				for (const el of candidates) {
+					if (el.shadowRoot) walk(el.shadowRoot);
+				}
+			}
+			walk(start);
+			return out;
+		}
+
+		// pierceSelector lets the fill stage find the same element on a
+		// later DOM tick even if it's behind a shadow boundary. We tag
+		// each discovered input with a stable data-scout-id and use
+		// the attribute selector [data-scout-id="..."]. The Go side
+		// runs QuerySelectorPiercing which walks the flattened DOM
+		// tree to resolve it across shadow boundaries.
+		let scoutCounter = (window.__scoutFieldCounter || 0);
+		function pierceSelector(el) {
+			let id = el.getAttribute('data-scout-id');
+			if (!id) {
+				id = 'f' + (++scoutCounter);
+				el.setAttribute('data-scout-id', id);
+			}
+			return '[data-scout-id="' + id + '"]';
+		}
+		window.__scoutFieldCounter = scoutCounter;
+
+		const inputs = deepQueryAll(root, 'input,textarea,select');
 		for (const el of inputs) {
 			if (el.type === 'hidden' || el.type === 'submit') continue;
-			let sel = buildSelector(el);
-			// Defensive: if any earlier heuristic produced an ambiguous
-			// selector, fall back to the unique path. Without this, two
-			// inputs can share a selector and the second fill silently
-			// overwrites the first.
-			if (document.querySelectorAll(sel).length !== 1) {
-				sel = uniquePath(el);
+			// Prefer the standard heuristic when the element is in the
+			// document scope (cheap, no DOM mutation). Fall back to the
+			// pierce-tag for elements behind a shadow boundary so the
+			// fill path can locate them.
+			let sel;
+			const inMainDoc = el.getRootNode() === document;
+			if (inMainDoc) {
+				sel = buildSelector(el);
+				if (document.querySelectorAll(sel).length !== 1) {
+					sel = uniquePath(el);
+				}
+				if (document.querySelectorAll(sel).length !== 1) {
+					sel = pierceSelector(el);
+				}
+			} else {
+				sel = pierceSelector(el);
 			}
 			const field = {
 				selector: sel,
@@ -446,15 +496,40 @@ func (s *Session) discoverFormInternal(formSelector string) (*FormDiscoveryResul
 			}
 			return uniquePath(el);
 		}
+		// Walk shadow roots (mirror of DiscoverForm).
+		function deepQueryAll(start, sel) {
+			const out = [], seen = new Set();
+			(function walk(n) {
+				if (!n || seen.has(n)) return;
+				seen.add(n);
+				try { n.querySelectorAll(sel).forEach(e => out.push(e)); } catch(_){}
+				const all = n.querySelectorAll ? n.querySelectorAll('*') : [];
+				for (const el of all) if (el.shadowRoot) walk(el.shadowRoot);
+			})(start);
+			return out;
+		}
+		let _c = (window.__scoutFieldCounter || 0);
+		function pierceSel(el) {
+			let id = el.getAttribute('data-scout-id');
+			if (!id) { id = 'f' + (++_c); el.setAttribute('data-scout-id', id); }
+			return '[data-scout-id="' + id + '"]';
+		}
 		const fields = [];
-		for (const el of root.querySelectorAll('input,textarea,select')) {
+		for (const el of deepQueryAll(root, 'input,textarea,select')) {
 			if (el.type==='hidden'||el.type==='submit') continue;
-			let s = buildSelector(el);
-			if (document.querySelectorAll(s).length !== 1) s = uniquePath(el);
+			let s;
+			if (el.getRootNode() === document) {
+				s = buildSelector(el);
+				if (document.querySelectorAll(s).length !== 1) s = uniquePath(el);
+				if (document.querySelectorAll(s).length !== 1) s = pierceSel(el);
+			} else {
+				s = pierceSel(el);
+			}
 			const f = {selector:s,label:findLabel(el),type:el.type||el.tagName.toLowerCase(),name:el.name||'',id:el.id||'',placeholder:el.placeholder||'',required:el.required||false};
 			if (el.tagName==='SELECT') f.options=Array.from(el.options).slice(0,10).map(o=>o.text.trim());
 			fields.push(f);
 		}
+		window.__scoutFieldCounter = _c;
 		const form = root.tagName==='FORM'?root:root.querySelector('form');
 		return JSON.stringify({formSelector:form?buildSelector(form):'',action:form?form.action:'',method:form?form.method:'',fields:fields});
 	})()`, sel)

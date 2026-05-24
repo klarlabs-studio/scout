@@ -665,8 +665,16 @@ func (p *Page) getFlattenedNodes() ([]flatNode, error) {
 }
 
 // matchFlatNode searches flattened nodes for a simple selector match.
-// Supports #id, .class, and tag selectors against the pierce:true node list.
+// Supports #id, .class, tag, and bare-attribute selectors against the
+// pierce:true node list. Examples:
+//
+//	#login           — id="login"
+//	.btn             — class contains "btn"
+//	input            — any <input>
+//	[data-scout-id="f1"]   — bare attribute
+//	input[type="email"]    — tag + attribute
 func matchFlatNode(nodes []flatNode, selector string) int64 {
+	tag, attrKey, attrVal, ok := splitAttrSelector(selector)
 	for _, n := range nodes {
 		if n.NodeType != 1 {
 			continue
@@ -683,6 +691,13 @@ func matchFlatNode(nodes []flatNode, selector string) int64 {
 					return n.NodeID
 				}
 			}
+		} else if ok {
+			if tag != "" && !strings.EqualFold(n.NodeName, tag) {
+				continue
+			}
+			if attrs[attrKey] == attrVal {
+				return n.NodeID
+			}
 		} else if !strings.ContainsAny(selector, "#.[]:>+~ ") {
 			if strings.EqualFold(n.NodeName, selector) {
 				return n.NodeID
@@ -690,6 +705,30 @@ func matchFlatNode(nodes []flatNode, selector string) int64 {
 		}
 	}
 	return 0
+}
+
+// splitAttrSelector parses "tag[attr=\"val\"]" or "[attr=\"val\"]"
+// shapes. Returns ok=false for anything more elaborate. Caller falls
+// back to other branches when ok=false.
+func splitAttrSelector(sel string) (tag, key, val string, ok bool) {
+	lb := strings.Index(sel, "[")
+	rb := strings.LastIndex(sel, "]")
+	if lb < 0 || rb != len(sel)-1 || rb-lb < 3 {
+		return "", "", "", false
+	}
+	tag = sel[:lb]
+	inner := sel[lb+1 : rb]
+	eq := strings.Index(inner, "=")
+	if eq < 1 {
+		return "", "", "", false
+	}
+	key = strings.TrimSpace(inner[:eq])
+	val = strings.TrimSpace(inner[eq+1:])
+	val = strings.Trim(val, `"'`)
+	if key == "" {
+		return "", "", "", false
+	}
+	return tag, key, val, true
 }
 
 func attrMap(attrs []string) map[string]string {

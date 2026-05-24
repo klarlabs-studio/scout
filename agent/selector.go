@@ -20,6 +20,15 @@ func (s *Session) resolveSelector(selector string) (int64, error) {
 		return nodeID, nil
 	}
 
+	// Standard CSS missed — try piercing through shadow roots before
+	// falling through to text / NL search. Recovers Lit / Vue / React
+	// custom elements where the actionable <input>, <button>, etc.
+	// lives inside a shadow root and is invisible to
+	// document.querySelector.
+	if pNodeID, pErr := s.page.QuerySelectorPiercing(selector); pErr == nil && pNodeID != 0 {
+		return pNodeID, nil
+	}
+
 	// Check for Playwright :text('...') syntax
 	if matches := textSelectorRe.FindStringSubmatch(selector); len(matches) > 1 {
 		text := matches[1]
