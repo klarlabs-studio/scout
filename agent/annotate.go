@@ -29,12 +29,23 @@ func (s *Session) AnnotatedScreenshot() (*AnnotatedResult, error) {
 		// Remove any previous annotations
 		document.querySelectorAll('.__browse_label').forEach(el => el.remove());
 
+		// Walk into open shadow roots so Lit / Stencil custom
+		// elements expose their interactive nodes to annotation.
+		function deepAll(root, sel, out) {
+			if (!root) return;
+			try { root.querySelectorAll(sel).forEach(e => out.push(e)); } catch(_) {}
+			const kids = root.querySelectorAll ? root.querySelectorAll('*') : [];
+			for (const el of kids) if (el.shadowRoot) deepAll(el.shadowRoot, sel, out);
+		}
+
 		const handlePrefix = 'h_%d_';
 		const elements = [];
 		let idx = 0;
 		const selectors = 'a[href], button, input, textarea, select, [role="button"], [onclick], [tabindex]';
 
-		for (const el of document.querySelectorAll(selectors)) {
+		const candidates = [];
+		deepAll(document, selectors, candidates);
+		for (const el of candidates) {
 			// Skip hidden/tiny elements
 			const rect = el.getBoundingClientRect();
 			if (rect.width < 5 || rect.height < 5) continue;
@@ -181,11 +192,20 @@ func (s *Session) ClickLabel(label int) (*PageResult, error) {
 		return nil, err
 	}
 
-	// Find element by re-querying (labels may have been removed)
+	// Find element by re-querying (labels may have been removed).
+	// Pierces shadow roots to mirror AnnotatedScreenshot's discovery.
 	js := fmt.Sprintf(`(function() {
+		function deepAll(root, sel, out) {
+			if (!root) return;
+			try { root.querySelectorAll(sel).forEach(e => out.push(e)); } catch(_) {}
+			const kids = root.querySelectorAll ? root.querySelectorAll('*') : [];
+			for (const el of kids) if (el.shadowRoot) deepAll(el.shadowRoot, sel, out);
+		}
 		let idx = 0;
 		const selectors = 'a[href], button, input, textarea, select, [role="button"], [onclick], [tabindex]';
-		for (const el of document.querySelectorAll(selectors)) {
+		const candidates = [];
+		deepAll(document, selectors, candidates);
+		for (const el of candidates) {
 			const rect = el.getBoundingClientRect();
 			if (rect.width < 5 || rect.height < 5) continue;
 			const style = window.getComputedStyle(el);

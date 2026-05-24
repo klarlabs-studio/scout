@@ -184,14 +184,18 @@ func TestForSelectorTimeout(t *testing.T) {
 }
 
 func TestForSelectorJSExpression(t *testing.T) {
-	// Verify the JS expression is correctly constructed.
+	// Verify the JS embeds the selector inside the shadow-piercing
+	// find call. We don't snapshot the full multi-line walker; the
+	// substring checks pin the surface downstream code depends on.
 	eval := &expressionCapture{result: true}
 	ctx := context.Background()
 
 	_ = ForSelector(ctx, eval, "div.container > p")
-	want := `document.querySelector("div.container > p") !== null`
-	if eval.expression != want {
-		t.Errorf("ForSelector() JS = %q, want %q", eval.expression, want)
+	if !strings.Contains(eval.expression, `__scoutFind(document, "div.container > p")`) {
+		t.Errorf("ForSelector() JS missing piercing call for selector: %q", eval.expression)
+	}
+	if !strings.Contains(eval.expression, "!== null") {
+		t.Errorf("ForSelector() JS missing presence check: %q", eval.expression)
 	}
 }
 
@@ -426,15 +430,16 @@ func TestPollCallCount(t *testing.T) {
 }
 
 func TestForSelectorSpecialChars(t *testing.T) {
-	// Verify selectors with special characters are properly quoted in JS.
+	// Verify selectors with special characters survive the quote
+	// round-trip inside the shadow-piercing find call.
 	eval := &expressionCapture{result: true}
 	ctx := context.Background()
 
 	selector := `input[name="email"]`
 	_ = ForSelector(ctx, eval, selector)
 
-	want := fmt.Sprintf("document.querySelector(%q) !== null", selector)
-	if eval.expression != want {
-		t.Errorf("ForSelector() JS = %q, want %q", eval.expression, want)
+	want := fmt.Sprintf("__scoutFind(document, %q)", selector)
+	if !strings.Contains(eval.expression, want) {
+		t.Errorf("ForSelector() JS missing %q in: %q", want, eval.expression)
 	}
 }

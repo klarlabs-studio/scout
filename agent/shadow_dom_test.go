@@ -61,16 +61,6 @@ func TestShadowDOM_FillFormSemantic_PiercesShadowRoots(t *testing.T) {
 		t.Fatalf("Navigate: %v", err)
 	}
 
-	disc, derr := s.DiscoverForm("")
-	if derr != nil {
-		t.Fatalf("DiscoverForm: %v", derr)
-	}
-	t.Logf("discover: form=%q fields=%d", disc.FormSelector, len(disc.Fields))
-	for _, f := range disc.Fields {
-		t.Logf("  field selector=%q label=%q type=%q name=%q",
-			f.Selector, f.Label, f.Type, f.Name)
-	}
-
 	out, err := s.FillFormSemantic(map[string]string{
 		"Email":    "felix@example.com",
 		"Password": "hunter2hunter2",
@@ -102,5 +92,101 @@ func TestShadowDOM_FillFormSemantic_PiercesShadowRoots(t *testing.T) {
 	want := "felix@example.com|hunter2hunter2"
 	if !strings.Contains(text, want) {
 		t.Fatalf("expected output to contain %q, got %q", want, text)
+	}
+}
+
+// shadowClickHTML wires a counter inside a shadow root so we can
+// prove dispatch_event(click) routes through the shadow boundary.
+const shadowClickHTML = `<!DOCTYPE html>
+<html>
+<head><title>Shadow click</title></head>
+<body>
+  <my-counter></my-counter>
+  <output id="echo">0</output>
+  <script>
+    class MyCounter extends HTMLElement {
+      constructor() {
+        super();
+        const root = this.attachShadow({mode: 'open'});
+        root.innerHTML = '<button id="tick">tick</button>';
+        let n = 0;
+        root.querySelector('#tick').addEventListener('click', () => {
+          n++;
+          document.getElementById('echo').textContent = String(n);
+        });
+      }
+    }
+    customElements.define('my-counter', MyCounter);
+  </script>
+</body></html>`
+
+// TestShadowDOM_DispatchEvent_PiercesShadowRoots verifies the
+// dispatch_event MCP tool can reach into shadow roots via the
+// same deep-find helper the wait/discovery paths use.
+func TestShadowDOM_DispatchEvent_PiercesShadowRoots(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, shadowClickHTML)
+	}))
+	defer srv.Close()
+
+	s := integrationSession(t)
+	if _, err := s.Navigate(srv.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
+
+	// Dispatch two clicks via the shadow-piercing path. Each one
+	// must bump the in-shadow counter that updates the page-level
+	// <output>.
+	for i := 0; i < 2; i++ {
+		if err := s.DispatchEvent("#tick", "click", nil); err != nil {
+			t.Fatalf("DispatchEvent click #%d: %v", i+1, err)
+		}
+	}
+
+	text, err := s.ReadableText()
+	if err != nil {
+		t.Fatalf("ReadableText: %v", err)
+	}
+	if !strings.Contains(text, "2") {
+		t.Fatalf("expected counter to read 2, got %q", text)
+	}
+}
+
+// TestShadowDOM_AnnotatedScreenshot_EnumeratesShadowChildren
+// verifies the annotation pass picks up interactive elements that
+// live inside shadow roots. Without piercing the element count
+// would be 0; with piercing we see the button.
+func TestShadowDOM_AnnotatedScreenshot_EnumeratesShadowChildren(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, shadowClickHTML)
+	}))
+	defer srv.Close()
+
+	s := integrationSession(t)
+	if _, err := s.Navigate(srv.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
+
+	out, err := s.AnnotatedScreenshot()
+	if err != nil {
+		t.Fatalf("AnnotatedScreenshot: %v", err)
+	}
+	var sawShadowButton bool
+	for _, el := range out.Elements {
+		if el.Tag == "button" && strings.Contains(el.Text, "tick") {
+			sawShadowButton = true
+			break
+		}
+	}
+	if !sawShadowButton {
+		t.Fatalf("expected to annotate the shadow-root button, got %d elements: %+v", len(out.Elements), out.Elements)
 	}
 }

@@ -476,11 +476,24 @@ func (s *Session) DispatchEvent(selector, eventType string, detail map[string]an
 	selectorJSON, _ := json.Marshal(selector)
 	detailJSON, _ := json.Marshal(detail)
 
+	// Shared shadow-DOM-piercing helper: every branch needs the
+	// same deep traversal to reach Lit / Stencil / Web Components
+	// content. Inlined per call so DispatchEvent stays self-
+	// contained (no window pollution that survives between calls).
+	const deepFind = `
+		function __sd(root, sel) {
+			if (!root) return null;
+			try { const m = root.querySelector(sel); if (m) return m; } catch(_) {}
+			const kids = root.querySelectorAll ? root.querySelectorAll('*') : [];
+			for (const el of kids) { if (el.shadowRoot) { const m = __sd(el.shadowRoot, sel); if (m) return m; } }
+			return null;
+		}`
+
 	var js string
 	switch eventType {
 	case "submit":
-		js = fmt.Sprintf(`(function() {
-			const el = document.querySelector(%s);
+		js = fmt.Sprintf(`(function() {%s
+			const el = __sd(document, %s);
 			if (!el) return false;
 			const form = el.tagName === 'FORM' ? el : el.closest('form');
 			if (!form) return false;
@@ -490,21 +503,21 @@ func (s *Session) DispatchEvent(selector, eventType string, detail map[string]an
 				form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
 			}
 			return true;
-		})()`, selectorJSON)
+		})()`, deepFind, selectorJSON)
 	case "click":
-		js = fmt.Sprintf(`(function() {
-			const el = document.querySelector(%s);
+		js = fmt.Sprintf(`(function() {%s
+			const el = __sd(document, %s);
 			if (!el) return false;
 			el.click();
 			return true;
-		})()`, selectorJSON)
+		})()`, deepFind, selectorJSON)
 	default:
-		js = fmt.Sprintf(`(function() {
-			const el = document.querySelector(%s);
+		js = fmt.Sprintf(`(function() {%s
+			const el = __sd(document, %s);
 			if (!el) return false;
 			el.dispatchEvent(new CustomEvent(%q, {detail: %s, bubbles: true, cancelable: true}));
 			return true;
-		})()`, selectorJSON, eventType, string(detailJSON))
+		})()`, deepFind, selectorJSON, eventType, string(detailJSON))
 	}
 
 	result, err := s.page.Evaluate(js)

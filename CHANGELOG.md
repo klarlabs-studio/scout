@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-05-24
+
+### Added
+
+- **Shadow DOM piercing across every action surface.** v1.9.0 landed
+  piercing in form discovery + `resolveSelector`; v1.10.0 finishes
+  the job by extending the deep-find walker to every remaining
+  selector lookup so any Lit / Stencil / Web Components UI is fully
+  driveable.
+- **`wait.ForSelector` / `ForVisible` / `ForHidden`** poll through
+  a `__scoutFind` walker that descends into open shadow roots.
+  Fixes `click`, `type`, and every higher-level action that called
+  `Page.WaitForSelector` first — they used to time out for 60s on
+  shadow-rooted nodes because the wait predicate evaluated against
+  the document scope only.
+- **`Session.DispatchEvent`** routes `submit`, `click`, and the
+  generic custom-event branch through the same piercing find.
+  Lit form submission via `dispatchEvent("form", "submit")` now
+  works end to end.
+- **`Session.AnnotatedScreenshot` + `ClickLabel`** enumerate
+  interactive elements via a shadow-DOM walker so the annotated
+  label list includes buttons / inputs / anchors inside custom
+  elements. `click_label` re-queries with the same walker.
+
+### Tests
+
+- `agent/shadow_dom_test.go` grows two new integration cases:
+  - `TestShadowDOM_DispatchEvent_PiercesShadowRoots` — clicks a
+    shadow-rooted button twice via DispatchEvent and asserts the
+    counter wired inside the shadow root updates.
+  - `TestShadowDOM_AnnotatedScreenshot_EnumeratesShadowChildren`
+    — annotates a page whose only interactive element lives in a
+    shadow root and asserts it shows up in the element list.
+- `internal/wait/wait_test.go` snapshot tests updated to assert
+  the new substring-based contract (`__scoutFind(document, ...)`)
+  rather than the old single-line `document.querySelector`.
+
 ## [1.9.0] - 2026-05-24
 
 ### Added
