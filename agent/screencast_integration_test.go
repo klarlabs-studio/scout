@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/scout/agent"
+	"go.klarlabs.de/scout/agent"
 )
 
 // End-to-end screen recording: drive a real Chrome via CDP, capture frames

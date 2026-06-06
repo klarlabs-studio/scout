@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/felixgeelhaar/scout/internal/cdp"
-	"github.com/felixgeelhaar/scout/internal/launcher"
+	"go.klarlabs.de/scout/internal/cdp"
+	"go.klarlabs.de/scout/internal/launcher"
 )
 
 // taskEntry stores a registered task with its full handler chain.

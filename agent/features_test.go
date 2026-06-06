@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/felixgeelhaar/scout/agent"
+	"go.klarlabs.de/scout/agent"
 )
 
 func featureTestServer() *httptest.Server {

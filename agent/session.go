@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // Session manages a stateful browser automation session for an agent.

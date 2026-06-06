@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/felixgeelhaar/mcp-go"
+	"go.klarlabs.de/mcp"
 
-	browse "github.com/felixgeelhaar/scout"
-	"github.com/felixgeelhaar/scout/agent"
+	browse "go.klarlabs.de/scout"
+	"go.klarlabs.de/scout/agent"
 )
 
 type MCPErrorEnvelope struct {

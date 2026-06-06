@@ -1,7 +1,7 @@
 package browse
 
 import (
-	"github.com/felixgeelhaar/statekit"
+	"go.klarlabs.de/statekit"
 )
 
 // Task lifecycle events

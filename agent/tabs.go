@@ -3,7 +3,7 @@ package agent
 import (
 	"fmt"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // tabEntry holds a named tab/page.

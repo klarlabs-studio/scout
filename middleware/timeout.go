@@ -5,9 +5,9 @@ import (
 	"context"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 
-	"github.com/felixgeelhaar/fortify/timeout"
+	"go.klarlabs.de/fortify/timeout"
 )
 
 // Timeout returns middleware that enforces a per-task deadline using fortify's Timeout pattern.

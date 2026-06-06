@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 
-	"github.com/felixgeelhaar/fortify/circuitbreaker"
+	"go.klarlabs.de/fortify/circuitbreaker"
 )
 
 // CircuitBreakerConfig configures the CircuitBreaker middleware.

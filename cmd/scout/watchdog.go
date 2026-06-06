@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
-	"github.com/felixgeelhaar/mcp-go/protocol"
+	mcp "go.klarlabs.de/mcp"
+	"go.klarlabs.de/mcp/protocol"
 )
 
 // defaultToolTimeout is the per-tool-call deadline applied to every

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/felixgeelhaar/scout/agent"
+	"go.klarlabs.de/scout/agent"
 )
 
 // SessionManager maps thread IDs to browser sessions with idle cleanup.

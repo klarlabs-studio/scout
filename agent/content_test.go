@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/scout/agent"
+	"go.klarlabs.de/scout/agent"
 )
 
 func TestMarkdown(t *testing.T) {

@@ -48,53 +48,53 @@ changelog:
 
 dockers:
   - image_templates:
-      - "ghcr.io/felixgeelhaar/scout:{{ .Version }}-amd64"
+      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-amd64"
     use: buildx
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.source=https://github.com/felixgeelhaar/scout"
+      - "--label=org.opencontainers.image.source=https://github.com/klarlabs-studio/scout"
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=io.modelcontextprotocol.server.name=io.github.felixgeelhaar/scout"
+      - "--label=io.modelcontextprotocol.server.name=io.github.klarlabs-studio/scout"
     dockerfile: Dockerfile
     goos: linux
     goarch: amd64
 
   - image_templates:
-      - "ghcr.io/felixgeelhaar/scout:{{ .Version }}-arm64"
+      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-arm64"
     use: buildx
     build_flag_templates:
       - "--pull"
       - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.source=https://github.com/felixgeelhaar/scout"
+      - "--label=org.opencontainers.image.source=https://github.com/klarlabs-studio/scout"
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=io.modelcontextprotocol.server.name=io.github.felixgeelhaar/scout"
+      - "--label=io.modelcontextprotocol.server.name=io.github.klarlabs-studio/scout"
     dockerfile: Dockerfile
     goos: linux
     goarch: arm64
 
 docker_manifests:
-  - name_template: "ghcr.io/felixgeelhaar/scout:{{ .Version }}"
+  - name_template: "ghcr.io/klarlabs-studio/scout:{{ .Version }}"
     image_templates:
-      - "ghcr.io/felixgeelhaar/scout:{{ .Version }}-amd64"
-      - "ghcr.io/felixgeelhaar/scout:{{ .Version }}-arm64"
+      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-amd64"
+      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-arm64"
 
-  - name_template: "ghcr.io/felixgeelhaar/scout:latest"
+  - name_template: "ghcr.io/klarlabs-studio/scout:latest"
     image_templates:
-      - "ghcr.io/felixgeelhaar/scout:{{ .Version }}-amd64"
-      - "ghcr.io/felixgeelhaar/scout:{{ .Version }}-arm64"
+      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-amd64"
+      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-arm64"
 
 brews:
   - repository:
-      owner: felixgeelhaar
+      owner: klarlabs-studio
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/felixgeelhaar/scout"
+    homepage: "https://github.com/klarlabs-studio/scout"
     description: "MCP server for AI-powered browser automation"
     license: "MIT"
     install: |

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // AnnotatedScreenshot captures a screenshot with numbered labels overlaid on

@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.felixgeelhaar/scout",
+  "name": "io.github.klarlabs-studio/scout",
   "title": "Scout",
   "description": "Browser automation MCP server with 84 tools. Pure CDP, DOM diffing, vision hybrid.",
   "repository": {
-    "url": "https://github.com/felixgeelhaar/scout",
+    "url": "https://github.com/klarlabs-studio/scout",
     "source": "github"
   },
   "version": "1.7.0",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/felixgeelhaar/scout:v1.7.0",
+      "identifier": "ghcr.io/klarlabs-studio/scout:v1.7.0",
       "transport": {
         "type": "stdio"
       },

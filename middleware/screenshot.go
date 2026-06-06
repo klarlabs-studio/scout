@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // ScreenshotOnError returns middleware that captures a screenshot when a task fails.

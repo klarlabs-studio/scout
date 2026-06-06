@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // SelectorNotFoundError is returned when a selector cannot be resolved.

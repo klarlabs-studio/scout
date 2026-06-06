@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 
-	"github.com/felixgeelhaar/fortify/ratelimit"
+	"go.klarlabs.de/fortify/ratelimit"
 )
 
 // RateLimitConfig configures the RateLimit middleware.
@@ -29,7 +29,7 @@ func RateLimit(cfg RateLimitConfig) browse.HandlerFunc {
 		cfg.Burst = cfg.Rate
 	}
 
-	rl := ratelimit.New(&ratelimit.Config{
+	rl := ratelimit.New(ratelimit.Config{
 		Rate:     cfg.Rate,
 		Burst:    cfg.Burst,
 		Interval: cfg.Interval,

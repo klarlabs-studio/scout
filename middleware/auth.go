@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // CookieAuth returns middleware that injects cookies before task execution.

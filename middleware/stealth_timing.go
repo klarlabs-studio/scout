@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // HumanDelay returns middleware that adds a random delay between min and max

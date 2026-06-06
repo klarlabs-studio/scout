@@ -3,7 +3,7 @@ title: "How I Replaced Playwright MCP with a Single Go Binary"
 published: false
 description: "Scout is a 66-tool MCP server that gives AI agents a real browser — pure CDP, zero runtime dependencies, built for token efficiency."
 tags: go, ai, mcp, automation
-cover_image: https://felixgeelhaar.github.io/scout/logo.svg
+cover_image: https://klarlabs-studio.github.io/scout/logo.svg
 ---
 
 # How I Replaced Playwright MCP with a Single Go Binary
@@ -19,7 +19,7 @@ I built **Scout** to fix both problems.
 Scout is a single Go binary that implements the Chrome DevTools Protocol directly over WebSocket. No rod, no chromedp, no Node.js, no Python. You install it with Homebrew and register it as an MCP server in one line:
 
 ```bash
-brew install felixgeelhaar/tap/scout
+brew install klarlabs-studio/tap/scout
 claude mcp add scout -- scout mcp serve
 ```
 
@@ -144,12 +144,12 @@ Later, `replay_playbook` re-executes the entire flow without involving the LLM a
 
 ## Built on Purpose-Built Libraries
 
-Scout does not pull in massive framework dependencies. The resilience middleware comes from [fortify](https://github.com/felixgeelhaar/fortify), a standalone library for retry, circuit breaker, and bulkhead patterns. Structured logging uses [bolt](https://github.com/felixgeelhaar/bolt), a zero-allocation logger. The MCP protocol implementation uses [mcp-go](https://github.com/felixgeelhaar/mcp-go). State machine transitions (pending, running, success, failed, aborted) use [statekit](https://github.com/felixgeelhaar/statekit). Each piece is independently testable and reusable.
+Scout does not pull in massive framework dependencies. The resilience middleware comes from [fortify](https://github.com/klarlabs-studio/fortify), a standalone library for retry, circuit breaker, and bulkhead patterns. Structured logging uses [bolt](https://github.com/klarlabs-studio/bolt), a zero-allocation logger. The MCP protocol implementation uses [mcp-go](https://github.com/klarlabs-studio/mcp-go). State machine transitions (pending, running, success, failed, aborted) use [statekit](https://github.com/klarlabs-studio/statekit). Each piece is independently testable and reusable.
 
 ## Try It
 
 ```bash
-brew install felixgeelhaar/tap/scout
+brew install klarlabs-studio/tap/scout
 scout observe https://news.ycombinator.com
 ```
 
@@ -161,6 +161,6 @@ To use it as an MCP server with Claude Code:
 claude mcp add scout -- scout mcp serve
 ```
 
-The source is at [github.com/felixgeelhaar/scout](https://github.com/felixgeelhaar/scout). MIT licensed. Stars and contributions are welcome -- especially around additional framework detectors, new extraction strategies, and real-world playbook examples.
+The source is at [go.klarlabs.de/scout](https://github.com/klarlabs-studio/scout). MIT licensed. Stars and contributions are welcome -- especially around additional framework detectors, new extraction strategies, and real-world playbook examples.
 
 If you have been frustrated by the weight and token cost of existing browser MCP tools, give Scout a try. It is one binary, and it just works.

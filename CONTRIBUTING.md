@@ -5,7 +5,7 @@ Thanks for your interest in contributing to Scout (scout).
 ## Development Setup
 
 ```bash
-git clone https://github.com/felixgeelhaar/scout.git
+git clone https://github.com/klarlabs-studio/scout.git
 cd scout
 make hooks    # install pre-commit hook
 make all      # fmt, vet, lint, test

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/scout/internal/cdp"
-	"github.com/felixgeelhaar/scout/internal/wait"
+	"go.klarlabs.de/scout/internal/cdp"
+	"go.klarlabs.de/scout/internal/wait"
 )
 
 // flatNode holds a subset of a DOM node from getFlattenedDocument.

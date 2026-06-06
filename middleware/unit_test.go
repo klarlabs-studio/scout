@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/felixgeelhaar/scout/agent"
+	"go.klarlabs.de/scout/agent"
 )
 
 // ToolDef describes a tool available to the LLM.

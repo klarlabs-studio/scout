@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 func newSelectionFromPage(page *browse.Page, nodeID int64, selector string) *browse.Selection {

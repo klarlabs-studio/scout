@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 
-	"github.com/felixgeelhaar/fortify/retry"
+	"go.klarlabs.de/fortify/retry"
 )
 
 // RetryConfig configures the Retry middleware.
@@ -40,7 +40,7 @@ func Retry(cfg RetryConfig) browse.HandlerFunc {
 	return func(c *browse.Context) {
 		savedIdx := c.SaveIndex()
 
-		_, err := r.Do(c.GoContext(), func(ctx context.Context) (struct{}, error) {
+		_, err := r.Execute(c.GoContext(), func(ctx context.Context) (struct{}, error) {
 			c.RestoreIndex(savedIdx)
 			c.Next()
 			if errs := c.Errors(); len(errs) > 0 {

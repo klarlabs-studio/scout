@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // BlockResources returns middleware that blocks requests for specified resource types.

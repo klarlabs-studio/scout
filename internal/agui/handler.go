@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/felixgeelhaar/scout/agent"
+	"go.klarlabs.de/scout/agent"
 )
 
 const maxToolLoops = 10

@@ -50,7 +50,7 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           jq --arg v "$VERSION" '.version = $v' server.json > server.tmp && mv server.tmp server.json
-          jq --arg id "ghcr.io/felixgeelhaar/scout:${VERSION}" '.packages[0].identifier = $id' server.json > server.tmp && mv server.tmp server.json
+          jq --arg id "ghcr.io/klarlabs-studio/scout:${VERSION}" '.packages[0].identifier = $id' server.json > server.tmp && mv server.tmp server.json
 
       - name: Install mcp-publisher
         run: |

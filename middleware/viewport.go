@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // Viewport returns middleware that sets the viewport dimensions for the task's page.

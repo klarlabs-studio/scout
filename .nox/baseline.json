@@ -335,6 +335,174 @@
       "file_path": ".github/workflows/ci.yml",
       "severity": "high",
       "created_at": "2026-05-10T09:09:05.210271Z"
+    },
+    {
+      "fingerprint": "15271fd307148edd3b22f6933af0e8b03341dda16a7ae74a3539e3b90c27a83e",
+      "rule_id": "IAC-314",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "89e2decc496a53c723d50fd7d83dbd52ca9b329f8b9d557e21471f96008000ec",
+      "rule_id": "IAC-314",
+      "file_path": ".github/workflows/dependabot-auto-merge.yml",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "4ecc70ce1c01d335038c22d0c69b64318c2da83df92d29a506f1b118dddb307f",
+      "rule_id": "SEC-161",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "4de6521e89cf01842f48686c73a65244e29b4c00cb8791c1b3d81afa54bdf63a",
+      "rule_id": "SEC-162",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "363fde11068ae5e624da1c99fbcac2b6c9f9ead09986cc6f585754123cd3765e",
+      "rule_id": "SEC-163",
+      "file_path": ".github/workflows/dependabot-auto-merge.yml",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "c0be3572252f3c5ce3295185f08b2ec8374b6e1db0cf6f3373379b4f00ff5774",
+      "rule_id": "SEC-163",
+      "file_path": "agent/session.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "d168d5bbeef7267ae7c8a2c969e588a5a121517a6cb3d34db4d44d486f46e4ea",
+      "rule_id": "SEC-163",
+      "file_path": "agent/session.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "10e970c1c33a7d77ec6da406da9e776f20bf84ac2281fc7604eb5d1a166eedfd",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "d5a4ba09bb55b3183c9b8194eb8c7bad3753fe59bd9e68ce82236628ef4f00aa",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "e6c735621765e42e7ea4ba6c8165f7f3e997338ad40280f129fd8e390779122a",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "ddb264f4707f8070f1c7e9de2f005cc48f2c91b4b0879a1441f71fd077bdd4ce",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "8f06b761ddc2082c06e1e66fbbab9f248818009a775af8a446d089b294c2ebe7",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "20449ea28d3cdaf4bd3d4db267a368f6cfd3a9d358ff6adef3a781f3735617b9",
+      "rule_id": "SEC-163",
+      "file_path": "cmd/scout/mcp.go",
+      "severity": "medium",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "54e6bee15bb2dfd3ab077a5bf6faf8847efa83dbeff6b4ab23d2be2b06cdd1a7",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "1a291e88949a75af78c710d695a87d581cf955807419de0ab51d2ee92f964187",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "5cffbfae1e555252704d10f7432f1ace556d1d80887c3702d3ecfbee9b72d603",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "3d0a1784094b2e9d9a0a1d406b1a1da6410c7b179046b05a35e5190a1440a294",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "44032e521e5ed753731c5c699170f851c893ed65c01aeae824ebfadf351e2100",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "fca3467a023591a469b720f82555f8e442ae215673b14d3f6d299fccf9ea7090",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "b7d8673f5ed1d908efebb11e64b37f86a38e12960a42a100edc838e92f75b349",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "6930b672fd524b4ab8a37c283317af9f3336665a5dd970422524f3d2ad09305d",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "a37b48b85e1d4ababad854e9c2b3a67c71cc1cca758c738f9666f32dc34a8f7c",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "2074741c6084e3381d04f7e5d45ce387036d5161c115f7bd15c3165702cc8727",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
+    },
+    {
+      "fingerprint": "61b4925761ff59c603ddeb35258b19f35f75977928f41dc967396120153823b1",
+      "rule_id": "SEC-697",
+      "file_path": ".github/workflows/ci.yml",
+      "severity": "high",
+      "created_at": "2026-06-06T20:30:18.218963Z"
     }
   ]
 }

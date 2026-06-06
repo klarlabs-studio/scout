@@ -14,8 +14,8 @@ import (
 	"os"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
-	"github.com/felixgeelhaar/scout/middleware"
+	browse "go.klarlabs.de/scout"
+	"go.klarlabs.de/scout/middleware"
 )
 
 func main() {

@@ -139,7 +139,7 @@ Return estimated cost metadata with Observe responses so agents can make better 
 
 ## Distribution — GoReleaser, Homebrew, Install Script
 
-Cross-platform distribution via GoReleaser: builds for linux/darwin/windows x amd64/arm64, injects version+commit via ldflags, publishes GitHub Releases with SHA256 checksums, auto-updates Homebrew formula in felixgeelhaar/homebrew-tap. Install methods: brew install felixgeelhaar/tap/scout, curl install script (auto-detects OS/arch), go install github.com/felixgeelhaar/scout/cmd/scout@latest. GitHub Actions CI: test matrix (3 Go versions x 2 OS), lint, vet, build. Release workflow triggers on v* tags. GitHub Pages landing page at docs/index.html.
+Cross-platform distribution via GoReleaser: builds for linux/darwin/windows x amd64/arm64, injects version+commit via ldflags, publishes GitHub Releases with SHA256 checksums, auto-updates Homebrew formula in felixgeelhaar/homebrew-tap. Install methods: brew install klarlabs-studio/tap/scout, curl install script (auto-detects OS/arch), go install go.klarlabs.de/scout/cmd/scout@latest. GitHub Actions CI: test matrix (3 Go versions x 2 OS), lint, vet, build. Release workflow triggers on v* tags. GitHub Pages landing page at docs/index.html.
 
 ---
 

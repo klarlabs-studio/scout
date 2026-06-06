@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 
-	"github.com/felixgeelhaar/fortify/bulkhead"
+	"go.klarlabs.de/fortify/bulkhead"
 )
 
 // BulkheadConfig configures the Bulkhead middleware.

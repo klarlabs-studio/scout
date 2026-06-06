@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository
 
-GitHub: `felixgeelhaar/scout`. Use `gh` CLI with this repo for issues, PRs, releases (e.g. `gh issue list -R felixgeelhaar/scout`).
+GitHub: `klarlabs-studio/scout`. Use `gh` CLI with this repo for issues, PRs, releases (e.g. `gh issue list -R klarlabs-studio/scout`).
 
 ## What This Is
 
@@ -98,10 +98,10 @@ The `internal/agui` package adds a third interface: an AG-UI protocol HTTP serve
 
 | Package | Role |
 |---------|------|
-| `felixgeelhaar/bolt` | Logger/Recovery middleware (zero-alloc structured logging) |
-| `felixgeelhaar/fortify` | Retry, Timeout, CircuitBreaker, RateLimit, Bulkhead middleware |
-| `felixgeelhaar/statekit` | Task lifecycle state machine (pending→running→success/failed/aborted) |
-| `felixgeelhaar/mcp-go` | MCP server framework for `cmd/scout` |
+| `go.klarlabs.de/bolt` | Logger/Recovery middleware (zero-alloc structured logging) |
+| `go.klarlabs.de/fortify` | Retry, Timeout, CircuitBreaker, RateLimit, Bulkhead middleware |
+| `go.klarlabs.de/statekit` | Task lifecycle state machine (pending→running→success/failed/aborted) |
+| `go.klarlabs.de/mcp` | MCP server framework for `cmd/scout` |
 | `gorilla/websocket` | CDP WebSocket transport |
 
 ## Lint Configuration

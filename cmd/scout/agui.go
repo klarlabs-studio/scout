@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/felixgeelhaar/scout/internal/agui"
+	"go.klarlabs.de/scout/internal/agui"
 )
 
 func serveUI(args []string) {

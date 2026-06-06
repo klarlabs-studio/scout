@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Install scout binary.
-# Usage: curl -fsSL https://raw.githubusercontent.com/felixgeelhaar/scout/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/klarlabs-studio/scout/main/install.sh | bash
 set -euo pipefail
 
-REPO="felixgeelhaar/scout"
+REPO="klarlabs-studio/scout"
 BINARY="scout"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 

@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/felixgeelhaar/scout/agent"
+	"go.klarlabs.de/scout/agent"
 )
 
 // runWatch re-runs observe on a URL at intervals and prints diffs.

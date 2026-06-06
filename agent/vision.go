@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 func (s *Session) HybridObserve() (*HybridResult, error) {

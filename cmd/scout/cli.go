@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/scout/agent"
+	"go.klarlabs.de/scout/agent"
 )
 
 // cliSession wraps an agent.Session for single-command execution.

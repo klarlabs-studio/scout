@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"math/big"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 var userAgents = []string{

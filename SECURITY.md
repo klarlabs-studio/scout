@@ -6,7 +6,7 @@ If you discover a security vulnerability in Scout (scout), please report it resp
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, please email security concerns to the maintainer or use [GitHub Security Advisories](https://github.com/felixgeelhaar/scout/security/advisories/new).
+Instead, please email security concerns to the maintainer or use [GitHub Security Advisories](https://github.com/klarlabs-studio/scout/security/advisories/new).
 
 ## Security Model
 

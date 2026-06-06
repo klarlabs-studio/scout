@@ -7,10 +7,10 @@
 <p align="center"><strong>Browser automation, one binary.</strong> The simpler alternative to Playwright — no Node, no Python, no runtime. Drive a real browser from Go, any shell, any AI agent (built-in MCP server), or a chat UI.</p>
 
 <p align="center">
-  <a href="https://github.com/felixgeelhaar/scout/releases"><img src="https://img.shields.io/github/v/release/felixgeelhaar/scout?style=flat-square&color=3b82f6" alt="Release"></a>
-  <a href="https://github.com/felixgeelhaar/scout/blob/main/LICENSE"><img src="https://img.shields.io/github/license/felixgeelhaar/scout?style=flat-square" alt="License"></a>
-  <a href="https://github.com/felixgeelhaar/scout/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/felixgeelhaar/scout/ci.yml?style=flat-square&label=CI" alt="CI"></a>
-  <a href="https://pkg.go.dev/github.com/felixgeelhaar/scout"><img src="https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square" alt="Go Reference"></a>
+  <a href="https://github.com/klarlabs-studio/scout/releases"><img src="https://img.shields.io/github/v/release/klarlabs-studio/scout?style=flat-square&color=3b82f6" alt="Release"></a>
+  <a href="https://github.com/klarlabs-studio/scout/blob/main/LICENSE"><img src="https://img.shields.io/github/license/klarlabs-studio/scout?style=flat-square" alt="License"></a>
+  <a href="https://github.com/klarlabs-studio/scout/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/klarlabs-studio/scout/ci.yml?style=flat-square&label=CI" alt="CI"></a>
+  <a href="https://pkg.go.dev/go.klarlabs.de/scout"><img src="https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square" alt="Go Reference"></a>
   <img src="https://img.shields.io/badge/coverage-80%25-brightgreen?style=flat-square" alt="Coverage">
   <img src="docs/nox-badge.svg?v=2" alt="Security">
 </p>
@@ -18,7 +18,7 @@
 A single statically-linked `scout` binary gives you a CLI, a 77-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
 
 ```bash
-brew install felixgeelhaar/tap/scout
+brew install klarlabs-studio/tap/scout
 ```
 
 ## vs. Playwright
@@ -56,16 +56,16 @@ cd ui && npm install && npm run dev  # open http://localhost:3000
 
 ```bash
 # Homebrew
-brew install felixgeelhaar/tap/scout
+brew install klarlabs-studio/tap/scout
 
 # Direct binary
-curl -fsSL https://raw.githubusercontent.com/felixgeelhaar/scout/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/klarlabs-studio/scout/main/install.sh | bash
 
 # Go
-go install github.com/felixgeelhaar/scout/cmd/scout@latest
+go install go.klarlabs.de/scout/cmd/scout@latest
 
 # As a library
-go get github.com/felixgeelhaar/scout
+go get go.klarlabs.de/scout
 ```
 
 ## MCP Server — 77 Tools

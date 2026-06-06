@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // Hover moves the mouse over an element, triggering CSS :hover states and tooltips.

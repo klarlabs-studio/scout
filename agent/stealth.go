@@ -1,8 +1,8 @@
 package agent
 
 import (
-	browse "github.com/felixgeelhaar/scout"
-	"github.com/felixgeelhaar/scout/middleware"
+	browse "go.klarlabs.de/scout"
+	"go.klarlabs.de/scout/middleware"
 )
 
 // applyStealthPatches injects anti-detection scripts into the page.

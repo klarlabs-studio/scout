@@ -3,7 +3,7 @@ package middleware
 import (
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 // SlowMotion returns middleware that adds an artificial delay after each task handler.

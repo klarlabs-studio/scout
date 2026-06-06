@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 func (s *Session) ExecuteBatch(actions []BatchAction) (*BatchResult, error) {

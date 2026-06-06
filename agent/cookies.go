@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	browse "github.com/felixgeelhaar/scout"
+	browse "go.klarlabs.de/scout"
 )
 
 func browseCookie(c CookieInput) browse.Cookie {
