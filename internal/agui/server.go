@@ -95,7 +95,7 @@ func Serve(ctx context.Context, cfg ServerConfig) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	go func() { //nolint:gosec // G118: shutdown deliberately uses a fresh context; the server ctx is already canceled (that is the trigger)
+	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

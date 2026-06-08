@@ -175,7 +175,7 @@ func (r *Recorder) SaveVideo(outputPath string, fps int) error {
 
 	inputPattern := filepath.Join(r.dir, fmt.Sprintf("frame_%%05d.%s", ext))
 
-	cmd := exec.Command("ffmpeg", //nolint:gosec // G204: ffmpeg invocation with internal frame paths is intentional
+	cmd := exec.Command("ffmpeg",
 		"-y",
 		"-framerate", fmt.Sprintf("%d", fps),
 		"-i", inputPattern,
@@ -217,7 +217,7 @@ func (r *Recorder) SaveGIF(outputPath string, fps int) error {
 
 	inputPattern := filepath.Join(r.dir, fmt.Sprintf("frame_%%05d.%s", ext))
 
-	cmd := exec.Command("ffmpeg", //nolint:gosec // G204: ffmpeg invocation with internal frame paths is intentional
+	cmd := exec.Command("ffmpeg",
 		"-y",
 		"-framerate", fmt.Sprintf("%d", fps),
 		"-i", inputPattern,

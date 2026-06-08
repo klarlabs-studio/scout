@@ -308,7 +308,7 @@ func (rec *screenRecording) cleanup() {
 // timestamp delta looks bogus.
 func writeConcatList(path string, frames []frameMeta) error {
 	const fallbackDur = 1.0 / 30.0
-	f, err := os.Create(path) //nolint:gosec // G304: caller-controlled concat-list path is intentional
+	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
@@ -357,7 +357,7 @@ func encodeFFmpeg(listPath, outPath, format string) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "ffmpeg", args...) //nolint:gosec // G204: ffmpeg invocation with internal frame paths is intentional
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ffmpeg encode failed: %w: %s", err, string(out))

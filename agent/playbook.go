@@ -111,7 +111,7 @@ func SavePlaybook(pb *Playbook, path string) error {
 
 // LoadPlaybook loads a playbook from a JSON file.
 func LoadPlaybook(path string) (*Playbook, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // G304: caller-controlled playbook path is intentional
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

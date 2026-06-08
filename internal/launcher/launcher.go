@@ -87,7 +87,7 @@ func Launch(opts Options) (*Browser, error) {
 		args = append([]string{fmt.Sprintf("--proxy-server=%s", opts.ProxyServer)}, args...)
 	}
 
-	cmd := exec.Command(chromePath, args...) //nolint:gosec // G204: launching the resolved Chrome binary is the launcher's purpose
+	cmd := exec.Command(chromePath, args...)
 	cmd.Stderr = nil
 	cmd.Stdout = nil
 
@@ -171,7 +171,7 @@ func findChrome() (string, error) {
 
 	for _, c := range candidates {
 		if filepath.IsAbs(c) {
-			if _, err := os.Stat(c); err == nil { //nolint:gosec // G703: candidate Chrome paths come from a known list + operator env/config, not attacker input
+			if _, err := os.Stat(c); err == nil {
 				return c, nil
 			}
 		} else {
@@ -205,7 +205,7 @@ func waitForDevTools(port int, timeout time.Duration) (string, error) {
 func fetchWSURL(port int) (string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d/json/version", port)
 
-	resp, err := http.Get(url) //nolint:gosec // local devtools endpoint
+	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
 	}

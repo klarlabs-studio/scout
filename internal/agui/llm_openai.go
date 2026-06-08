@@ -46,7 +46,7 @@ func (o *OpenAIProvider) StreamChat(ctx context.Context, req ChatRequest, cb fun
 	}
 
 	url := o.BaseURL + "/v1/chat/completions"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBody)) //nolint:gosec // G704: url is the operator-configured LLM endpoint, not attacker input
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return fmt.Errorf("openai: failed to create request: %w", err)
 	}
@@ -55,7 +55,7 @@ func (o *OpenAIProvider) StreamChat(ctx context.Context, req ChatRequest, cb fun
 		httpReq.Header.Set("Authorization", "Bearer "+o.APIKey)
 	}
 
-	resp, err := o.client.Do(httpReq) //nolint:gosec // G704: request targets the operator-configured LLM endpoint, not attacker input
+	resp, err := o.client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("openai: request failed: %w", err)
 	}

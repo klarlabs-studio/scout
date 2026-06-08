@@ -52,7 +52,7 @@ func (s *Session) writeTraceZip(path string, trace *traceState) (*TraceResult, e
 	}
 
 	// Path is the caller-requested trace destination (CLI/MCP input).
-	f, err := os.Create(path) //nolint:gosec // G304: caller-controlled output path is intentional
+	f, err := os.Create(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace file: %w", err)
 	}
