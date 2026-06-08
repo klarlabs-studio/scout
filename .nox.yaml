@@ -1,0 +1,26 @@
+scan:
+  exclude:
+    # Baseline file: contains high-entropy fingerprint hashes (SHA-256 hex)
+    # that match the SEC-680 "Prometheus API key" regex; these ARE the
+    # finding fingerprints, not actual secrets.
+    - ".nox/baseline.json"
+    # go.sum: module digests look like API keys to entropy-based detectors.
+    - "go.sum"
+    - "**/go.sum"
+    # CI workflows: pinned commit SHAs + GITHUB_TOKEN references look like
+    # secret patterns to entropy-based rules.
+    - ".github/workflows/*.yml"
+    # Documentation contains example code snippets and curl commands with
+    # placeholder tokens / API keys.
+    - "README.md"
+    - "CHANGELOG.md"
+    - "docs/*.md"
+    - "**/README.md"
+    # Generated coverage badge.
+    - "assets/coverage-badge.svg"
+    # Grafana dashboard JSON contains Prometheus query expressions that
+    # match SEC-680 against `prometheus_*_total` metric names.
+    - "assets/grafana/*.json"
+    # Generated artifacts.
+    - "nox-out/"
+    - "release-artifacts/"
