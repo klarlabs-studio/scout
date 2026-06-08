@@ -680,25 +680,26 @@ func matchFlatNode(nodes []flatNode, selector string) int64 {
 			continue
 		}
 		attrs := attrMap(n.Attributes)
-		if strings.HasPrefix(selector, "#") {
+		switch {
+		case strings.HasPrefix(selector, "#"):
 			if attrs["id"] == selector[1:] {
 				return n.NodeID
 			}
-		} else if strings.HasPrefix(selector, ".") {
+		case strings.HasPrefix(selector, "."):
 			cls := selector[1:]
 			for _, c := range strings.Fields(attrs["class"]) {
 				if c == cls {
 					return n.NodeID
 				}
 			}
-		} else if ok {
+		case ok:
 			if tag != "" && !strings.EqualFold(n.NodeName, tag) {
 				continue
 			}
 			if attrs[attrKey] == attrVal {
 				return n.NodeID
 			}
-		} else if !strings.ContainsAny(selector, "#.[]:>+~ ") {
+		case !strings.ContainsAny(selector, "#.[]:>+~ "):
 			if strings.EqualFold(n.NodeName, selector) {
 				return n.NodeID
 			}

@@ -577,11 +577,12 @@ func MatchFormFieldWithScore(humanName string, fields []FormFieldInfo) (*FormFie
 		}
 
 		// Name/ID match
-		if strings.EqualFold(f.Name, humanName) || strings.EqualFold(f.ID, humanName) {
+		switch {
+		case strings.EqualFold(f.Name, humanName) || strings.EqualFold(f.ID, humanName):
 			score = max(score, 90)
-		} else if strings.Contains(strings.ToLower(f.Name), humanLower) {
+		case strings.Contains(strings.ToLower(f.Name), humanLower):
 			score = max(score, 70)
-		} else if strings.Contains(strings.ToLower(f.ID), humanLower) {
+		case strings.Contains(strings.ToLower(f.ID), humanLower):
 			score = max(score, 60)
 		}
 

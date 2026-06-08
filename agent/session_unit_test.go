@@ -77,7 +77,7 @@ func TestSetContentOptions(t *testing.T) {
 
 func TestTraceBeforeAction_NotTracing(t *testing.T) {
 	s := newTestSession()
-	start, before := s.traceBeforeAction("click", "#btn", "", "")
+	start, before := s.traceBeforeAction()
 	if !start.IsZero() {
 		t.Error("start should be zero when not tracing")
 	}
@@ -155,7 +155,7 @@ func TestTraceBeforeAction_Tracing(t *testing.T) {
 	s.tracing = true
 	s.trace = &traceState{startTime: time.Now()}
 
-	start, _ := s.traceBeforeAction("click", "#btn", "", "")
+	start, _ := s.traceBeforeAction()
 	if start.IsZero() {
 		t.Error("start should not be zero when tracing")
 	}

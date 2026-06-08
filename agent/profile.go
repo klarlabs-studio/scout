@@ -98,7 +98,7 @@ func (s *Session) SaveProfile(path string) error {
 // LoadProfile reads a JSON profile file and applies it to the session.
 // Convenience wrapper around file read + ApplyProfile.
 func (s *Session) LoadProfile(path string) error {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: caller-controlled profile path is intentional
 	if err != nil {
 		return fmt.Errorf("failed to read profile: %w", err)
 	}

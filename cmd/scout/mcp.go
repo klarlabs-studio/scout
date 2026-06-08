@@ -315,6 +315,13 @@ type ObserveDiffResult struct {
 }
 
 func serveMCP() {
+	if err := runMCP(); err != nil {
+		fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runMCP() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -1272,7 +1279,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 		mcp.WithMiddleware(watchdogMiddleware(resolveToolTimeout())),
 	}
 	if err := mcp.ServeStdio(ctx, srv, serveOpts...); err != nil && err != context.Canceled {
-		fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }

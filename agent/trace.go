@@ -47,11 +47,12 @@ func (s *Session) StopTrace(path string) (*TraceResult, error) {
 }
 
 func (s *Session) writeTraceZip(path string, trace *traceState) (*TraceResult, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	f, err := os.Create(path)
+	// Path is the caller-requested trace destination (CLI/MCP input).
+	f, err := os.Create(path) //nolint:gosec // G304: caller-controlled output path is intentional
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace file: %w", err)
 	}
@@ -157,7 +158,7 @@ func (s *Session) captureTraceScreenshot() []byte {
 	return data
 }
 
-func (s *Session) traceBeforeAction(action, selector, value, url string) (time.Time, []byte) {
+func (s *Session) traceBeforeAction() (time.Time, []byte) {
 	if !s.tracing {
 		return time.Time{}, nil
 	}

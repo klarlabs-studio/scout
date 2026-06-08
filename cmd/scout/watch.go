@@ -77,7 +77,7 @@ func runWatch(url string, flags cliFlags) {
 }
 
 // runPipe reads URLs from stdin and runs a command on each.
-func runPipe(args []string, flags cliFlags) {
+func runPipe(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Usage: echo urls | scout pipe <command> [selector]")
 		os.Exit(1)
@@ -87,6 +87,19 @@ func runPipe(args []string, flags cliFlags) {
 	selector := ""
 	if len(args) > 1 {
 		selector = args[1]
+	}
+
+	// Validate the command (and its arguments) up front, before launching a
+	// browser, so these usage exits don't skip the cleanup defer below.
+	switch command {
+	case "extract", "observe", "markdown", "screenshot", "frameworks":
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown pipe command: %s (supported: extract, observe, markdown, screenshot, frameworks)\n", command)
+		os.Exit(1)
+	}
+	if command == "extract" && selector == "" {
+		fmt.Fprintln(os.Stderr, "extract requires a selector: scout pipe extract <selector>")
+		os.Exit(1)
 	}
 
 	session, err := agent.NewSession(agent.SessionConfig{
@@ -111,10 +124,6 @@ func runPipe(args []string, flags cliFlags) {
 
 		switch command {
 		case "extract":
-			if selector == "" {
-				fmt.Fprintln(os.Stderr, "extract requires a selector: scout pipe extract <selector>")
-				os.Exit(1)
-			}
 			result, err := session.Extract(selector)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: %v\n", url, err)
@@ -152,9 +161,6 @@ func runPipe(args []string, flags cliFlags) {
 			} else {
 				fmt.Printf("%s\t%s\n", url, strings.Join(fw, ","))
 			}
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown pipe command: %s (supported: extract, observe, markdown, screenshot, frameworks)\n", command)
-			os.Exit(1)
 		}
 	}
 }

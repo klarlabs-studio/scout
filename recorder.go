@@ -103,7 +103,7 @@ func (r *Recorder) Start() error {
 		if err != nil {
 			return
 		}
-		_ = os.WriteFile(path, decoded, 0o644)
+		_ = os.WriteFile(path, decoded, 0o600)
 	})
 
 	// Start the screencast
@@ -175,7 +175,7 @@ func (r *Recorder) SaveVideo(outputPath string, fps int) error {
 
 	inputPattern := filepath.Join(r.dir, fmt.Sprintf("frame_%%05d.%s", ext))
 
-	cmd := exec.Command("ffmpeg",
+	cmd := exec.Command("ffmpeg", //nolint:gosec // G204: ffmpeg invocation with internal frame paths is intentional
 		"-y",
 		"-framerate", fmt.Sprintf("%d", fps),
 		"-i", inputPattern,
@@ -217,7 +217,7 @@ func (r *Recorder) SaveGIF(outputPath string, fps int) error {
 
 	inputPattern := filepath.Join(r.dir, fmt.Sprintf("frame_%%05d.%s", ext))
 
-	cmd := exec.Command("ffmpeg",
+	cmd := exec.Command("ffmpeg", //nolint:gosec // G204: ffmpeg invocation with internal frame paths is intentional
 		"-y",
 		"-framerate", fmt.Sprintf("%d", fps),
 		"-i", inputPattern,

@@ -47,7 +47,7 @@ func (c *ClaudeProvider) StreamChat(ctx context.Context, req ChatRequest, cb fun
 	httpReq.Header.Set("X-Api-Key", c.APIKey)
 	httpReq.Header.Set("Anthropic-Version", "2023-06-01")
 
-	resp, err := c.client.Do(httpReq)
+	resp, err := c.client.Do(httpReq) //nolint:gosec // G704: request targets the operator-configured LLM endpoint, not attacker input
 	if err != nil {
 		return fmt.Errorf("claude: request failed: %w", err)
 	}

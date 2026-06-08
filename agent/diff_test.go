@@ -1,6 +1,9 @@
 package agent
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestClassifyDiff_ModalAppeared(t *testing.T) {
 	tests := []struct {
@@ -283,22 +286,20 @@ func TestClassifyDiff_EmptyDiff(t *testing.T) {
 
 func TestTruncate(t *testing.T) {
 	tests := []struct {
+		name  string
 		input string
-		n     int
 		want  string
 	}{
-		{"hello", 10, "hello"},
-		{"hello", 5, "hello"},
-		{"hello world", 5, "hello..."},
-		{"", 5, ""},
-		{"ab", 1, "a..."},
-		{"abc", 3, "abc"},
+		{"empty", "", ""},
+		{"short", "hello", "hello"},
+		{"exactly limit", strings.Repeat("a", truncateLen), strings.Repeat("a", truncateLen)},
+		{"over limit", strings.Repeat("a", truncateLen+5), strings.Repeat("a", truncateLen) + "..."},
 	}
 	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := truncate(tt.input, tt.n)
+		t.Run(tt.name, func(t *testing.T) {
+			got := truncate(tt.input)
 			if got != tt.want {
-				t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.n, got, tt.want)
+				t.Errorf("truncate(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
