@@ -9,7 +9,7 @@ fmt:
 
 ## Linting
 lint:
-	golangci-lint run --timeout 2m . ./cmd/... ./middleware/... ./internal/...
+	golangci-lint run --timeout 5m ./...
 
 ## Static analysis
 vet:
@@ -19,13 +19,13 @@ vet:
 test:
 	go test -short -race -count=1 ./...
 
-## Integration tests (requires Chrome)
+## Integration tests (requires Chrome; behind the `integration` build tag)
 test-integration:
-	go test -race -timeout 120s -run TestIntegration ./...
+	go test -tags integration -race -timeout 600s -run TestIntegration ./...
 
-## All tests
+## All tests (unit + Chrome integration)
 test-all:
-	go test -race -timeout 180s ./...
+	go test -tags integration -race -timeout 600s ./...
 
 ## Coverage
 cover:

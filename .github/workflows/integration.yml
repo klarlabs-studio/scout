@@ -1,0 +1,62 @@
+# Chrome integration suite — kept out of the shared Go CI caller because it
+# needs a real browser and runs ~5min. The 100+ TestIntegration* cases live
+# behind the `integration` build tag, so the shared caller's unit run never
+# compiles or executes them.
+#
+# Cost-aware matrix (same shape as the rest of the org bar): PRs run ubuntu +
+# Go 1.25 only; push-to-main adds macOS and Go 1.26 to validate OS-specific
+# browser/launcher behavior. macOS = ~10x runner cost, so it stays off PRs.
+name: Integration
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: Integration (Go ${{ matrix.go-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ${{ github.event_name == 'pull_request' && fromJSON('["1.25"]') || fromJSON('["1.25", "1.26"]') }}
+        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest"]') }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      # macOS and Windows GitHub runners ship Google Chrome pre-installed;
+      # only Ubuntu needs an explicit install for chromedp to find a browser.
+      - name: Install Chrome (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable || sudo apt-get install -y chromium-browser
+
+      - name: Integration tests
+        # 100+ integration tests each spin up Chrome; the suite runs ~150s
+        # locally with cache and ~5min on CI under -race. The build tag keeps
+        # these out of the shared unit run.
+        run: go test -tags integration -race -timeout 600s -run TestIntegration ./...

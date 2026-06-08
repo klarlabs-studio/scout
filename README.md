@@ -12,7 +12,7 @@
   <a href="https://github.com/klarlabs-studio/scout/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/klarlabs-studio/scout/ci.yml?style=flat-square&label=CI" alt="CI"></a>
   <a href="https://pkg.go.dev/go.klarlabs.de/scout"><img src="https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square" alt="Go Reference"></a>
   <img src="https://img.shields.io/badge/coverage-80%25-brightgreen?style=flat-square" alt="Coverage">
-  <img src="docs/nox-badge.svg?v=2" alt="Security">
+  <a href="https://github.com/klarlabs-studio/scout/security/code-scanning"><img src="https://img.shields.io/badge/security-nox-22c55e?style=flat-square" alt="Security (nox)"></a>
 </p>
 
 A single statically-linked `scout` binary gives you a CLI, a 77-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
