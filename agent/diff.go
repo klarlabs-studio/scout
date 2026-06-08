@@ -169,27 +169,27 @@ func classifyDiff(diff *DOMDiff) (classification, summary string) {
 
 		if tag == "dialog" || strings.Contains(classes, "modal") || strings.Contains(classes, "dialog") ||
 			strings.Contains(classes, "overlay") || strings.Contains(classes, "popup") {
-			return "modal_appeared", fmt.Sprintf("Modal/dialog appeared: %s", truncate(el.Text, 80))
+			return "modal_appeared", fmt.Sprintf("Modal/dialog appeared: %s", truncate(el.Text))
 		}
 
 		// Check for error messages
 		if strings.Contains(classes, "error") || strings.Contains(classes, "alert-danger") ||
 			strings.Contains(classes, "invalid") || strings.Contains(text, "error") ||
 			strings.Contains(text, "invalid") || strings.Contains(text, "failed") {
-			return "form_error", fmt.Sprintf("Error appeared: %s", truncate(el.Text, 80))
+			return "form_error", fmt.Sprintf("Error appeared: %s", truncate(el.Text))
 		}
 
 		// Check for success messages
 		if strings.Contains(classes, "success") || strings.Contains(classes, "alert-success") ||
 			strings.Contains(text, "success") || strings.Contains(text, "saved") ||
 			strings.Contains(text, "created") || strings.Contains(text, "updated") {
-			return "notification", fmt.Sprintf("Success: %s", truncate(el.Text, 80))
+			return "notification", fmt.Sprintf("Success: %s", truncate(el.Text))
 		}
 
 		// Check for toast/notification
 		if strings.Contains(classes, "toast") || strings.Contains(classes, "notification") ||
 			strings.Contains(classes, "snackbar") || strings.Contains(classes, "alert") {
-			return "notification", fmt.Sprintf("Notification: %s", truncate(el.Text, 80))
+			return "notification", fmt.Sprintf("Notification: %s", truncate(el.Text))
 		}
 	}
 
@@ -225,11 +225,13 @@ func classifyDiff(diff *DOMDiff) (classification, summary string) {
 	return "minor_update", fmt.Sprintf("%d modifications", len(diff.Modified))
 }
 
-func truncate(s string, n int) string {
-	if len(s) <= n {
+const truncateLen = 80
+
+func truncate(s string) string {
+	if len(s) <= truncateLen {
 		return s
 	}
-	return s[:n] + "..."
+	return s[:truncateLen] + "..."
 }
 
 func parseDOMElement(m map[string]any) DOMElement {

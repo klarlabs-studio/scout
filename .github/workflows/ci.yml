@@ -1,3 +1,11 @@
+# Thin caller for the shared klarlabs-studio Go CI bar.
+# All gate logic (fmt, golangci-lint w/ gocritic, race tests, nox security
+# scan + SARIF + baseline gate) lives in the reusable workflow — bump
+# versions / add jobs there, once, org-wide.
+#
+# Chrome integration tests are intentionally NOT here: they need a browser
+# and run ~5min, so they live in a dedicated workflow (integration.yml) and
+# are excluded from the unit run via the `integration` build tag.
 name: CI
 
 on:
@@ -14,153 +22,23 @@ on:
       - 'docs/**'
       - 'LICENSE'
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Test (Go ${{ matrix.go-version }}, ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        # PRs: single Go + ubuntu (was 4 combos, macOS = 10x cost).
-        # Push to main keeps full matrix.
-        go-version: ${{ github.event_name == 'pull_request' && fromJSON('["1.25"]') || fromJSON('["1.25", "1.26"]') }}
-        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest"]') }}
-
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          go-version: ${{ matrix.go-version }}
-
-      - name: Install Chrome (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable || sudo apt-get install -y chromium-browser
-
-      - name: Unit tests
-        run: go test -short -race -coverprofile=coverage.txt -covermode=atomic ./...
-
-      - name: Integration tests
-        if: runner.os == 'Linux'
-        # 74 integration tests each spin up Chrome; suite runs ~150s
-        # locally with cache and ~5min on CI under -race. 120s was wildly
-        # under-budget — earlier "hangs" were just the alarm firing on
-        # a healthy test that hadn't reached the queue yet.
-        run: go test -race -timeout 600s -run TestIntegration ./...
-
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          go-version: "1.25"
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v6.5.0
-        with:
-          version: latest
-          args: . ./cmd/... ./middleware/... ./internal/...
-
-  vet:
-    name: Vet
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          go-version: "1.25"
-
-      - run: go vet ./...
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          go-version: "1.25"
-
-      - run: go build ./...
-
-  security:
-    name: Security (nox)
-    runs-on: ubuntu-latest
+  ci:
+    uses: klarlabs-studio/.github/.github/workflows/go-ci.yml@main
     permissions:
-      contents: write # to commit refreshed badge on main
-      pull-requests: write # to annotate PRs
-      security-events: write # to upload SARIF
-    env:
-      NOX_VERSION: "0.10.0"
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-
-      - name: Install nox
-        run: |
-          set -euo pipefail
-          ASSET="nox_${NOX_VERSION}_linux_amd64.tar.gz"
-          curl -fsSL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/${ASSET}" -o "${ASSET}"
-          curl -fsSL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/checksums.txt" -o nox.sums
-          grep " ${ASSET}\$" nox.sums | sha256sum -c -
-          tar -xzf "${ASSET}" nox
-          sudo mv nox /usr/local/bin/nox
-          nox version
-
-      - name: Scan (SARIF + JSON)
-        # Write outputs outside the working tree — otherwise the next nox
-        # invocation would re-scan its own findings.json and trip every
-        # secret-detection rule on the literal strings inside it.
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/nox
-          nox scan -format json,sarif -output /tmp/nox -severity-threshold high . | tee /tmp/nox/scan.log
-          # nox writes the SARIF report as results.sarif; normalize the name.
-          if [ -f /tmp/nox/results.sarif ] && [ ! -f /tmp/nox/findings.sarif ]; then
-            mv /tmp/nox/results.sarif /tmp/nox/findings.sarif
-          fi
-          test -f /tmp/nox/findings.json
-          test -f /tmp/nox/findings.sarif
-
-      - name: Annotate PR with findings
-        if: github.event_name == 'pull_request'
-        run: nox annotate -input /tmp/nox/findings.json || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload SARIF to GitHub code scanning
-        if: hashFiles('/tmp/nox/findings.sarif') != ''
-        uses: github/codeql-action/upload-sarif@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.29.4
-        with:
-          sarif_file: /tmp/nox/findings.sarif
-
-      - name: Refresh status badge
-        run: nox badge -input /tmp/nox/findings.json -output docs/nox-badge.svg
-
-      - name: Commit refreshed badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          if git diff --quiet docs/nox-badge.svg; then
-            echo "Badge unchanged."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/nox-badge.svg
-          git commit -m "chore(security): refresh nox badge $(printf '%s' '[skip ci]')"
-          git push
+      contents: read
+      security-events: write
+      pull-requests: write
+    secrets: inherit
+    with:
+      # No coverage threshold defined yet (audit gap). Keep the gate off
+      # until a baseline is set, then flip to true.
+      # TODO(coverage): add a coverctl threshold and set coverage: true.
+      coverage: false
+      # Scout has OS-specific browser/launcher behavior — validate the unit
+      # suite on macOS + Windows on push-to-main.
+      cross-platform: true

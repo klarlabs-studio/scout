@@ -421,7 +421,7 @@ func (s *Session) Navigate(url string) (*PageResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	start, before := s.traceBeforeAction("navigate", "", "", url)
+	start, before := s.traceBeforeAction()
 
 	// Close existing page (or the initial about:blank tab) and create fresh at target URL.
 	// NewPageAt tells Chrome to create the target directly at the URL, which is more
@@ -478,6 +478,11 @@ func (s *Session) Snapshot() (*PageResult, error) {
 	return s.pageResult()
 }
 
+// pageResult returns a (*PageResult, error) pair so the ~18 public action
+// methods can `return s.pageResult()` directly; the error is presently always
+// nil but the signature keeps those call sites uniform and future-proof.
+//
+//nolint:unparam // error is intentionally part of the uniform helper contract
 func (s *Session) pageResult() (*PageResult, error) {
 	url, _ := s.page.URL()
 	title, _ := s.page.Evaluate(`document.title`)
@@ -497,7 +502,7 @@ func (s *Session) Click(selector string) (*PageResult, error) {
 		return nil, err
 	}
 
-	start, before := s.traceBeforeAction("click", selector, "", "")
+	start, before := s.traceBeforeAction()
 
 	if err := s.waitAndResolve(selector); err != nil {
 		s.traceAfterAction(start, before, "click", selector, "", "", err)
@@ -563,7 +568,7 @@ func (s *Session) Type(selector, text string) (*ElementResult, error) {
 		return nil, err
 	}
 
-	start, before := s.traceBeforeAction("type", selector, text, "")
+	start, before := s.traceBeforeAction()
 
 	if err := s.waitAndResolve(selector); err != nil {
 		s.traceAfterAction(start, before, "type", selector, text, "", err)

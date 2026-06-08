@@ -64,6 +64,23 @@ func parseFlags(args []string) cliFlags {
 
 // runOnePage creates a session, navigates to the URL, runs the action, and cleans up.
 func runOnePage(url string, flags cliFlags, fn func(s *cliSession)) {
+	// Set up + navigate before installing the cleanup defer, so the failure
+	// exits below don't skip a pending Close().
+	session, err := openSession(url, flags)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() { _ = session.Close() }()
+
+	// Run the action
+	fn(&cliSession{session: session})
+}
+
+// openSession launches a browser session and navigates to url. On any failure
+// it closes the partially-initialized session and returns an error, so callers
+// can exit without a pending cleanup defer.
+func openSession(url string, flags cliFlags) (*agent.Session, error) {
 	// CLI defaults to visible browser; use --headless for scripts/CI
 	headless := flags.getBool("headless", false)
 	timeout := flags.getDuration("timeout", 30*time.Second)
@@ -74,18 +91,13 @@ func runOnePage(url string, flags cliFlags, fn func(s *cliSession)) {
 		AllowPrivateIPs: true, // CLI usage is trusted
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to launch browser: %v\n", err)
-		os.Exit(1)
-	}
-	defer func() { _ = session.Close() }()
-
-	// Navigate to the target URL
-	_, err = session.Navigate(url)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: navigation failed: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to launch browser: %w", err)
 	}
 
-	// Run the action
-	fn(&cliSession{session: session})
+	if _, err := session.Navigate(url); err != nil {
+		_ = session.Close()
+		return nil, fmt.Errorf("navigation failed: %w", err)
+	}
+
+	return session, nil
 }

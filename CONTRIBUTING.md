@@ -33,9 +33,9 @@ Requires Go 1.23+ and Chrome/Chromium installed.
 
 ## Tests
 
-- Unit tests: `go test -short ./...` (no Chrome needed)
-- Integration tests: `go test -run TestIntegration ./...` (needs Chrome)
-- Agent tests: `go test ./agent/...`
+- Unit tests: `go test ./...` (no Chrome needed; integration tests live behind the `integration` build tag)
+- Integration tests: `go test -tags integration -run TestIntegration ./...` (needs Chrome)
+- Agent tests: `go test -tags integration ./agent/...`
 - Always use `WithAllowPrivateIPs(true)` in tests that use `httptest.NewServer`
 
 ## Adding MCP Tools

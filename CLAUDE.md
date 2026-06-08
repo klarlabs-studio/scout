@@ -16,14 +16,15 @@ scout is a Gin-like browser automation library for Go using a pure Chrome DevToo
 # Build & verify
 go build ./...
 go vet ./...
-golangci-lint run --timeout 2m . ./cmd/... ./middleware/... ./internal/...  # excludes examples/
+golangci-lint run --timeout 5m ./...             # examples/ excluded via .golangci.yml
 
-# Tests (Chrome required for integration tests)
-go test -short ./...                              # unit tests only, no Chrome
-go test ./...                                     # all tests (unit + integration)
-go test -run TestIntegrationClick ./...            # single test
-go test -run TestIntegration -timeout 120s ./...   # all integration tests
-go test -v -race -timeout 300s ./agent/...         # agent package with race detector
+# Tests (Chrome required for integration tests; integration suites are
+# behind the `integration` build tag, so the default run is unit-only)
+go test ./...                                                  # unit tests only, no Chrome
+go test -tags integration ./...                               # all tests (unit + integration)
+go test -tags integration -run TestIntegrationClick ./...     # single test
+go test -tags integration -run TestIntegration -timeout 600s ./...  # all integration tests
+go test -tags integration -v -race -timeout 600s ./agent/...  # agent package with race detector
 
 # Coverage
 make cover-check   # runs tests + coverctl policy enforcement

@@ -12,6 +12,13 @@ import (
 )
 
 func serveUI(args []string) {
+	if err := runServeUI(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runServeUI(args []string) error {
 	flags := parseFlags(args)
 
 	provider := flags.get("provider", os.Getenv("SCOUT_PROVIDER"))
@@ -54,8 +61,5 @@ func serveUI(args []string) {
 		cancel()
 	}()
 
-	if err := agui.Serve(ctx, cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
+	return agui.Serve(ctx, cfg)
 }

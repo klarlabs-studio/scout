@@ -165,7 +165,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Usage: echo urls | scout pipe <command> [selector]")
 			os.Exit(1)
 		}
-		runPipe(args[1:], parseFlags(args[2:]))
+		runPipe(args[1:])
 
 	case "record":
 		requireArgs(args, 1, "scout record <url> [--output=playbook.json]")
