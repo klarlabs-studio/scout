@@ -447,13 +447,18 @@ func (s *Session) Navigate(url string) (*PageResult, error) {
 	s.frameID = ""
 	s.frameContextID = 0
 
+	// Navigate created a fresh CDP target; the old page's session-scoped
+	// network handlers died when it closed. Re-attach BEFORE page.Navigate so
+	// the document load and early XHR/fetch calls on the new page are captured.
+	// Best-effort: a failure to re-enable must not abort the navigation.
+	if err := s.reattachNetworkObserversLocked(); err != nil && s.network != nil {
+		s.network.observersInstalled = false
+	}
+
 	// Navigate explicitly so we attach event listeners before the load fires
 	if err := s.runWithRecovery("navigate", func() error { return page.Navigate(url) }); err != nil {
 		s.traceAfterAction(start, before, "navigate", "", "", url, err)
 		return nil, fmt.Errorf("failed to navigate to %s: %w", url, err)
-	}
-	if s.network != nil {
-		s.network.observersInstalled = false
 	}
 
 	// Pre-install the submit-outcome tracker so the first submit on

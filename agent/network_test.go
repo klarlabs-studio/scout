@@ -146,3 +146,29 @@ func TestMatchesAnyPattern(t *testing.T) {
 		t.Fatal("expected /api/ to not match")
 	}
 }
+
+func TestDetachNetworkObserversLocked(t *testing.T) {
+	called := 0
+	s := &Session{
+		network: &networkState{
+			enabled:            true,
+			observersInstalled: true,
+			unsub: []func(){
+				func() { called++ },
+				func() { called++ },
+			},
+		},
+	}
+
+	s.detachNetworkObserversLocked()
+
+	if called != 2 {
+		t.Fatalf("unsubscribe calls: got %d, want 2", called)
+	}
+	if s.network.observersInstalled {
+		t.Fatal("expected observersInstalled to be false")
+	}
+	if len(s.network.unsub) != 0 {
+		t.Fatalf("expected unsub callbacks to be cleared, got %d", len(s.network.unsub))
+	}
+}

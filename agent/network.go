@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+
+	browse "go.klarlabs.de/scout"
 )
 
 const defaultMaxBodySize = 32 * 1024 // 32KB
@@ -77,6 +79,37 @@ func (s *Session) ensureNetworkObserversLocked() error {
 	return nil
 }
 
+func (s *Session) detachNetworkObserversLocked() {
+	if s.network == nil {
+		return
+	}
+	for _, fn := range s.network.unsub {
+		fn()
+	}
+	s.network.unsub = nil
+	s.network.observersInstalled = false
+}
+
+// reattachNetworkObserversLocked rebinds the CDP network listeners onto the
+// current s.page after a page swap (Navigate/OpenTab/SwitchTab). The previous
+// page's session-scoped handlers are detached, then observers are installed on
+// the new page if capture is enabled. Per-page requestIds from the old page are
+// stale, so the pending maps are cleared.
+// Must be called with s.mu held.
+func (s *Session) reattachNetworkObserversLocked() error {
+	if s.network == nil || !s.network.enabled {
+		return nil
+	}
+	s.detachNetworkObserversLocked()
+
+	s.network.mu.Lock()
+	s.network.pending = make(map[string]*NetworkCapture)
+	s.network.pendingAll = make(map[string]*NetworkCapture)
+	s.network.mu.Unlock()
+
+	return s.ensureNetworkObserversLocked()
+}
+
 // DisableNetworkCapture stops capturing network requests.
 func (s *Session) DisableNetworkCapture() {
 	s.mu.Lock()
@@ -85,12 +118,8 @@ func (s *Session) DisableNetworkCapture() {
 	if s.network == nil {
 		return
 	}
-	for _, fn := range s.network.unsub {
-		fn()
-	}
+	s.detachNetworkObserversLocked()
 	s.network.enabled = false
-	s.network.unsub = nil
-	s.network.observersInstalled = false
 }
 
 // CapturedRequests returns captured network requests, optionally filtered by URL pattern.
@@ -335,39 +364,70 @@ func (s *Session) onLoadingFinished(params map[string]any) {
 		return
 	}
 
-	if s.page != nil && allCapture != nil {
-		result, err := s.page.Call("Network.getResponseBody", map[string]any{
-			"requestId": reqID,
-		})
-		if err == nil {
-			var body struct {
-				Body          string `json:"body"`
-				Base64Encoded bool   `json:"base64Encoded"`
-			}
-			if err := json.Unmarshal(result, &body); err == nil && !body.Base64Encoded {
-				if len(body.Body) > defaultMaxBodySize {
-					allCapture.ResponseBody = body.Body[:defaultMaxBodySize]
-					allCapture.ResponseBodyTruncated = true
-				} else {
-					allCapture.ResponseBody = body.Body
-				}
-				if capture != nil {
-					capture.ResponseBody = allCapture.ResponseBody
-					capture.ResponseBodyTruncated = allCapture.ResponseBodyTruncated
-				}
-			}
-		}
-	}
-
+	// Record the captures synchronously so the request count is visible to
+	// callers as soon as the load finishes. The response body is fetched
+	// afterwards, off this goroutine (see below), and patched in by index.
+	reqIdx, histIdx := -1, -1
 	s.network.mu.Lock()
 	if allCapture != nil {
 		s.network.history = append(s.network.history, *allCapture)
 		if s.network.historyLimit > 0 && len(s.network.history) > s.network.historyLimit {
 			s.network.history = s.network.history[len(s.network.history)-s.network.historyLimit:]
 		}
+		histIdx = len(s.network.history) - 1
 	}
 	if capture != nil {
+		reqIdx = len(s.network.requests)
 		s.network.requests = append(s.network.requests, *capture)
+	}
+	s.network.mu.Unlock()
+
+	// Network.getResponseBody is a synchronous CDP call. onLoadingFinished runs
+	// on the CDP readLoop goroutine, which is also what delivers that call's
+	// response — so calling it inline deadlocks the connection (issue #42).
+	// Fetch the body off-loop and patch the recorded captures by index.
+	if allCapture != nil {
+		go s.fetchResponseBody(s.page, reqID, allCapture.URL, reqIdx, histIdx)
+	}
+}
+
+// fetchResponseBody retrieves a finished request's response body via CDP and
+// patches it into the captured request (and matching history entry) by index.
+// Runs on its own goroutine: Network.getResponseBody must not be issued from
+// the readLoop goroutine that dispatches the loadingFinished event. The URL
+// guard avoids mis-patching after history trimming reuses an index.
+func (s *Session) fetchResponseBody(page *browse.Page, reqID, url string, reqIdx, histIdx int) {
+	if page == nil {
+		return
+	}
+	result, err := page.Call("Network.getResponseBody", map[string]any{
+		"requestId": reqID,
+	})
+	if err != nil {
+		return
+	}
+	var body struct {
+		Body          string `json:"body"`
+		Base64Encoded bool   `json:"base64Encoded"`
+	}
+	if err := json.Unmarshal(result, &body); err != nil || body.Base64Encoded {
+		return
+	}
+	text := body.Body
+	truncated := false
+	if len(text) > defaultMaxBodySize {
+		text = text[:defaultMaxBodySize]
+		truncated = true
+	}
+
+	s.network.mu.Lock()
+	if reqIdx >= 0 && reqIdx < len(s.network.requests) && s.network.requests[reqIdx].URL == url {
+		s.network.requests[reqIdx].ResponseBody = text
+		s.network.requests[reqIdx].ResponseBodyTruncated = truncated
+	}
+	if histIdx >= 0 && histIdx < len(s.network.history) && s.network.history[histIdx].URL == url {
+		s.network.history[histIdx].ResponseBody = text
+		s.network.history[histIdx].ResponseBodyTruncated = truncated
 	}
 	s.network.mu.Unlock()
 }

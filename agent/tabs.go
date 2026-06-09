@@ -65,6 +65,9 @@ func (s *Session) OpenTab(name, url string) (*PageResult, error) {
 	s.tabs.active = name
 	s.page = page
 	s.diffInstalled = false
+	if err := s.reattachNetworkObserversLocked(); err != nil && s.network != nil {
+		s.network.observersInstalled = false
+	}
 
 	return s.pageResult()
 }
@@ -86,6 +89,9 @@ func (s *Session) SwitchTab(name string) (*PageResult, error) {
 	s.tabs.active = name
 	s.page = tab.page
 	s.diffInstalled = false
+	if err := s.reattachNetworkObserversLocked(); err != nil && s.network != nil {
+		s.network.observersInstalled = false
+	}
 
 	return s.pageResult()
 }
