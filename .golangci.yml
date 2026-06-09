@@ -1,6 +1,7 @@
-# golangci-lint v2 config — klarlabs-studio Go bar (gocritic + gosec) merged
-# with scout's repo-specific extras (bodyclose, nilerr). Keep gocritic
-# enabled: it is the org engineering bar, not opt-in.
+# golangci-lint v2 config — klarlabs-studio Go bar (gocritic) merged with
+# scout's repo-specific extras (bodyclose, nilerr). Keep gocritic enabled:
+# it is the org engineering bar, not opt-in. Code-level security is owned by
+# nox (taint-analysis plugin + core ruleset), not gosec.
 version: "2"
 
 run:
@@ -21,7 +22,6 @@ linters:
     - unconvert
     - unparam
     - gocritic     # org engineering bar — do not drop
-    - gosec
     # --- scout repo-specific ---
     - bodyclose
     - nilerr
@@ -38,11 +38,6 @@ linters:
       # errors, os.Exit in main). Not part of the shipped library/CLI
       # surface; scout's prior lint scope already excluded them.
       - examples/
-    rules:
-      # Tests legitimately use math/rand (deterministic fixtures, fuzz
-      # seeds). G404 weak-RNG does not apply to test code.
-      - path: _test\.go
-        linters: [gosec]
 
 formatters:
   enable:
