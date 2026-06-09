@@ -68,7 +68,7 @@ versioning:
     tagprefix: v
     gittag: true
     gitpush: true
-    gitsign: false
+    gitsign: true
     prereleasesuffix: ""
     buildmetadata: ""
     bumpfrom: tag
