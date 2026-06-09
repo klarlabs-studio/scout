@@ -234,14 +234,16 @@ func TestNetworkCapture(t *testing.T) {
 	// Wait for XHR to complete
 	s.WaitFor("#result")
 
-	// Give the network event a moment to propagate
+	// Capture was enabled BEFORE this navigate, so the fresh CDP target must
+	// have its network observers re-attached — otherwise the /api/data XHR
+	// fired by /fetch-page is silently lost (regression: issue #42).
 	captured := s.CapturedRequests("/api/data")
 	t.Logf("Captured %d requests matching /api/data", len(captured))
-
-	if len(captured) > 0 {
-		t.Logf("First capture: %s %s -> %d, body=%s",
-			captured[0].Method, captured[0].URL, captured[0].Status, captured[0].ResponseBody)
+	if len(captured) == 0 {
+		t.Fatal("expected /api/data XHR to be captured after navigate; network observers not re-attached to the new page")
 	}
+	t.Logf("First capture: %s %s -> %d, body=%s",
+		captured[0].Method, captured[0].URL, captured[0].Status, captured[0].ResponseBody)
 }
 
 func TestAnnotatedScreenshot(t *testing.T) {

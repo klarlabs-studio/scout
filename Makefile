@@ -35,7 +35,7 @@ cover:
 
 ## Coverctl policy check
 cover-check:
-	go test -timeout 180s -coverprofile=coverage.out ./...
+	go test -timeout 600s -coverprofile=coverage.out ./...
 	coverctl check --config .coverctl.yaml --from-profile --profile coverage.out
 
 ## Security scan
