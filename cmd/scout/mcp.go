@@ -505,6 +505,32 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			return result, nil
 		})
 
+	srv.Tool("back").
+		OpenWorld().
+		Description("Navigate to the previous page in browser history (like clicking the browser Back button). Errors if there is no previous entry.").
+		Handler(func(ctx context.Context, input struct{}) (*agent.PageResult, error) {
+			out, err := s().GoBack()
+			return out, mcpErr(err)
+		})
+
+	srv.Tool("forward").
+		OpenWorld().
+		Description("Navigate to the next page in browser history (like clicking the browser Forward button). Errors if there is no next entry.").
+		Handler(func(ctx context.Context, input struct{}) (*agent.PageResult, error) {
+			out, err := s().GoForward()
+			return out, mcpErr(err)
+		})
+
+	srv.Tool("reload").
+		OpenWorld().
+		Description("Reload the current page. Set ignore_cache=true for a hard reload that bypasses the browser cache.").
+		Handler(func(ctx context.Context, input struct {
+			IgnoreCache bool `json:"ignore_cache,omitempty" jsonschema:"description=Bypass the browser cache (hard reload)."`
+		}) (*agent.PageResult, error) {
+			out, err := s().Reload(input.IgnoreCache)
+			return out, mcpErr(err)
+		})
+
 	srv.Tool("observe").
 		ReadOnly().
 		OutputSchema(agent.Observation{}).
