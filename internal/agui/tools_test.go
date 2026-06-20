@@ -47,6 +47,65 @@ func TestCuratedTools_AllUnique(t *testing.T) {
 	}
 }
 
+// Every tool advertised in CuratedTools (and CoreTools) must be executable —
+// otherwise the chat tier advertises capabilities it cannot run. We detect the
+// "unknown tool" sentinel by name; a missing case fails this test.
+func TestCuratedTools_AllExecutable(t *testing.T) {
+	for _, set := range [][]ToolDef{CoreTools(), CuratedTools()} {
+		for _, tl := range set {
+			assertHasCase(t, tl.Name)
+		}
+	}
+}
+
+// assertHasCase fails if ExecuteTool returns the "unknown tool" sentinel for
+// name. A nil session makes real handlers panic once they dereference it; that
+// panic still proves the switch case exists, which is all we assert here.
+func assertHasCase(t *testing.T, name string) {
+	t.Helper()
+	defer func() { _ = recover() }() // a panic means the case ran past the switch
+	_, err := ExecuteTool(nil, name, json.RawMessage(`{}`))
+	if err != nil && strings.Contains(err.Error(), "unknown tool") {
+		t.Errorf("tool %q is advertised but ExecuteTool has no case for it", name)
+	}
+}
+
+// The default chat tier must be substantially closer to MCP than the
+// small-model core tier. Guard the key capability families the audit called
+// out: multi-tab, network, cookies, eval, frames, form submit, upload,
+// framework detection, and waiting variants.
+func TestCuratedTools_CoversCapabilityFamilies(t *testing.T) {
+	have := map[string]bool{}
+	for _, tl := range CuratedTools() {
+		have[tl.Name] = true
+	}
+	required := []string{
+		// multi-tab
+		"open_tab", "switch_tab", "list_tabs", "close_tab",
+		// network
+		"enable_network_capture", "network_requests", "network_summary", "failed_requests",
+		// cookies
+		"cookies_list", "cookies_set", "cookies_clear",
+		// eval
+		"eval",
+		// frames
+		"switch_to_frame", "switch_to_main_frame",
+		// form submit + upload
+		"submit_form", "upload_file",
+		// framework detection
+		"detect_frameworks", "component_state", "app_state",
+		// waiting variants
+		"wait_spa", "wait_for_spa_idle", "wait_for_navigation",
+		// discrete history navigation
+		"back", "forward", "reload",
+	}
+	for _, name := range required {
+		if !have[name] {
+			t.Errorf("CuratedTools missing capability tool %q", name)
+		}
+	}
+}
+
 func TestExecuteTool_UnknownName(t *testing.T) {
 	_, err := ExecuteTool(nil, "definitely_not_a_real_tool", json.RawMessage(`{}`))
 	if err == nil {

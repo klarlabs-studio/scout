@@ -1,6 +1,13 @@
 package browse
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrNoHistoryEntry is returned by GoBack/GoForward when there is no history
+// entry in the requested direction.
+var ErrNoHistoryEntry = errors.New("browse: no navigation history entry in that direction")
 
 // TimeoutError is returned when an operation exceeds its deadline.
 type TimeoutError struct {

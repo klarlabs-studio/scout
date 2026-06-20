@@ -15,7 +15,7 @@
   <a href="https://github.com/klarlabs-studio/scout/security/code-scanning"><img src="https://img.shields.io/badge/security-nox-22c55e?style=flat-square" alt="Security (nox)"></a>
 </p>
 
-A single statically-linked `scout` binary gives you a CLI, a 77-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
+A single statically-linked `scout` binary gives you a CLI, an 87-tool MCP server (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
 
 ```bash
 brew install klarlabs-studio/tap/scout
@@ -252,22 +252,40 @@ engine.RunGroup("admin")
 
 ## CLI
 
+The CLI is a deliberate **one-shot tier**: each command launches a browser,
+navigates, runs one read/diagnostic action, prints the result, and exits.
+Stateful interactive flows (click→type→submit, multi-tab, live cookie/network
+manipulation) live in the MCP server (`scout mcp serve`) and chat UI
+(`scout ui serve`), which keep a session alive across actions.
+
 CLI defaults to visible browser (`--headless` to hide):
 
 ```bash
 scout navigate <url>                  # page info as JSON
 scout observe <url>                   # structured observation
 scout markdown <url>                  # compact markdown
+scout readable <url>                  # main readable content (boilerplate stripped)
+scout accessibility <url>             # semantic accessibility tree
 scout screenshot <url> [--output f]   # save screenshot
 scout pdf <url> [--output f]          # save PDF
 scout extract <url> <selector>        # extract text
+scout table <url> <selector>          # extract a table as structured rows
+scout auto-extract <url>              # auto-detect dominant data pattern
 scout eval <url> <expression>         # run JavaScript
 scout form discover <url>             # discover form fields
 scout frameworks <url>                # detect frameworks
+scout app-state <url>                 # global app/store state (JSON)
+scout aria <url>                      # ARIA violation report (JSON)
+scout vitals <url>                    # Core Web Vitals (JSON)
+scout console <url>                   # console errors + network 4xx/5xx (JSON)
+scout dialog <url>                    # detect visible modal/dialog (JSON)
+scout auth-wall <url>                 # detect login/auth wall (JSON)
+scout cookies <url>                   # list cookies (values redacted)
 scout watch <url> [--interval=5s]     # live-watch page changes
 scout pipe <command> [selector]       # batch process URLs from stdin
 scout record <url> [--output f]       # interactive recording → playbook
 scout mcp serve                       # start MCP server
+scout ui serve [flags]                # start chat UI
 scout version                         # print version
 ```
 
@@ -302,7 +320,7 @@ scout/
 │   └── vitals.go                      # WebVitals (LCP/CLS/INP)
 ├── internal/cdp/                      # WebSocket CDP client (context-aware)
 ├── internal/launcher/                 # Chrome process management
-├── cmd/scout/                         # CLI + MCP server (84 tools)
+├── cmd/scout/                         # CLI + MCP server (87 tools)
 └── docs/                              # Landing page (GitHub Pages)
 ```
 

@@ -95,6 +95,67 @@ func (p *Page) Navigate(rawURL string) error {
 	return p.WaitLoad()
 }
 
+// Reload reloads the current page and waits for it to finish loading.
+// If ignoreCache is true, the browser cache is bypassed (hard reload).
+func (p *Page) Reload(ignoreCache bool) error {
+	// Invalidate cached DOM state on reload.
+	p.rootNodeID = 0
+	p.flattenedNodes = nil
+
+	if _, err := p.call("Page.reload", map[string]any{"ignoreCache": ignoreCache}); err != nil {
+		return &NavigationError{URL: "", Err: err}
+	}
+	return p.WaitLoad()
+}
+
+// GoBack navigates to the previous entry in the page's navigation history and
+// waits for the page to finish loading. Returns ErrNoHistoryEntry if there is
+// no previous entry.
+func (p *Page) GoBack() error {
+	return p.navigateHistory(-1)
+}
+
+// GoForward navigates to the next entry in the page's navigation history and
+// waits for the page to finish loading. Returns ErrNoHistoryEntry if there is
+// no next entry.
+func (p *Page) GoForward() error {
+	return p.navigateHistory(+1)
+}
+
+// navigateHistory moves the navigation history pointer by delta (-1 back,
+// +1 forward) via CDP Page.getNavigationHistory + Page.navigateToHistoryEntry.
+func (p *Page) navigateHistory(delta int) error {
+	raw, err := p.call("Page.getNavigationHistory", nil)
+	if err != nil {
+		return &NavigationError{URL: "", Err: err}
+	}
+	var hist struct {
+		CurrentIndex int `json:"currentIndex"`
+		Entries      []struct {
+			ID  int    `json:"id"`
+			URL string `json:"url"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(raw, &hist); err != nil {
+		return &NavigationError{URL: "", Err: err}
+	}
+
+	target := hist.CurrentIndex + delta
+	if target < 0 || target >= len(hist.Entries) {
+		return ErrNoHistoryEntry
+	}
+
+	// Invalidate cached DOM state before navigating.
+	p.rootNodeID = 0
+	p.flattenedNodes = nil
+
+	entry := hist.Entries[target]
+	if _, err := p.call("Page.navigateToHistoryEntry", map[string]any{"entryId": entry.ID}); err != nil {
+		return &NavigationError{URL: entry.URL, Err: err}
+	}
+	return p.WaitLoad()
+}
+
 // WaitLoad waits for the page load event (document.readyState == "complete").
 func (p *Page) WaitLoad() error {
 	ctx, cancel := context.WithTimeout(p.ctx, p.timeout)

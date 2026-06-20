@@ -178,6 +178,11 @@ func main() {
 		printUsage()
 
 	default:
+		// One-shot read/diagnostic commands (accessibility, readable, table,
+		// aria, vitals, console, dialog, auth-wall, cookies, app-state).
+		if runReadCommand(args[0], args) {
+			return
+		}
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", args[0])
 		printUsage()
 		os.Exit(1)
@@ -190,16 +195,33 @@ func printUsage() {
 Usage:
   scout <command> [arguments]
 
+The CLI is a ONE-SHOT tier: each command launches a browser, navigates to the
+URL, performs a single action, prints the result, and exits. Stateful,
+interactive workflows (click→type→submit, multi-tab, live cookie/network
+manipulation) are served by the MCP server (scout mcp serve) and the chat UI
+(scout ui serve), which keep a session alive across actions.
+
 Commands:
   navigate <url>                    Navigate and print page info as JSON
   observe <url>                     Print structured page observation (links, inputs, buttons)
   markdown <url>                    Print page content as compact markdown
+  readable <url>                    Print main readable content (nav/boilerplate stripped)
+  accessibility <url>               Print the semantic accessibility tree
   screenshot <url> [--output f]     Save screenshot (default: screenshot.png)
   pdf <url> [--output f]            Save PDF (default: page.pdf)
   extract <url> <selector>          Extract text from element(s)
+  table <url> <selector>            Extract a table as structured rows (JSON)
+  auto-extract <url>                Auto-detect and extract the dominant data pattern
   eval <url> <expression>           Evaluate JavaScript on page
   form discover <url> [selector]    Discover form fields with labels
   frameworks <url>                  Detect frontend frameworks on page
+  app-state <url>                   Extract global app/store state (JSON)
+  aria <url>                        Accessibility (ARIA) violation report (JSON)
+  vitals <url>                      Core Web Vitals report (JSON)
+  console <url>                     Console errors/warnings + network 4xx/5xx (JSON)
+  dialog <url>                      Detect a visible modal/dialog/overlay (JSON)
+  auth-wall <url>                   Detect a login/auth wall (JSON)
+  cookies <url>                     List cookies (names + flags, values redacted)
   watch <url> [--interval=5s]       Live-watch page changes (Ctrl+C to stop)
   pipe <command> [selector]         Process URLs from stdin (one per line)
   record <url> [--output=file]      Interactive recording → playbook JSON
