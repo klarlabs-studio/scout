@@ -498,13 +498,25 @@ func (p *Page) PDFWithOptions(opts PDFOptions) ([]byte, error) {
 	return decodeBase64(resp.Data)
 }
 
-// SetViewport sets the page viewport dimensions.
+// SetViewport sets the page viewport dimensions (non-mobile, scale 1).
 func (p *Page) SetViewport(width, height int) error {
+	return p.SetDeviceMetrics(width, height, 1, false)
+}
+
+// SetDeviceMetrics overrides the page's device metrics via the CDP Emulation
+// domain, so width-based CSS media queries resolve against the given size.
+// scale is the device pixel ratio (<=0 defaults to 1); mobile toggles mobile
+// emulation (touch + meta-viewport handling). The override persists across
+// navigations on the same page until changed.
+func (p *Page) SetDeviceMetrics(width, height int, scale float64, mobile bool) error {
+	if scale <= 0 {
+		scale = 1
+	}
 	params := map[string]any{
 		"width":             width,
 		"height":            height,
-		"deviceScaleFactor": 1,
-		"mobile":            false,
+		"deviceScaleFactor": scale,
+		"mobile":            mobile,
 	}
 	_, err := p.call("Emulation.setDeviceMetricsOverride", params)
 	return err

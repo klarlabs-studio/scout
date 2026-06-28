@@ -119,3 +119,37 @@ func TestStartScreenRecordingInput_FullParse(t *testing.T) {
 		t.Errorf("field parse mismatch: %+v", in)
 	}
 }
+
+func TestResolveViewport(t *testing.T) {
+	tests := []struct {
+		name                string
+		in                  SetViewportInput
+		wantW, wantH        int
+		wantScale           float64
+		wantMobile, wantErr bool
+	}{
+		{"explicit", SetViewportInput{Width: 390, Height: 844}, 390, 844, 1, false, false},
+		{"explicit mobile + scale", SetViewportInput{Width: 360, Height: 800, DeviceScaleFactor: 3, Mobile: true}, 360, 800, 3, true, false},
+		{"preset iphone-14", SetViewportInput{Device: "iphone-14"}, 390, 844, 3, true, false},
+		{"preset case-insensitive", SetViewportInput{Device: " IPhone-SE "}, 375, 667, 2, true, false},
+		{"preset desktop", SetViewportInput{Device: "desktop"}, 1280, 800, 1, false, false},
+		{"explicit overrides preset", SetViewportInput{Device: "iphone-14", Width: 320}, 320, 844, 3, true, false},
+		{"unknown preset", SetViewportInput{Device: "nope"}, 0, 0, 0, false, true},
+		{"missing dims", SetViewportInput{}, 0, 0, 0, false, true},
+		{"negative width", SetViewportInput{Width: -1, Height: 800}, 0, 0, 0, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w, h, scale, mobile, err := resolveViewport(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if w != tt.wantW || h != tt.wantH || scale != tt.wantScale || mobile != tt.wantMobile {
+				t.Errorf("got (%d,%d,%g,%v), want (%d,%d,%g,%v)", w, h, scale, mobile, tt.wantW, tt.wantH, tt.wantScale, tt.wantMobile)
+			}
+		})
+	}
+}

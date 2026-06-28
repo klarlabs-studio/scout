@@ -101,7 +101,7 @@ claude mcp add scout -- scout mcp serve           # Claude Code
 | **Trace** | `start_trace`, `stop_trace` |
 | **Cookies** | `cookies_list`, `cookies_clear`, `cookies_set`, `dismiss_cookies` |
 | **Diagnostics** | `detect_dialog`, `detect_auth_wall`, `console_errors` (incl. network 4xx/5xx), `failed_requests`, `compare_tabs`, `upload_file` |
-| **Utility** | `has_element`, `wait_for`, `configure`, `web_vitals`, `select_by_prompt` |
+| **Utility** | `has_element`, `wait_for`, `configure`, `set_viewport`, `web_vitals`, `select_by_prompt` |
 
 All tools have MCP annotations (`ReadOnly`, `OpenWorld`, `ClosedWorld`, `Idempotent`) for smart auto-approval. Read-only tools like `observe`, `extract`, and `screenshot` run without permission prompts.
 

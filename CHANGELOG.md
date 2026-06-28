@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `set_viewport` MCP tool + `Page.SetDeviceMetrics(width, height, scale, mobile)`:
+  resize the live page's viewport / emulate a device so width-based CSS `@media`
+  breakpoints resolve against the given size (responsive/mobile testing). Accepts
+  explicit dimensions plus optional `device_scale_factor` and `mobile`, or a
+  `device` preset (`iphone-se`, `iphone-14`, `pixel-7`, `ipad-mini`, `desktop`).
+  Closes the gap where `screenshot.max_width` and `start_screen_recording.width`
+  only sized the output/capture, never the CSS viewport (#47).
+
 ## [1.11.1] - 2026-06-09
 
 ### Fixed

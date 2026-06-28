@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -112,6 +113,60 @@ type ScreenshotInput struct {
 	Quality  int    `json:"quality,omitempty" jsonschema:"description=JPEG quality 1-100. Forces JPEG format. Lower = smaller file. Default auto-compresses to fit 200KB."`
 	MaxWidth int    `json:"max_width,omitempty" jsonschema:"description=Maximum image width in pixels. Downscales proportionally. Good values: 800 or 1024."`
 	FullPage bool   `json:"full_page,omitempty" jsonschema:"description=Capture the entire scrollable page instead of just the viewport."`
+}
+
+type SetViewportInput struct {
+	Width             int     `json:"width,omitempty" jsonschema:"description=Viewport width in CSS pixels. Required unless 'device' is given."`
+	Height            int     `json:"height,omitempty" jsonschema:"description=Viewport height in CSS pixels. Required unless 'device' is given."`
+	DeviceScaleFactor float64 `json:"device_scale_factor,omitempty" jsonschema:"description=Device pixel ratio (e.g. 2 or 3 for retina/phones). Default 1."`
+	Mobile            bool    `json:"mobile,omitempty" jsonschema:"description=Enable mobile emulation (touch + meta-viewport handling). Default false."`
+	Device            string  `json:"device,omitempty" jsonschema:"description=Optional preset that fills the other fields: iphone-se, iphone-14, pixel-7, ipad-mini, desktop. Explicit width/height/device_scale_factor/mobile override the preset."`
+}
+
+type viewportPreset struct {
+	w, h   int
+	scale  float64
+	mobile bool
+}
+
+// viewportPresets are common device metrics for set_viewport's `device` arg.
+var viewportPresets = map[string]viewportPreset{
+	"iphone-se": {375, 667, 2, true},
+	"iphone-14": {390, 844, 3, true},
+	"pixel-7":   {412, 915, 2.625, true},
+	"ipad-mini": {768, 1024, 2, true},
+	"desktop":   {1280, 800, 1, false},
+}
+
+// resolveViewport turns a SetViewportInput (explicit dims and/or a device
+// preset) into concrete device metrics. Explicit fields override the preset.
+func resolveViewport(in SetViewportInput) (w, h int, scale float64, mobile bool, err error) {
+	w, h, scale, mobile = in.Width, in.Height, in.DeviceScaleFactor, in.Mobile
+	if in.Device != "" {
+		preset, ok := viewportPresets[strings.ToLower(strings.TrimSpace(in.Device))]
+		if !ok {
+			return 0, 0, 0, false, fmt.Errorf("unknown device preset %q (have: iphone-se, iphone-14, pixel-7, ipad-mini, desktop)", in.Device)
+		}
+		if w == 0 {
+			w = preset.w
+		}
+		if h == 0 {
+			h = preset.h
+		}
+		if scale == 0 {
+			scale = preset.scale
+		}
+		if !in.Mobile {
+			mobile = preset.mobile
+		}
+	}
+	if w <= 0 || h <= 0 {
+		return 0, 0, 0, false, fmt.Errorf("set_viewport: width and height must be positive (or pass a 'device' preset)")
+	}
+	if scale == 0 {
+		scale = 1
+	}
+	return w, h, scale, mobile, nil
 }
 
 type HasElementInput struct {
@@ -460,6 +515,24 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				freshNote = " (fresh browser session started)"
 			}
 			return fmt.Sprintf("Browser reconfigured: %s mode, private IPs %s%s. Next navigation will use the new settings.", mode, privIPs, freshNote), nil
+		})
+
+	srv.Tool("set_viewport").
+		ClosedWorld().Idempotent().
+		Description("Resize the live page's viewport / emulate a device so width-based CSS @media breakpoints resolve against the given size (what responsive/mobile testing needs). Pass width+height in CSS pixels, optionally device_scale_factor and mobile; or a 'device' preset (iphone-se, iphone-14, pixel-7, ipad-mini, desktop). Applies immediately to the current page — no restart. The override persists across navigations until changed.").
+		Handler(func(ctx context.Context, input SetViewportInput) (string, error) {
+			w, h, scale, mobile, err := resolveViewport(input)
+			if err != nil {
+				return "", err
+			}
+			if err := s().SetViewport(w, h, scale, mobile); err != nil {
+				return "", mcpErr(err)
+			}
+			kind := "desktop"
+			if mobile {
+				kind = "mobile"
+			}
+			return fmt.Sprintf("Viewport set to %dx%d CSS px (scale %g, %s). Width-based media queries now resolve against %dpx.", w, h, scale, kind, w), nil
 		})
 
 	srv.Tool("reset").

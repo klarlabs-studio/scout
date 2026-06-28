@@ -942,6 +942,23 @@ func (s *Session) Page() *browse.Page {
 	return s.page
 }
 
+// SetViewport overrides the live page's device metrics so width-based CSS
+// media queries resolve against the given size. scale is the device pixel
+// ratio (<=0 = 1); mobile toggles mobile emulation. The width/height are
+// remembered so a session Reset re-applies them.
+func (s *Session) SetViewport(width, height int, scale float64, mobile bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.ensurePage(); err != nil {
+		return err
+	}
+	if err := s.page.SetDeviceMetrics(width, height, scale, mobile); err != nil {
+		return err
+	}
+	s.viewport = [2]int{width, height}
+	return nil
+}
+
 // Screenshot captures the page as an image.
 // Automatically compresses to fit within MaxScreenshotBytes (default 5MB).
 func (s *Session) Screenshot() ([]byte, error) {
