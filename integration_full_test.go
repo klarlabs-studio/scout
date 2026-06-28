@@ -764,6 +764,55 @@ func TestIntegrationSetViewport(t *testing.T) {
 	}
 }
 
+// TestIntegrationSetDeviceMetricsMediaQuery proves the point of the feature:
+// a narrow viewport makes width-based CSS @media queries evaluate true, and the
+// device pixel ratio is honoured. mobile is left false so the CSS width equals
+// the requested width regardless of whether the page declares a meta viewport
+// (with mobile=true, a page lacking <meta viewport> falls back to Chrome's
+// legacy 980px layout viewport).
+func TestIntegrationSetDeviceMetricsMediaQuery(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+	ts := fullTestServer()
+	defer ts.Close()
+	engine := launchTestEngine(t)
+
+	var innerWidth, dpr float64
+	var matchesNarrow, matchesWide bool
+	engine.Task("set-dm", func(c *Context) {
+		c.MustNavigate(ts.URL)
+		if err := c.Page().SetDeviceMetrics(390, 844, 2, false); err != nil {
+			t.Fatalf("SetDeviceMetrics: %v", err)
+		}
+		w, _ := c.Eval(`window.innerWidth`)
+		innerWidth, _ = w.(float64)
+		r, _ := c.Eval(`window.devicePixelRatio`)
+		dpr, _ = r.(float64)
+		n, _ := c.Eval(`window.matchMedia('(max-width: 760px)').matches`)
+		matchesNarrow, _ = n.(bool)
+		wd, _ := c.Eval(`window.matchMedia('(min-width: 1000px)').matches`)
+		matchesWide, _ = wd.(bool)
+	})
+
+	if err := engine.Run("set-dm"); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if innerWidth != 390 {
+		t.Errorf("innerWidth: expected 390, got %v", innerWidth)
+	}
+	if dpr != 2 {
+		t.Errorf("devicePixelRatio: expected 2, got %v", dpr)
+	}
+	if !matchesNarrow {
+		t.Error("(max-width: 760px) should match at 390px wide")
+	}
+	if matchesWide {
+		t.Error("(min-width: 1000px) should NOT match at 390px wide")
+	}
+}
+
 func TestIntegrationPageClose(t *testing.T) {
 	if testing.Short() {
 		t.Skip("requires Chrome")
