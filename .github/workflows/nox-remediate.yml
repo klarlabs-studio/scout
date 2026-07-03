@@ -1,107 +1,84 @@
 name: Nox Remediate
 
-# Replaces dependabot. Runs nox scan + nox fix on a weekly cadence and
-# opens a single PR with vulnerability-driven dependency upgrades.
-# Manual trigger available for ad-hoc remediation passes.
-
+# Replaces dependabot: nox scans for OSV-vulnerable dependencies AND outdated
+# GitHub Actions pins, applies the fixes, and opens a single PR. The (org-wide)
+# auto-merge then merges it once CI is green.
 on:
   schedule:
-    - cron: "0 6 * * 1" # Monday 06:00 UTC
-  workflow_dispatch:
-    inputs:
-      include_major:
-        description: "Include major-version upgrades"
-        required: false
-        default: "false"
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+  workflow_dispatch: {}
 
 permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: nox-remediate-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  NOX_VERSION: "0.10.0"
+  NOX_VERSION: "1.4.0"
+  NOX_SHA256: "c244981f05724ad3167890fba6ee23909c5233e88c3813d4293145cb7e2ed1db"
 
 jobs:
   remediate:
-    name: Remediate (nox fix)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # The default GITHUB_TOKEN cannot push changes to .github/workflows/*
+          # (GitHub blocks it without the `workflows` scope), and remediating
+          # action pins edits workflow files. Provide a PAT with contents +
+          # pull-requests + workflows write as the NOX_TOKEN secret; falls back
+          # to GITHUB_TOKEN (fine for dependency-only remediation).
+          token: ${{ secrets.NOX_TOKEN || github.token }}
+          persist-credentials: true
 
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      # Toolchains for the dependency-tidy step (only used when a manifest is
+      # present). Go via the repo's go.mod; node fixed at 22.
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
-          go-version: "1.25"
+          go-version: stable
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
 
-      - name: Install nox
+      - name: Install nox (pinned + sha256-verified)
         run: |
-          set -euo pipefail
-          ASSET="nox_${NOX_VERSION}_linux_amd64.tar.gz"
-          curl -fsSL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/${ASSET}" -o "${ASSET}"
-          curl -fsSL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/checksums.txt" -o nox.sums
-          grep " ${ASSET}\$" nox.sums | sha256sum -c -
-          tar -xzf "${ASSET}" nox
-          sudo mv nox /usr/local/bin/nox
-          nox version
+          url="https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "$url" -o nox.tgz
+          echo "${NOX_SHA256}  nox.tgz" | sha256sum -c -
+          sudo tar xzf nox.tgz -C /usr/local/bin nox
+          rm nox.tgz
 
-      - name: Scan
-        run: nox scan -format json -output . . || true
-
-      - name: Apply fixes
-        id: fix
+      - name: Scan + remediate (dependencies + GitHub Actions pins)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          ARGS=()
-          if [ "${{ github.event.inputs.include_major }}" = "true" ]; then
-            ARGS+=("-include-major")
+          nox scan . -format json -output . || true
+          # --actions bumps outdated action pins; the deps pass upgrades any
+          # OSV-vulnerable go/npm/pypi/cargo package with a fixed_in version.
+          nox fix --actions --input findings.json --root . || true
+          [ -f go.mod ] && go mod tidy || true
+
+      - name: Open remediation PR if anything changed
+        env:
+          GH_TOKEN: ${{ secrets.NOX_TOKEN || github.token }}
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "nox: nothing to remediate."
+            exit 0
           fi
-          # Capture dry-run output for PR body, then apply.
-          nox fix -dry-run -input findings.json "${ARGS[@]}" > nox-fix-plan.txt 2>&1 || true
-          nox fix -input findings.json "${ARGS[@]}" || true
-
-      - name: Verify build still passes
-        run: |
-          go mod tidy
-          go build ./...
-          go test -short ./...
-
-      - name: Refresh badge
-        run: nox badge -input findings.json -output docs/nox-badge.svg || true
-
-      - name: Open remediation PR
-        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: chore/nox-remediate
-          delete-branch: true
-          title: "chore(security): nox-driven dependency remediation"
-          commit-message: |
-            chore(security): apply nox remediation
-
-            Auto-generated by nox-remediate workflow. Dependency upgrades
-            target known vulnerabilities surfaced by `nox scan` (OSV.dev).
-          body: |
-            ## Automated security remediation
-
-            This PR was created by the **Nox Remediate** workflow, which
-            replaces Dependabot for vulnerability-driven dependency
-            upgrades. Each upgrade is keyed off a real OSV finding rather
-            than a version-bump heuristic.
-
-            ### Fix plan
-            ```
-            $(cat nox-fix-plan.txt 2>/dev/null || echo "(empty)")
-            ```
-
-            ### Verification
-            - `go mod tidy`
-            - `go build ./...`
-            - `go test -short ./...`
-
-            All ran green inside the workflow before this PR was opened.
-          labels: |
-            security
-            dependencies
-            automated
+          branch="nox/remediate-${{ github.run_id }}"
+          git config user.name "nox-remediate"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "chore(security): nox remediation (deps + actions)"
+          git push -u origin "$branch"
+          url="$(gh pr create \
+            --title "chore(security): nox remediation" \
+            --body "Automated remediation by \`nox fix --actions\`: OSV-vulnerable dependency upgrades and outdated GitHub Actions pins bumped to their latest SHA-pinned release. Replaces dependabot." \
+            --label dependencies)"
+          # Auto-merge once CI is green (same flow dependabot PRs used).
+          gh pr merge --auto --squash "$url" || true
