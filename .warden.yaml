@@ -1,0 +1,10 @@
+# warden gate — https://github.com/klarlabs-studio/warden
+# Any dev with warden installed gets the same checks CI runs, pre-commit/pre-push.
+hooks: { pre_commit: true, pre_push: true }
+commands:
+  lint: "golangci-lint run ./..."
+  test: "go test -race ./..."
+steps:
+  pre_commit: [lint]
+  pre_push: [test, lint]
+parallel: true
