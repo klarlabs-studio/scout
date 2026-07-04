@@ -50,7 +50,9 @@ func (s *Session) ClickText(text, role string) (*ClickTextResult, error) {
 		const wanted = %s;
 		const wantedRole = %s;
 		const wantedLower = wanted.toLowerCase();
-		const candidates = [];
+		const seen = new Set();   // dedupe by element identity, never by weak selector
+		const matches = [];       // {el, type} in match order
+		function add(el, type) { if (el && !seen.has(el)) { seen.add(el); matches.push({el: el, type: type}); } }
 
 		function visible(el) {
 			if (!el) return false;
@@ -76,7 +78,7 @@ func (s *Session) ClickText(text, role string) (*ClickTextResult, error) {
 		for (const el of document.querySelectorAll('[aria-label]')) {
 			if (!visible(el)) continue;
 			if ((el.getAttribute('aria-label') || '').trim().toLowerCase() === wantedLower) {
-				candidates.push(describe(el, 'aria_label'));
+				add(el, 'aria_label');
 			}
 		}
 
@@ -88,12 +90,12 @@ func (s *Session) ClickText(text, role string) (*ClickTextResult, error) {
 			if (!visible(el)) continue;
 			const t = (el.textContent || el.value || '').trim();
 			if (t.toLowerCase() === wantedLower) {
-				candidates.push(describe(el, el.tagName.toLowerCase() === 'a' ? 'link_text' : 'button_text'));
+				add(el, el.tagName.toLowerCase() === 'a' ? 'link_text' : 'button_text');
 			}
 		}
 
 		// 3. text node match → closest interactive ancestor
-		if (candidates.length === 0) {
+		if (matches.length === 0) {
 			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
 			while (walker.nextNode()) {
 				const node = walker.currentNode;
@@ -102,7 +104,7 @@ func (s *Session) ClickText(text, role string) (*ClickTextResult, error) {
 				let el = node.parentElement;
 				while (el) {
 					if (el.matches('a[href],button,[role=button],[role=link],input[type=button],input[type=submit],[onclick],[tabindex]')) {
-						if (visible(el)) candidates.push(describe(el, 'text_descendant'));
+						if (visible(el)) add(el, 'text_descendant');
 						break;
 					}
 					el = el.parentElement;
@@ -110,28 +112,19 @@ func (s *Session) ClickText(text, role string) (*ClickTextResult, error) {
 			}
 		}
 
-		// dedupe by element identity via stable JSON
-		const seen = new Set();
-		const out = [];
-		for (const c of candidates) {
-			const key = c.selector + '|' + c.text;
-			if (seen.has(key)) continue;
-			seen.add(key);
-			out.push(c);
-		}
-		if (out.length === 0) return JSON.stringify({matched: false, candidates: []});
+		if (matches.length === 0) return JSON.stringify({matched: false, candidates: []});
 
-		// Mark the first match for click resolution
-		const first = candidates[0];
-		const targets = document.querySelectorAll(first.selector);
-		for (const el of targets) {
-			const t = (el.textContent || el.value || el.getAttribute('aria-label') || '').trim().toLowerCase();
-			if (t === wantedLower || (el.getAttribute('aria-label') || '').toLowerCase() === wantedLower) {
-				el.setAttribute('data-scout-clicktext', '1');
-				break;
-			}
+		// One descriptor per DISTINCT matched element (identity-deduped above).
+		const out = matches.map(m => describe(m.el, m.type));
+
+		// More than one distinct element shares the text — ambiguous; do not click.
+		if (matches.length > 1) {
+			return JSON.stringify({matched: true, candidates: out, match_type: matches[0].type, selector: out[0].selector});
 		}
-		return JSON.stringify({matched: true, candidates: out, match_type: first.match_type, selector: first.selector});
+
+		// Exactly one match — mark that element directly (no fragile selector re-query).
+		matches[0].el.setAttribute('data-scout-clicktext', '1');
+		return JSON.stringify({matched: true, candidates: out, match_type: matches[0].type, selector: out[0].selector});
 	})()`, textJSON, roleJSON)
 
 	result, err := s.page.Evaluate(js)
@@ -144,11 +137,6 @@ func (s *Session) ClickText(text, role string) (*ClickTextResult, error) {
 		Candidates []ClickTextOption `json:"candidates"`
 		MatchType  string            `json:"match_type"`
 		Selector   string            `json:"selector"`
-	}
-	for i, c := range resp.Candidates {
-		// patch field names from JS map
-		_ = i
-		_ = c
 	}
 	if err := json.Unmarshal([]byte(str), &resp); err != nil {
 		return nil, fmt.Errorf("click_text parse: %w", err)
