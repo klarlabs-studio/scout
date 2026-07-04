@@ -356,14 +356,28 @@ func (s *Session) fillCheckbox(humanName string, field FormFieldInfo, value any)
 
 func (s *Session) fillRadio(humanName string, field FormFieldInfo, value any, candidates []FormFieldInfo) SemanticFieldResult {
 	str := fmt.Sprint(value)
-	// Radio set: pick the radio whose label matches str within the same name group.
+	// Radio set: pick the radio whose label/ID matches str within the same name
+	// group. The fuzzy-matched field only picks the *group*; the value must select
+	// a specific option, so a value that matches no option is an error — NOT a
+	// silent click on the arbitrary fuzzy match (which would report success while
+	// selecting the wrong radio).
 	target := field
+	matched := radioMatches(field, str)
 	for _, c := range candidates {
-		if strings.EqualFold(c.Type, "radio") && c.Name == field.Name {
-			if strings.EqualFold(c.Label, str) || strings.EqualFold(c.ID, str) {
-				target = c
-				break
-			}
+		if strings.EqualFold(c.Type, "radio") && c.Name == field.Name && radioMatches(c, str) {
+			target = c
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return SemanticFieldResult{
+			HumanName: humanName,
+			Selector:  field.Selector,
+			Type:      field.Type,
+			Value:     str,
+			Success:   false,
+			Error:     fmt.Sprintf("no radio option in group %q matches %q", field.Name, str),
 		}
 	}
 	if err := clickCheckbox(s.page, target.Selector); err != nil {
@@ -385,6 +399,13 @@ func (s *Session) fillRadio(humanName string, field FormFieldInfo, value any, ca
 		res.Warning = "radio click fired but observed checked state is false — framework binding may not have updated"
 	}
 	return res
+}
+
+// radioMatches reports whether a radio option is the one identified by value,
+// by its visible label or element id (case-insensitively) — the same criteria
+// the group scan uses.
+func radioMatches(f FormFieldInfo, value string) bool {
+	return strings.EqualFold(f.Label, value) || strings.EqualFold(f.ID, value)
 }
 
 func toBool(v any) (bool, bool) {
