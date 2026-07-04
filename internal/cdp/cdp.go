@@ -44,6 +44,13 @@ type handlerEntry struct {
 	cancelled atomic.Bool
 }
 
+// queuedEvent is a received CDP event awaiting dispatch off the read loop.
+type queuedEvent struct {
+	sessionID string
+	method    string
+	params    json.RawMessage
+}
+
 // Conn is a WebSocket connection to a CDP target.
 type Conn struct {
 	ws        *websocket.Conn
@@ -56,6 +63,13 @@ type Conn struct {
 	closed    chan struct{}
 	isClosed  atomic.Bool
 	stopPing  chan struct{} // signals the keepalive goroutine to stop
+
+	// Event handlers run on a dedicated dispatch goroutine fed by this unbounded
+	// queue, so a handler that makes a CDP call never blocks readLoop — which
+	// must stay free to route that call's response (otherwise the two deadlock).
+	eventQueue []queuedEvent
+	eventMu    sync.Mutex
+	eventCond  *sync.Cond
 }
 
 // DefaultCallTimeout is the maximum time to wait for a CDP response.
@@ -87,13 +101,18 @@ func Dial(url string) (*Conn, error) {
 		closed:   make(chan struct{}),
 		stopPing: make(chan struct{}),
 	}
+	c.eventCond = sync.NewCond(&c.eventMu)
 
-	// Set pong handler to extend the read deadline on each pong received.
+	// Set pong handler to extend the read deadline on each pong received, and
+	// seed an initial deadline so a peer that goes silent before the first pong
+	// still trips ReadMessage instead of blocking readLoop forever.
 	ws.SetPongHandler(func(string) error {
 		return ws.SetReadDeadline(time.Now().Add(pingTimeout))
 	})
+	_ = ws.SetReadDeadline(time.Now().Add(pingTimeout))
 
 	go c.readLoop()
+	go c.dispatchLoop()
 	go c.pingLoop()
 	return c, nil
 }
@@ -187,7 +206,23 @@ func (c *Conn) OnSession(sessionID, method string, handler func(json.RawMessage)
 	c.eventsMu.Unlock()
 
 	return func() {
+		// Flag first so an in-flight dispatch that already snapshotted this entry
+		// skips it, then remove it so it stops being iterated and can be GC'd —
+		// otherwise re-subscribing observers (network, screencast) accumulate dead
+		// entries for the life of the connection.
 		entry.cancelled.Store(true)
+		c.eventsMu.Lock()
+		entries := c.events[key]
+		for i, e := range entries {
+			if e == entry {
+				c.events[key] = append(entries[:i], entries[i+1:]...)
+				break
+			}
+		}
+		if len(c.events[key]) == 0 {
+			delete(c.events, key)
+		}
+		c.eventsMu.Unlock()
 	}
 }
 
@@ -209,6 +244,7 @@ func (c *Conn) Close() error {
 	}
 	close(c.closed)
 	close(c.stopPing)
+	c.wakeDispatch()
 	return c.ws.Close()
 }
 
@@ -252,6 +288,7 @@ func (c *Conn) readLoop() {
 			if c.isClosed.CompareAndSwap(false, true) {
 				close(c.closed)
 			}
+			c.wakeDispatch()
 			return
 		}
 
@@ -271,8 +308,50 @@ func (c *Conn) readLoop() {
 				ch <- &msg
 			}
 		} else if msg.Method != "" {
-			c.dispatchEvent(msg.SessionID, msg.Method, msg.Params)
+			c.enqueueEvent(msg.SessionID, msg.Method, msg.Params)
 		}
+	}
+}
+
+// enqueueEvent appends an event to the dispatch queue and wakes the dispatch
+// goroutine. It never blocks the read loop.
+func (c *Conn) enqueueEvent(sessionID, method string, params json.RawMessage) {
+	c.eventMu.Lock()
+	c.eventQueue = append(c.eventQueue, queuedEvent{sessionID: sessionID, method: method, params: params})
+	c.eventCond.Signal()
+	c.eventMu.Unlock()
+}
+
+// wakeDispatch wakes the dispatch goroutine so it can observe a closed
+// connection and exit once it has drained any remaining events.
+func (c *Conn) wakeDispatch() {
+	c.eventMu.Lock()
+	c.eventCond.Broadcast()
+	c.eventMu.Unlock()
+}
+
+// dispatchLoop delivers queued events to their handlers on a single goroutine,
+// preserving event order while keeping readLoop free to route call responses.
+// Because it runs off the read loop, a handler may itself make a CDP call
+// without deadlocking. It drains remaining events after Close, then exits.
+func (c *Conn) dispatchLoop() {
+	for {
+		c.eventMu.Lock()
+		for len(c.eventQueue) == 0 && !c.isClosed.Load() {
+			c.eventCond.Wait()
+		}
+		if len(c.eventQueue) == 0 { // closed and drained
+			c.eventMu.Unlock()
+			return
+		}
+		ev := c.eventQueue[0]
+		c.eventQueue = c.eventQueue[1:]
+		if len(c.eventQueue) == 0 {
+			c.eventQueue = nil // release the backing array once drained
+		}
+		c.eventMu.Unlock()
+
+		c.dispatchEvent(ev.sessionID, ev.method, ev.params)
 	}
 }
 
@@ -287,8 +366,17 @@ func (c *Conn) dispatchEvent(sessionID, method string, params json.RawMessage) {
 	c.eventsMu.RUnlock()
 
 	for _, h := range handlers {
-		if !h.cancelled.Load() {
-			h.fn(params)
+		if h.cancelled.Load() {
+			continue
 		}
+		c.invokeHandler(h, params)
 	}
+}
+
+// invokeHandler runs one handler, recovering from a panic so a single bad
+// handler can't take down the dispatch goroutine — and with it every future
+// event and call-response for the connection.
+func (c *Conn) invokeHandler(h *handlerEntry, params json.RawMessage) {
+	defer func() { _ = recover() }()
+	h.fn(params)
 }
