@@ -1,9 +1,19 @@
 package browse
 
 import (
+	"net"
 	"strings"
 	"testing"
 )
+
+// withResolver swaps the package resolver for a hermetic fake for the duration
+// of a test, so DNS-dependent validation is deterministic and offline.
+func withResolver(t *testing.T, fn func(host string) ([]net.IP, error)) {
+	t.Helper()
+	orig := lookupIP
+	lookupIP = fn
+	t.Cleanup(func() { lookupIP = orig })
+}
 
 func TestURLValidator_ValidURLs(t *testing.T) {
 	v := URLValidator{AllowPrivateIPs: false}
@@ -129,24 +139,96 @@ func TestURLValidator_PublicIPsAlwaysAllowed(t *testing.T) {
 	}
 }
 
-func TestURLValidator_HostnamesNotBlockedAsIPs(t *testing.T) {
+func TestURLValidator_LocalhostBlocked(t *testing.T) {
 	v := URLValidator{AllowPrivateIPs: false}
 
-	tests := []struct {
-		name string
-		url  string
-	}{
-		{"localhost hostname", "http://localhost"},
-		{"localhost with port", "http://localhost:3000"},
-		{"domain name", "https://example.com"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := v.Validate(tt.url); err != nil {
-				t.Errorf("Validate(%q) returned error: %v", tt.url, err)
+	// "localhost" names the loopback interface and must be blocked without
+	// depending on the resolver.
+	for _, u := range []string{
+		"http://localhost",
+		"http://localhost:3000",
+		"http://LOCALHOST",
+		"http://foo.localhost",
+		"http://localhost.", // trailing dot
+	} {
+		t.Run(u, func(t *testing.T) {
+			if err := v.Validate(u); err == nil {
+				t.Errorf("Validate(%q) should block the loopback host", u)
 			}
 		})
+	}
+}
+
+// TestURLValidator_NumericEncodingsBlocked covers browser-accepted numeric host
+// encodings that net.ParseIP rejects: an SSRF actor uses these to reach loopback
+// past a naive IP-literal check. No DNS is involved.
+func TestURLValidator_NumericEncodingsBlocked(t *testing.T) {
+	v := URLValidator{AllowPrivateIPs: false}
+
+	for _, tt := range []struct{ name, url string }{
+		{"decimal loopback", "http://2130706433/"},      // 127.0.0.1
+		{"hex loopback", "http://0x7f000001/"},          // 127.0.0.1
+		{"octal dotted loopback", "http://0177.0.0.1/"}, // 127.0.0.1
+		{"decimal metadata", "http://2852039166/"},      // 169.254.169.254
+		{"short-form private", "http://10.1/"},          // 10.0.0.1
+		{"unspecified 0.0.0.0", "http://0.0.0.0:8080/"}, // IsUnspecified
+		{"unspecified single 0", "http://0/"},           // 0.0.0.0
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := v.Validate(tt.url); err == nil {
+				t.Errorf("Validate(%q) should block the encoded internal address", tt.url)
+			}
+		})
+	}
+}
+
+// TestURLValidator_NumericEncodingsPublicAllowed confirms the numeric parser
+// doesn't over-block public addresses expressed numerically.
+func TestURLValidator_NumericEncodingsPublicAllowed(t *testing.T) {
+	v := URLValidator{AllowPrivateIPs: false}
+	for _, u := range []string{
+		"http://134744072/",  // 8.8.8.8
+		"http://0x08080808/", // 8.8.8.8
+	} {
+		t.Run(u, func(t *testing.T) {
+			if err := v.Validate(u); err != nil {
+				t.Errorf("Validate(%q) should allow the public address, got: %v", u, err)
+			}
+		})
+	}
+}
+
+// TestURLValidator_DNSResolutionBlocked exercises the resolver path: a public
+// hostname whose A record points at an internal address (static-DNS / *.nip.io
+// style bypass) must be blocked.
+func TestURLValidator_DNSResolutionBlocked(t *testing.T) {
+	v := URLValidator{AllowPrivateIPs: false}
+	withResolver(t, func(host string) ([]net.IP, error) {
+		switch host {
+		case "rebind.attacker.example":
+			return []net.IP{net.ParseIP("127.0.0.1")}, nil
+		case "metadata.internal.example":
+			return []net.IP{net.ParseIP("169.254.169.254")}, nil
+		case "good.example":
+			return []net.IP{net.ParseIP("93.184.216.34")}, nil
+		default:
+			return nil, &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}
+		}
+	})
+
+	if err := v.Validate("http://rebind.attacker.example/"); err == nil {
+		t.Error("host resolving to 127.0.0.1 should be blocked")
+	}
+	if err := v.Validate("http://metadata.internal.example/"); err == nil {
+		t.Error("host resolving to link-local metadata IP should be blocked")
+	}
+	if err := v.Validate("http://good.example/"); err != nil {
+		t.Errorf("host resolving to a public IP should be allowed, got: %v", err)
+	}
+	// A name that fails to resolve is not a policy violation (navigation fails
+	// on its own); it must not error the validator.
+	if err := v.Validate("http://nonexistent.example/"); err != nil {
+		t.Errorf("unresolvable host should not error, got: %v", err)
 	}
 }
 
