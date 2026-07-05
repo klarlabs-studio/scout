@@ -32,9 +32,24 @@ type Page struct {
 	flattenedNodes []flatNode // cached flattened DOM (pierce: true)
 }
 
-// call sends a CDP command scoped to this page's session and context.
+// call sends a CDP command scoped to this page's session, with a per-call
+// deadline. Without one, a call blocks until the connection closes — so a hung
+// Chrome (or a handler abandoned by the watchdog) wedges every operation and
+// holds the session lock indefinitely. The deadline bounds that to the session
+// timeout.
 func (p *Page) call(method string, params any) (json.RawMessage, error) {
-	return p.conn.CallSessionCtx(p.ctx, p.sessionID, method, params)
+	ctx, cancel := context.WithTimeout(p.ctx, p.callTimeout())
+	defer cancel()
+	return p.conn.CallSessionCtx(ctx, p.sessionID, method, params)
+}
+
+// callTimeout is the per-CDP-call deadline: the session timeout, falling back to
+// the CDP default when unset so a zero timeout can't mean "wait forever".
+func (p *Page) callTimeout() time.Duration {
+	if p.timeout > 0 {
+		return p.timeout
+	}
+	return cdp.DefaultCallTimeout
 }
 
 func newPage(conn *cdp.Conn, targetID string, timeout time.Duration, validator URLValidator) (*Page, error) {

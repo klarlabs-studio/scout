@@ -125,6 +125,37 @@ func TestWatchdogMiddleware_doesNotBlockOnRunawayHandler(t *testing.T) {
 	}
 }
 
+func TestWatchdogMiddleware_recoversHandlerPanic(t *testing.T) {
+	mw := watchdogMiddleware(500 * time.Millisecond)
+	req := &protocol.Request{
+		JSONRPC: protocol.JSONRPCVersion,
+		ID:      json.RawMessage(`1`),
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"navigate"}`),
+	}
+	// A handler that panics (as the session helper does when Chrome can't
+	// launch) must not crash the server: the middleware recovers it into a
+	// structured error. Without recovery this test would abort the process.
+	handler := mw(func(_ context.Context, _ *protocol.Request) (*protocol.Response, error) {
+		panic("failed to create browser session: chrome not found")
+	})
+
+	resp, err := handler(context.Background(), req)
+	if err != nil {
+		t.Fatalf("middleware should recover the panic and return a response, got err=%v", err)
+	}
+	if resp == nil || resp.Error == nil {
+		t.Fatalf("expected an error response for a panicking handler, got %+v", resp)
+	}
+	msg := resp.Error.Message
+	if !strings.Contains(msg, "SCOUT_PANIC") {
+		t.Errorf("error message lacks SCOUT_PANIC code: %q", msg)
+	}
+	if !strings.Contains(msg, "navigate") {
+		t.Errorf("error message lacks tool name: %q", msg)
+	}
+}
+
 func TestWatchdogMiddleware_passesNotificationsThrough(t *testing.T) {
 	mw := watchdogMiddleware(10 * time.Millisecond)
 	// Notification has no ID — middleware must not impose a deadline,
