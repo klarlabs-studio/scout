@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-07-05
+
+Security & correctness hardening from a full multi-agent code review (#51–#58),
+plus viewport emulation.
+
 ### Added
 
 - `set_viewport` MCP tool + `Page.SetDeviceMetrics(width, height, scale, mobile)`:
@@ -16,6 +21,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `device` preset (`iphone-se`, `iphone-14`, `pixel-7`, `ipad-mini`, `desktop`).
   Closes the gap where `screenshot.max_width` and `start_screen_recording.width`
   only sized the output/capture, never the CSS viewport (#47).
+
+### Security
+
+- Harden `urlvalidator` against SSRF bypasses: resolve hostnames and normalize
+  browser numeric IP encodings (decimal/hex/octal), and block `localhost`,
+  internal DNS names, and `0.0.0.0` — not just IP literals (#51).
+- Re-validate every navigation **and redirect** against the URL policy, and scope
+  auth headers to the navigation origin, via a shared CDP Fetch interceptor: a
+  public URL that redirects to an internal host is blocked, and the
+  `Authorization` header no longer leaks to cross-origin or redirect
+  destinations (#57).
+- Validate `upload_file` paths (symlink-resolved; deny SSH/cloud credential
+  directories and system secret files) so a page-injected instruction can't
+  exfiltrate a local secret (#55).
+
+### Fixed
+
+- Dispatch CDP event handlers off the read loop, fixing a deadlock when a handler
+  itself makes a CDP call (e.g. resource blocking's `Fetch.failRequest`) (#53).
+- `Session.Close` no longer deadlocks when a screen recording is active; fixed a
+  `Recorder` frame-ack `WaitGroup` race (#54).
+- `click_text` no longer silently clicks the wrong element when several share the
+  same text, and `fill_form_semantic` radios no longer report success while
+  selecting the wrong option (#52).
+- Page CDP calls now carry a timeout, so a hung Chrome can't wedge the session
+  and hold its lock; the MCP watchdog recovers a handler panic into a structured
+  error instead of crashing the server (#56).
+- Fixed a data race on the network-capture filter state (#58).
+
+### Changed
+
+- `configure` treats `headless` and `allow_private_ips` as optional: omitting one
+  keeps the current setting instead of resetting it (omitting `headless` no
+  longer switches to a visible window). Rate limiting now honors request
+  cancellation (#58).
 
 ## [1.11.1] - 2026-06-09
 
