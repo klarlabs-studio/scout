@@ -2530,7 +2530,7 @@ func TestIntegrationRecorderSaveVideoWhileRecording(t *testing.T) {
 		}
 
 		// Verify recording stopped
-		if rec.recording.Load() {
+		if rec.isRecording() {
 			t.Error("recording should be stopped after SaveVideo")
 		}
 	})
@@ -2573,7 +2573,7 @@ func TestIntegrationRecorderSaveGIFWhileRecording(t *testing.T) {
 			t.Logf("SaveGIF: %v (expected if ffmpeg not installed)", err)
 		}
 
-		if rec.recording.Load() {
+		if rec.isRecording() {
 			t.Error("recording should be stopped after SaveGIF")
 		}
 	})

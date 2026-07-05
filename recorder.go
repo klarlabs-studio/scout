@@ -18,8 +18,14 @@ type Recorder struct {
 	maxWidth   int
 	maxHeight  int
 	frameCount atomic.Int64
-	recording  atomic.Bool
-	wg         sync.WaitGroup
+
+	// mu guards recording + unsub and serializes an ack's wg.Add against Stop's
+	// wg.Wait: once Stop clears recording under mu, no further acks are added, so
+	// there is never an Add concurrent with (or after) Wait.
+	mu        sync.Mutex
+	recording bool
+	unsub     func()
+	wg        sync.WaitGroup
 }
 
 // RecorderOptions configures video recording.
@@ -63,27 +69,35 @@ func NewRecorder(page *Page, opts RecorderOptions) (*Recorder, error) {
 
 // Start begins capturing screencast frames.
 func (r *Recorder) Start() error {
-	if r.recording.Load() {
+	r.mu.Lock()
+	if r.recording {
+		r.mu.Unlock()
 		return fmt.Errorf("browse: recorder already running")
 	}
+	// Set recording before starting screencast to avoid missing early frames.
+	r.recording = true
+	r.mu.Unlock()
 
-	// Set recording flag before starting screencast to avoid missing early frames
-	r.recording.Store(true)
-
-	// Listen for screencast frames
-	r.page.OnSession("Page.screencastFrame", func(params map[string]any) {
-		if !r.recording.Load() {
-			return
-		}
-
+	// Listen for screencast frames. Keep the unsubscribe so Stop can remove the
+	// handler rather than leaking it for the connection's lifetime.
+	r.unsub = r.page.OnSession("Page.screencastFrame", func(params map[string]any) {
 		sessionID, _ := params["sessionId"].(float64)
 		data, _ := params["data"].(string)
 		if data == "" {
 			return
 		}
 
-		// Acknowledge the frame asynchronously to avoid blocking the readLoop
+		// Register the ack under mu so it can't race Stop's Wait: once recording
+		// is cleared (under the same lock), the frame is dropped and no ack Add
+		// happens after Wait.
+		r.mu.Lock()
+		if !r.recording {
+			r.mu.Unlock()
+			return
+		}
 		r.wg.Add(1)
+		r.mu.Unlock()
+
 		go func() {
 			defer r.wg.Done()
 			_, _ = r.page.call("Page.screencastFrameAck", map[string]any{
@@ -120,7 +134,14 @@ func (r *Recorder) Start() error {
 
 	_, err := r.page.call("Page.startScreencast", params)
 	if err != nil {
-		r.recording.Store(false)
+		r.mu.Lock()
+		r.recording = false
+		unsub := r.unsub
+		r.unsub = nil
+		r.mu.Unlock()
+		if unsub != nil {
+			unsub()
+		}
 		return fmt.Errorf("browse: failed to start screencast: %w", err)
 	}
 
@@ -129,15 +150,32 @@ func (r *Recorder) Start() error {
 
 // Stop ends the screencast capture and waits for in-flight frame acks to complete.
 func (r *Recorder) Stop() error {
-	if !r.recording.CompareAndSwap(true, false) {
+	r.mu.Lock()
+	if !r.recording {
+		r.mu.Unlock()
 		return nil
 	}
+	r.recording = false
+	unsub := r.unsub
+	r.unsub = nil
+	r.mu.Unlock()
 
-	// Wait for in-flight ack goroutines to complete
+	// Remove the frame handler, then wait for in-flight acks. No new acks can be
+	// registered now that recording is cleared under mu.
+	if unsub != nil {
+		unsub()
+	}
 	r.wg.Wait()
 
 	_, err := r.page.call("Page.stopScreencast", nil)
 	return err
+}
+
+// isRecording reports whether a screencast is currently active.
+func (r *Recorder) isRecording() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.recording
 }
 
 // FrameCount returns the number of frames captured so far.
@@ -154,7 +192,7 @@ func (r *Recorder) FramesDir() string {
 // Returns the path to the generated video file.
 // Requires ffmpeg to be installed on the system.
 func (r *Recorder) SaveVideo(outputPath string, fps int) error {
-	if r.recording.Load() {
+	if r.isRecording() {
 		if err := r.Stop(); err != nil {
 			return err
 		}
@@ -196,7 +234,7 @@ func (r *Recorder) SaveVideo(outputPath string, fps int) error {
 
 // SaveGIF assembles captured frames into an animated GIF using ffmpeg.
 func (r *Recorder) SaveGIF(outputPath string, fps int) error {
-	if r.recording.Load() {
+	if r.isRecording() {
 		if err := r.Stop(); err != nil {
 			return err
 		}
