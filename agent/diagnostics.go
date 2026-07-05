@@ -222,8 +222,15 @@ func (s *Session) DetectAuthWall() (*AuthWallResult, error) {
 	return &authResult, nil
 }
 
-// UploadFile triggers a file upload on a file input element.
+// UploadFile triggers a file upload on a file input element. The path is
+// validated first so an untrusted (page-injected) instruction can't exfiltrate
+// local secrets via the upload — see validateUploadPath.
 func (s *Session) UploadFile(selector, filePath string) error {
+	resolved, err := validateUploadPath(filePath)
+	if err != nil {
+		return err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -244,7 +251,7 @@ func (s *Session) UploadFile(selector, filePath string) error {
 
 	// Get the backend node ID for the file input
 	_, err = s.page.Call("DOM.setFileInputFiles", map[string]any{
-		"files":    []string{filePath},
+		"files":    []string{resolved},
 		"objectId": objectID,
 	})
 	if err != nil {
