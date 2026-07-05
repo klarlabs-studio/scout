@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"time"
 
 	browse "go.klarlabs.de/scout"
@@ -36,7 +35,7 @@ func RateLimit(cfg RateLimitConfig) browse.HandlerFunc {
 	})
 
 	return func(c *browse.Context) {
-		if !rl.Allow(context.Background(), c.TaskName()) {
+		if !rl.Allow(c.GoContext(), c.TaskName()) {
 			c.AbortWithError(&browse.RateLimitError{TaskName: c.TaskName()})
 			return
 		}

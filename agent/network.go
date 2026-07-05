@@ -42,8 +42,12 @@ func (s *Session) EnableNetworkCapture(patterns ...string) error {
 		}
 	}
 
+	// enabled/patterns are read by the request handler under network.mu (on the
+	// CDP dispatch goroutine), so write them under the same lock — not just s.mu.
+	s.network.mu.Lock()
 	s.network.patterns = patterns
 	s.network.enabled = true
+	s.network.mu.Unlock()
 
 	if err := s.ensureNetworkObserversLocked(); err != nil {
 		return err
@@ -119,7 +123,9 @@ func (s *Session) DisableNetworkCapture() {
 		return
 	}
 	s.detachNetworkObserversLocked()
+	s.network.mu.Lock()
 	s.network.enabled = false
+	s.network.mu.Unlock()
 }
 
 // CapturedRequests returns captured network requests, optionally filtered by URL pattern.
@@ -387,6 +393,10 @@ func (s *Session) onLoadingFinished(params map[string]any) {
 	// response — so calling it inline deadlocks the connection (issue #42).
 	// Fetch the body off-loop and patch the recorded captures by index.
 	if allCapture != nil {
+		// NB: read s.page without s.mu on purpose. This runs on the CDP dispatch
+		// goroutine, and Session methods hold s.mu while waiting for events this
+		// goroutine delivers — taking s.mu here would stall event delivery. The
+		// pointer read is benign (fetchResponseBody nil-checks and URL-guards it).
 		go s.fetchResponseBody(s.page, reqID, allCapture.URL, reqIdx, histIdx)
 	}
 }

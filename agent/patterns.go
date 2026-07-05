@@ -144,7 +144,7 @@ func (s *Session) ScrollAndCollect(selector string, maxItems int) (*ExtractAllRe
 		return nil, err
 	}
 
-	if maxItems == 0 {
+	if maxItems <= 0 {
 		maxItems = 100
 	}
 
