@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"go.klarlabs.de/scout/internal/cdp"
@@ -30,6 +31,10 @@ type Page struct {
 	rootNodeID     int64 // cached DOM root node ID
 	urlValidator   URLValidator
 	flattenedNodes []flatNode // cached flattened DOM (pierce: true)
+
+	fetch       *fetchInterceptor // lazy CDP Fetch interception multiplexer
+	navOrigin   string            // origin of the last caller-initiated Navigate
+	navOriginMu sync.Mutex
 }
 
 // call sends a CDP command scoped to this page's session, with a per-call
@@ -77,6 +82,17 @@ func newPage(conn *cdp.Conn, targetID string, timeout time.Duration, validator U
 		}
 	}
 
+	// Re-validate every navigation/redirect against the URL policy at request
+	// time — this blocks a public URL that redirects to an internal host, which
+	// the one-shot pre-navigation check can't catch. Trusted (AllowPrivateIPs)
+	// sessions skip it.
+	if !p.urlValidator.AllowPrivateIPs {
+		if err := p.installURLPolicy(); err != nil {
+			cancel()
+			return nil, fmt.Errorf("browse: failed to install URL policy: %w", err)
+		}
+	}
+
 	return p, nil
 }
 
@@ -86,6 +102,10 @@ func (p *Page) Navigate(rawURL string) error {
 	if err := p.urlValidator.Validate(rawURL); err != nil {
 		return &NavigationError{URL: rawURL, Err: err}
 	}
+
+	// Record the intended target origin so header-injection rules can scope to it
+	// (and not leak to cross-origin subresources or redirect destinations).
+	p.setTopLevelOrigin(originOf(rawURL))
 
 	// Invalidate cached root node ID and flattened DOM on navigation
 	p.rootNodeID = 0

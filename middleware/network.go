@@ -18,38 +18,32 @@ func BlockResources(resourceTypes ...string) browse.HandlerFunc {
 			return
 		}
 
-		// Enable Fetch domain to intercept requests
-		patterns := make([]map[string]string, 0, len(resourceTypes))
+		blocked := make(map[string]struct{}, len(resourceTypes))
 		for _, rt := range resourceTypes {
-			patterns = append(patterns, map[string]string{
-				"resourceType": rt,
-			})
+			blocked[rt] = struct{}{}
 		}
 
-		_, err := page.Call("Fetch.enable", map[string]any{
-			"patterns": patterns,
+		// Register a rule on the page's shared request interceptor so resource
+		// blocking coexists with the URL-policy guard and header injection
+		// instead of fighting over Fetch.enable.
+		remove, err := page.InterceptRequests(browse.RequestRule{
+			Name:          "block-resources",
+			ResourceTypes: resourceTypes,
+			Decide: func(r browse.InterceptedRequest) browse.RequestVerdict {
+				if _, ok := blocked[r.ResourceType]; ok {
+					return browse.RequestVerdict{Block: true, BlockReason: "BlockedByClient"}
+				}
+				return browse.RequestVerdict{}
+			},
 		})
 		if err != nil {
-			// Fetch domain might not be available; proceed without blocking
+			// Fetch domain might not be available; proceed without blocking.
 			c.Next()
 			return
 		}
-
-		// Listen for intercepted requests and fail them
-		page.OnSession("Fetch.requestPaused", func(params map[string]any) {
-			requestID, _ := params["requestId"].(string)
-			if requestID != "" {
-				_, _ = page.Call("Fetch.failRequest", map[string]any{
-					"requestId":   requestID,
-					"errorReason": "BlockedByClient",
-				})
-			}
-		})
+		defer remove()
 
 		c.Next()
-
-		// Disable Fetch after task completes
-		_, _ = page.Call("Fetch.disable", nil)
 	}
 }
 

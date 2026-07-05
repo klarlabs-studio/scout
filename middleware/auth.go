@@ -36,7 +36,11 @@ func BearerAuth(token string) browse.HandlerFunc {
 	return HeaderAuth("Authorization", "Bearer "+token)
 }
 
-// HeaderAuth returns middleware that sets a custom header on all requests.
+// HeaderAuth returns middleware that injects a custom header, scoped to the
+// navigation's own origin. Unlike a session-wide Network.setExtraHTTPHeaders
+// (which sends the header to every host the page contacts), this adds the header
+// only to same-origin requests — so an auth token isn't leaked to cross-origin
+// subresources or a redirect destination.
 func HeaderAuth(name, value string) browse.HandlerFunc {
 	return func(c *browse.Context) {
 		page := c.Page()
@@ -44,16 +48,20 @@ func HeaderAuth(name, value string) browse.HandlerFunc {
 			c.Next()
 			return
 		}
-		_, _ = page.Call("Network.enable", nil)
-		_, err := page.Call("Network.setExtraHTTPHeaders", map[string]any{
-			"headers": map[string]string{
-				name: value,
+		remove, err := page.InterceptRequests(browse.RequestRule{
+			Name: "auth-header:" + name,
+			Decide: func(r browse.InterceptedRequest) browse.RequestVerdict {
+				if r.SameOriginAsTop() {
+					return browse.RequestVerdict{AddHeaders: map[string]string{name: value}}
+				}
+				return browse.RequestVerdict{}
 			},
 		})
 		if err != nil {
 			c.AbortWithError(fmt.Errorf("browse: failed to set auth header: %w", err))
 			return
 		}
+		defer remove()
 		c.Next()
 	}
 }
