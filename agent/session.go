@@ -376,13 +376,23 @@ func (s *Session) Status() *SessionStatus {
 
 // Close shuts down the browser and releases all resources.
 func (s *Session) Close() error {
+	// Detach the recorder under the lock, but stop it WITHOUT holding s.mu:
+	// cleanup() waits for the capture goroutine, which itself takes s.mu on every
+	// tick (captureOne). Waiting under the lock would deadlock — the same reason
+	// StopScreenRecording releases the lock before <-rec.done. Setting closed here
+	// also makes the next captureOne bail out immediately.
+	s.mu.Lock()
+	s.closed = true
+	rec := s.screenRec
+	s.screenRec = nil
+	s.mu.Unlock()
+
+	if rec != nil {
+		rec.cleanup()
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.closed = true
-	if s.screenRec != nil {
-		s.screenRec.cleanup()
-		s.screenRec = nil
-	}
 	if s.page != nil {
 		_ = s.page.Close()
 		s.page = nil
