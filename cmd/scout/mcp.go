@@ -260,9 +260,9 @@ type DispatchEventInput struct {
 }
 
 type ConfigureInput struct {
-	Headless        bool `json:"headless" jsonschema:"description=Run browser in headless mode (no visible window). Default true."`
-	AllowPrivateIPs bool `json:"allow_private_ips,omitempty" jsonschema:"description=Allow navigation to loopback (127.0.0.1, localhost) and private IPs (10.*, 192.168.*, etc). Required for local-dev workflows. Default false."`
-	Fresh           bool `json:"fresh,omitempty" jsonschema:"description=Kill the current page and browser and start a fresh session even if headless/allow_private_ips didn't change. Use after observing session_dead=true in status or when accumulated SPA state needs to be cleared."`
+	Headless        *bool `json:"headless,omitempty" jsonschema:"description=Run browser in headless mode (no visible window). Omit to keep the current setting (default true); a missing value no longer silently switches to a visible window."`
+	AllowPrivateIPs *bool `json:"allow_private_ips,omitempty" jsonschema:"description=Allow navigation to loopback (127.0.0.1, localhost) and private IPs (10.*, 192.168.*, etc). Required for local-dev workflows. Omit to keep the current setting (default false)."`
+	Fresh           bool  `json:"fresh,omitempty" jsonschema:"description=Kill the current page and browser and start a fresh session even if headless/allow_private_ips didn't change. Use after observing session_dead=true in status or when accumulated SPA state needs to be cleared."`
 }
 
 type ResetInput struct{}
@@ -490,10 +490,19 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 		ClosedWorld().Idempotent().
 		Description("Change browser settings without restarting. Use headless=false to see the browser window. Set allow_private_ips=true for local-dev workflows (localhost, 127.0.0.1, private IPs). Pass fresh=true to force-kill the current page and start clean (use after observing session_dead in status).").
 		Handler(func(ctx context.Context, input ConfigureInput) (string, error) {
-			if err := reconfigure(agent.SessionConfig{
-				Headless:        input.Headless,
-				AllowPrivateIPs: input.AllowPrivateIPs,
-			}); err != nil {
+			// Partial update: start from the current config and apply only the
+			// fields the caller actually set, so omitting headless no longer
+			// resets it to the zero value (a visible window).
+			sessionMu.Lock()
+			cfg := sessionCfg
+			sessionMu.Unlock()
+			if input.Headless != nil {
+				cfg.Headless = *input.Headless
+			}
+			if input.AllowPrivateIPs != nil {
+				cfg.AllowPrivateIPs = *input.AllowPrivateIPs
+			}
+			if err := reconfigure(cfg); err != nil {
 				return "", err
 			}
 			if input.Fresh {
@@ -503,11 +512,11 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				}
 			}
 			mode := "headless"
-			if !input.Headless {
+			if !cfg.Headless {
 				mode = "visible"
 			}
 			privIPs := "blocked"
-			if input.AllowPrivateIPs {
+			if cfg.AllowPrivateIPs {
 				privIPs = "allowed"
 			}
 			freshNote := ""

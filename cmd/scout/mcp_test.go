@@ -88,13 +88,25 @@ func TestMCPErr_UnknownCause_NoHint(t *testing.T) {
 }
 
 func TestConfigureInput_JSONUnmarshal(t *testing.T) {
-	raw := `{"headless": false, "allow_private_ips": true}`
 	var in ConfigureInput
-	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+	if err := json.Unmarshal([]byte(`{"headless": false, "allow_private_ips": true}`), &in); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if in.Headless != false || !in.AllowPrivateIPs {
-		t.Errorf("ConfigureInput parse mismatch: %+v", in)
+	if in.Headless == nil || *in.Headless {
+		t.Errorf("headless should parse to explicit false, got %v", in.Headless)
+	}
+	if in.AllowPrivateIPs == nil || !*in.AllowPrivateIPs {
+		t.Errorf("allow_private_ips should parse to explicit true, got %v", in.AllowPrivateIPs)
+	}
+
+	// Omitted fields decode to nil ("keep current"), not a zero-value false that
+	// would silently switch headless off.
+	var empty ConfigureInput
+	if err := json.Unmarshal([]byte(`{}`), &empty); err != nil {
+		t.Fatalf("unmarshal empty: %v", err)
+	}
+	if empty.Headless != nil || empty.AllowPrivateIPs != nil {
+		t.Errorf("omitted fields should be nil, got headless=%v allow=%v", empty.Headless, empty.AllowPrivateIPs)
 	}
 }
 
