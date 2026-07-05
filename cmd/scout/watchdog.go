@@ -59,6 +59,25 @@ func watchdogMiddleware(budget time.Duration) mcp.Middleware {
 			}
 			done := make(chan result, 1)
 			go func() {
+				// Recover any handler panic (e.g. the session helper panics when
+				// Chrome can't launch) into a structured error, so one bad tool
+				// call can't crash the whole MCP server. The buffered channel keeps
+				// this non-blocking even if the watchdog already timed out and
+				// abandoned us.
+				defer func() {
+					if r := recover(); r != nil {
+						env := MCPErrorEnvelope{
+							Code:    "SCOUT_PANIC",
+							Message: fmt.Sprintf("tool %q panicked: %v", extractToolName(req), r),
+							Phase:   "handler",
+							Cause:   "panic",
+							Detail:  fmt.Sprintf("method=%s", req.Method),
+							Hint:    "Likely an unrecoverable session state or a bug; try `configure { fresh: true }` to reset, then retry.",
+						}
+						payload, _ := json.Marshal(env)
+						done <- result{resp: protocol.NewErrorResponse(req.ID, protocol.NewInternalError(string(payload))), err: nil}
+					}
+				}()
 				resp, err := next(ctx, req)
 				done <- result{resp: resp, err: err}
 			}()
