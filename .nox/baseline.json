@@ -2,507 +2,67 @@
   "schema_version": "1.0.0",
   "entries": [
     {
-      "fingerprint": "15849b74eb9b6cd44a0fd1d725ae751329eb1bc4c30dd5d786a464428f27d2ea",
-      "rule_id": "IAC-306",
-      "file_path": ".github/workflows/release.yml",
-      "severity": "medium",
-      "reason": "Required for GoReleaser to create GitHub releases and push to GHCR",
-      "created_at": "2026-04-30T17:13:04.903437Z"
-    },
-    {
-      "fingerprint": "15849b74eb9b6cd44a0fd1d725ae751329eb1bc4c30dd5d786a464428f27d2ea",
-      "rule_id": "IAC-306",
-      "file_path": ".github/workflows/release.yml",
-      "severity": "medium",
-      "reason": "Required for OIDC authentication with GitHub for mcp-publisher",
-      "created_at": "2026-04-30T17:13:16.162025Z"
-    },
-    {
-      "fingerprint": "e69e961bc3ef0f4756a61f46ed4f02d64346fa08bf320f479d2a0ba62cda8260",
-      "rule_id": "IAC-314",
-      "file_path": ".github/workflows/release.yml",
-      "severity": "medium",
-      "reason": "Required for GoReleaser to create GitHub releases",
-      "created_at": "2026-04-30T17:13:17.763508Z"
-    },
-    {
-      "fingerprint": "5cc3e619c3411870d4770e51ff846e19fddc482b039f92cd7c24b43ea4abc7a9",
-      "rule_id": "IAC-315",
-      "file_path": ".github/workflows/release.yml",
-      "severity": "medium",
-      "reason": "Required for GoReleaser to push Docker images to GHCR",
-      "created_at": "2026-04-30T17:13:19.442861Z"
-    },
-    {
-      "fingerprint": "389655a5587ebebbc28fe4c0e02687ddda72aa2600bdbb372d9e36010db649dd",
-      "rule_id": "IAC-351",
-      "file_path": ".github/workflows/release.yml",
-      "severity": "critical",
-      "reason": "False positive - references secrets.GITHUB_TOKEN, not hardcoded secret",
-      "created_at": "2026-04-30T17:13:20.96463Z"
-    },
-    {
-      "fingerprint": "4d37020e43a1c94e17d166d5bf1825a526fca39cdaf7fada1cbe2b4dafaa953c",
-      "rule_id": "SEC-163",
-      "file_path": "internal/agui/tools.go",
-      "severity": "medium",
-      "reason": "False positive - tool schema description text",
-      "created_at": "2026-04-30T17:13:47.356212Z"
-    },
-    {
-      "fingerprint": "9383e88656d8ffca847335d0ab57e0d871b9ec4617a434fe6f5053acfa0fead9",
-      "rule_id": "IAC-308",
-      "file_path": ".github/workflows/nox-remediate.yml",
-      "severity": "low",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "56d46e9b4469b3d4d832aa1f772083e8a41971fa42887ddf302e5ddf556b5fe5",
-      "rule_id": "IAC-314",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "cf6ef4441523b3a5b9accc4d0b20a31abdb2a12e5aae855bbdcef3e7e97c5054",
-      "rule_id": "IAC-314",
-      "file_path": ".github/workflows/nox-remediate.yml",
-      "severity": "low",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "ce103d3cd9752fe28d167d911da65f5a35c9b44cf9aaf029fa70496fb4da0989",
-      "rule_id": "SEC-161",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "35b862d9172436e7feb9098c2ee12f8b02e9e682c70069613d5127749dd30118",
-      "rule_id": "SEC-161",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "b51a953591cdcc79a515155c782bc175d51f1034659160cdb1af72310d21bacd",
-      "rule_id": "SEC-161",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "f54dd933ef57ec714f2ff36bb6954b365357eab20488ce7916f61c1a733a5427",
-      "rule_id": "SEC-162",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "c9ba17cfd6d5467cf4a570fb57288db4d17b86d80421905015d76537b0c5bcac",
-      "rule_id": "SEC-163",
-      "file_path": "agent/diagnostics.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "faaa1347a78b0e72daa96bebe86f245808dd47b6b48ebfa4593f55d497db6da3",
-      "rule_id": "SEC-163",
-      "file_path": "agent/session.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "e40b7793faafdc94b9ca0deab79de574e932b52e8a17096c90d97589c6ec95bf",
-      "rule_id": "SEC-163",
-      "file_path": "agent/session.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "28e575647588ae722a6e5822c59fa0fdb01aaf03b05c95d8b152e5c80671eb53",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "81c9373e347d9d45f01606e0b99a7f0571f41032a2b75c8f16b95c9896f02b5f",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "938dc126d0d43ed53977d144fe1dc3f5a475ff179f9b01d071dd4494e31ebc42",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "1cd4df6df735999531c27fd9181f55b96bb9b56223d6e3e6ce53cb26f3c5f26d",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "a7d89b705505f81de891e70e6a4471985e23f3e71360c72edd26ba545b9cc939",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "e105859e1abffa1022adc96767e12fc2d1b6df995e1830a08d2dbefb27064dad",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "8ef7382d94da9701b36bd5c7746da397229fa16b60f61d8d3de8e43d84dbf1ce",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "5f7c60a728c4beb3c30622d2f6f6974babf4ed7b5223668e7a6d0fcd783e3f58",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "39de8c114d41672218b1d0cbaa365947e92917fa8321c3b637022a9de9ab5297",
-      "rule_id": "SEC-574",
-      "file_path": "agent/cookies.go",
-      "severity": "high",
-      "created_at": "2026-05-10T08:56:15.329011Z"
-    },
-    {
-      "fingerprint": "8444860b62de7e95811cecfed5bded43c39af09b7afe5d96fe5e707aeeb3d2f7",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "66a976f946f3a6e0276855b889281f56deaebb5fecce50a78e8008634354c123",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "9a55c26a210a9d40393e119d0cf67b2f5e8ef78d42597a225fda7889205c7c59",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "4d860f209563bb1e798d0ccacc0fc2bcf5b7ddb2c10035f6c428a07e942ac7fe",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "3bebf22e8c47aea0daf23002d8a8516483b9ef9cff39e2d9bb975a838cc10d31",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "c3f86def536073075f37d36de2c8e274fc55209ae6d68b05dc2cd612ba171204",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "6abd74503c7a1a14e187099c9da37288bc389e1b80bbe4c32ee97c77417a2686",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "45ab71d2b064cd1049c827fbc792e930d25d24f354d9a321de21a982d2e3b753",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "9af2f4e9cfbfb49b678af1049c1602283b479008db66f74cb0660cdc75b0bc83",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "5a935254cb7954d22d38bff5437bd61f766f634bd5b10cf71d6130e4201d441b",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "ab93120282725f4937fce4cc8d437553594b2bbf050fa8fa2f6c00d1c5c2904e",
-      "rule_id": "SEC-574",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "fdf248b175a4a15f4d5130eba39366f0baa45f930ebdabfd153381603e6c3c32",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "ffa91167adbdf27097267207c6c3d4d01515478b5f4e6812466da40e0e6b6a31",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "b2279d445756dd1c0ac83d6d8f54e27ddc01be3ba5f88ef5a519487b48372923",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "e40683dafe06a6b8096393c9a5daaadfc4433882a4fd7166ef23e7133a7fb502",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "2ca447a76d9e8f176ad1e7052b253e5fd0a11875942df228b8f5cc3d67aab7ab",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "5a538f85c4a1b644339988331807a43dbac4379ab4f6ad372e281a5148cf97ed",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "fb29fb6cff08a401dff6d0d14792bafd623cbb740142c0065f199f15f79d150f",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "b4aa439db63d4ead5961423c408f2a9470e048c26db187a082628a00ca48b21d",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "1f48f6cf59f8290483ca473c6e9c5172e4120a3f04e1127609ab422ceb99fdbb",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "228b2285b006d368b03d65d32eb166b746751835ba1b3be913510f3208d72fdc",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "12ad866ce04161a11f1733fa29357ac2e96451fbb9ca2bc4b65bd01b02fa148e",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-05-10T09:09:05.210271Z"
-    },
-    {
-      "fingerprint": "15271fd307148edd3b22f6933af0e8b03341dda16a7ae74a3539e3b90c27a83e",
-      "rule_id": "IAC-314",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "89e2decc496a53c723d50fd7d83dbd52ca9b329f8b9d557e21471f96008000ec",
-      "rule_id": "IAC-314",
-      "file_path": ".github/workflows/dependabot-auto-merge.yml",
-      "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "4ecc70ce1c01d335038c22d0c69b64318c2da83df92d29a506f1b118dddb307f",
-      "rule_id": "SEC-161",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "4de6521e89cf01842f48686c73a65244e29b4c00cb8791c1b3d81afa54bdf63a",
-      "rule_id": "SEC-162",
-      "file_path": "cmd/scout/mcp.go",
-      "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "363fde11068ae5e624da1c99fbcac2b6c9f9ead09986cc6f585754123cd3765e",
-      "rule_id": "SEC-163",
-      "file_path": ".github/workflows/dependabot-auto-merge.yml",
-      "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "c0be3572252f3c5ce3295185f08b2ec8374b6e1db0cf6f3373379b4f00ff5774",
+      "fingerprint": "3c54d65e7b9a749bf37af62978a5a621d112f1a2dd3a2f1c16f932a8083edc19",
       "rule_id": "SEC-163",
       "file_path": "agent/session.go",
       "severity": "medium",
       "created_at": "2026-06-06T20:30:18.218963Z"
     },
     {
-      "fingerprint": "d168d5bbeef7267ae7c8a2c969e588a5a121517a6cb3d34db4d44d486f46e4ea",
-      "rule_id": "SEC-163",
-      "file_path": "agent/session.go",
+      "fingerprint": "c6aec19d757bafe26d5ff6a404c883d2cf2822511575efdb583a08883751e2f0",
+      "rule_id": "AGENT-004",
+      "file_path": "CLAUDE.md",
       "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
+      "created_at": "2026-07-06T11:04:12.48597Z"
     },
     {
-      "fingerprint": "10e970c1c33a7d77ec6da406da9e776f20bf84ac2281fc7604eb5d1a166eedfd",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
+      "fingerprint": "4df5d1d75abbb20dc5494e35cf27582d99b5a9330a6816652cd388cc357bb901",
+      "rule_id": "DATA-001",
+      "file_path": "agent/form_test.go",
       "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
+      "created_at": "2026-07-06T11:04:12.48597Z"
     },
     {
-      "fingerprint": "d5a4ba09bb55b3183c9b8194eb8c7bad3753fe59bd9e68ce82236628ef4f00aa",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
+      "fingerprint": "70e189fe69fcacba09e55514475a56a4872b43fd21f3cdc5d28f566da46286ad",
+      "rule_id": "DATA-001",
+      "file_path": "agent/shadow_dom_test.go",
       "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
+      "created_at": "2026-07-06T11:04:12.48597Z"
     },
     {
-      "fingerprint": "e6c735621765e42e7ea4ba6c8165f7f3e997338ad40280f129fd8e390779122a",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
+      "fingerprint": "32c381275f33932a02c1f06bfd680970cdb643b4c1ea201c94a62305a5374d1d",
+      "rule_id": "DATA-001",
+      "file_path": "agent/submit_outcome_test.go",
       "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
+      "created_at": "2026-07-06T11:04:12.48597Z"
     },
     {
-      "fingerprint": "ddb264f4707f8070f1c7e9de2f005cc48f2c91b4b0879a1441f71fd077bdd4ce",
+      "fingerprint": "b5aa3259dff4e1c21eba0374519bd305b1e197a01060f5a09a77a712ef474fae",
       "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
+      "file_path": "middleware/unit_test.go",
       "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
+      "created_at": "2026-07-06T11:04:12.48597Z"
     },
     {
-      "fingerprint": "8f06b761ddc2082c06e1e66fbbab9f248818009a775af8a446d089b294c2ebe7",
+      "fingerprint": "058c88c9d9b4f16c47cf5d08533757ef3673adb52878d33da87f4693ca651233",
       "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
+      "file_path": "middleware/unit_test.go",
       "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
+      "created_at": "2026-07-06T11:04:12.48597Z"
     },
     {
-      "fingerprint": "20449ea28d3cdaf4bd3d4db267a368f6cfd3a9d358ff6adef3a781f3735617b9",
-      "rule_id": "SEC-163",
-      "file_path": "cmd/scout/mcp.go",
+      "fingerprint": "c7c1da9072c83f35297ee102446bbe55c4d7f3d9312ba3618fa15b15c2e1820a",
+      "rule_id": "VULN-001",
+      "file_path": "ui/package-lock.json",
       "severity": "medium",
-      "created_at": "2026-06-06T20:30:18.218963Z"
+      "created_at": "2026-07-06T11:04:12.48597Z"
     },
     {
-      "fingerprint": "54e6bee15bb2dfd3ab077a5bf6faf8847efa83dbeff6b4ab23d2be2b06cdd1a7",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "1a291e88949a75af78c710d695a87d581cf955807419de0ab51d2ee92f964187",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "5cffbfae1e555252704d10f7432f1ace556d1d80887c3702d3ecfbee9b72d603",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "3d0a1784094b2e9d9a0a1d406b1a1da6410c7b179046b05a35e5190a1440a294",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "44032e521e5ed753731c5c699170f851c893ed65c01aeae824ebfadf351e2100",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "fca3467a023591a469b720f82555f8e442ae215673b14d3f6d299fccf9ea7090",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "b7d8673f5ed1d908efebb11e64b37f86a38e12960a42a100edc838e92f75b349",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "6930b672fd524b4ab8a37c283317af9f3336665a5dd970422524f3d2ad09305d",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "a37b48b85e1d4ababad854e9c2b3a67c71cc1cca758c738f9666f32dc34a8f7c",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "2074741c6084e3381d04f7e5d45ce387036d5161c115f7bd15c3165702cc8727",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
-    },
-    {
-      "fingerprint": "61b4925761ff59c603ddeb35258b19f35f75977928f41dc967396120153823b1",
-      "rule_id": "SEC-697",
-      "file_path": ".github/workflows/ci.yml",
-      "severity": "high",
-      "created_at": "2026-06-06T20:30:18.218963Z"
+      "fingerprint": "a9a06ed85f15e5f8e35538df729aec5a499a01af7251abca9a44d8833255eee9",
+      "rule_id": "VULN-001",
+      "file_path": "ui/package-lock.json",
+      "severity": "medium",
+      "created_at": "2026-07-06T11:04:12.48597Z"
     }
   ]
 }
