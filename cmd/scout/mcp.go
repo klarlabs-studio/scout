@@ -226,6 +226,29 @@ type NetworkRequestsResult struct {
 	Hint           string                 `json:"hint,omitempty"`
 }
 
+// FailedRequestsResult wraps the failed_requests list in a JSON object so the
+// tool can advertise a fixed output schema (structuredContent must be an object,
+// not a bare array). Each element is a fixed-shape agent.NetworkFailure.
+type FailedRequestsResult struct {
+	Items []agent.NetworkFailure `json:"items"`
+	Total int                    `json:"total"`
+}
+
+// ListTabsResult wraps the list_tabs array in a JSON object envelope so the tool
+// can advertise a fixed output schema. Each element is a fixed-shape agent.TabInfo.
+type ListTabsResult struct {
+	Items []agent.TabInfo `json:"items"`
+	Total int             `json:"total"`
+}
+
+// CookiesListResult wraps the cookies_list array in a JSON object envelope so the
+// tool can advertise a fixed output schema. Each element is a fixed-shape
+// agent.CookieInfo (values redacted).
+type CookiesListResult struct {
+	Items []agent.CookieInfo `json:"items"`
+	Total int                `json:"total"`
+}
+
 type NetworkSummaryInput struct {
 	Pattern string `json:"pattern,omitempty" jsonschema:"description=Optional URL substring filter."`
 }
@@ -964,6 +987,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("network_requests").
 		ReadOnly().
+		OutputSchema(NetworkRequestsResult{}).
 		Description("Get captured network requests/responses including request bodies (POST/PUT/PATCH) and response bodies (max 32KB each, truncated if larger). Includes recent buffered requests so you can inspect traffic even if capture was enabled late. If the list is empty and capture was never enabled, the response includes a hint pointing at enable_network_capture.").
 		Handler(func(ctx context.Context, input NetworkRequestsInput) (*NetworkRequestsResult, error) {
 			out := s().CapturedRequests(input.Pattern)
@@ -1044,9 +1068,14 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("cookies_list").
 		ReadOnly().
+		OutputSchema(CookiesListResult{}).
 		Description("List all cookies for the active page (names + flags only — values are redacted). Useful for diagnosing stale-session issues after a backend restart.").
-		Handler(func(ctx context.Context, input ObserveInput) ([]agent.CookieInfo, error) {
-			return s().ListCookies()
+		Handler(func(ctx context.Context, input ObserveInput) (*CookiesListResult, error) {
+			cookies, err := s().ListCookies()
+			if err != nil {
+				return nil, err
+			}
+			return &CookiesListResult{Items: cookies, Total: len(cookies)}, nil
 		})
 
 	srv.Tool("cookies_clear").
@@ -1074,6 +1103,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("check_readiness").
 		ReadOnly().
+		OutputSchema(agent.PageReadiness{}).
 		Description("Check how ready the page is for interaction. Returns a 0-100 score, pending XHR count, skeleton/spinner presence, and suggestions for what to wait for.").
 		Handler(func(ctx context.Context, input ObserveInput) (*agent.PageReadiness, error) {
 			return s().CheckReadiness()
@@ -1081,6 +1111,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("web_vitals").
 		ReadOnly().
+		OutputSchema(agent.WebVitalsResult{}).
 		Description("Extract Core Web Vitals (LCP, CLS, INP) and performance timing (TTFB, First Paint, DOM Content Loaded). Each metric is rated good/needs-improvement/poor per Google thresholds.").
 		Handler(func(ctx context.Context, input ObserveInput) (*agent.WebVitalsResult, error) {
 			return s().WebVitals()
@@ -1159,6 +1190,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("console_errors").
 		ReadOnly().
+		OutputSchema(agent.DiagnosticsResult{}).
 		Description("Get captured console.error / console.warn messages plus recent network 4xx/5xx failures. Auto-installs lightweight network observers, so failures recorded after the first call surface here without an explicit enable_network_capture.").
 		Handler(func(ctx context.Context, input ObserveInput) (*agent.DiagnosticsResult, error) {
 			return s().Diagnostics()
@@ -1166,9 +1198,14 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("failed_requests").
 		ReadOnly().
+		OutputSchema(FailedRequestsResult{}).
 		Description("Recent network requests with status >= 400 (4xx/5xx). URL + method + status + response body snippet. Use after a form submission that silently failed.").
-		Handler(func(ctx context.Context, input ObserveInput) ([]agent.NetworkFailure, error) {
-			return s().FailedRequests()
+		Handler(func(ctx context.Context, input ObserveInput) (*FailedRequestsResult, error) {
+			failures, err := s().FailedRequests()
+			if err != nil {
+				return nil, err
+			}
+			return &FailedRequestsResult{Items: failures, Total: len(failures)}, nil
 		})
 
 	srv.Tool("detect_auth_wall").
@@ -1233,6 +1270,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("discover_form").
 		ReadOnly().
+		OutputSchema(agent.FormDiscoveryResult{}).
 		Description("Discover form fields with their labels, types, and CSS selectors.").
 		Handler(func(ctx context.Context, input DiscoverFormInput) (*agent.FormDiscoveryResult, error) {
 			return s().DiscoverForm(input.Selector)
@@ -1266,9 +1304,14 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("list_tabs").
 		ReadOnly().
+		OutputSchema(ListTabsResult{}).
 		Description("List all open tabs with their names, URLs, and titles.").
-		Handler(func(ctx context.Context, input ObserveInput) ([]agent.TabInfo, error) {
-			return s().ListTabs()
+		Handler(func(ctx context.Context, input ObserveInput) (*ListTabsResult, error) {
+			tabs, err := s().ListTabs()
+			if err != nil {
+				return nil, err
+			}
+			return &ListTabsResult{Items: tabs, Total: len(tabs)}, nil
 		})
 
 	// --- Frames ---
