@@ -6,7 +6,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	go.klarlabs.de/bolt v1.5.2
 	go.klarlabs.de/fortify v1.8.1
-	go.klarlabs.de/mcp v1.21.0
+	go.klarlabs.de/mcp v1.22.0
 	go.klarlabs.de/statekit v1.8.0
 )
 
