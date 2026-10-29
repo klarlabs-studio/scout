@@ -9,15 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.5.0"
+    "@vue/server-renderer": "^3.5.44",
+    "source-map-js": "^1.2.2",
+    "vue": "^3.5.44"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.0.0",
-    "@vitejs/plugin-vue": "^5.2.0",
-    "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.0",
-    "vite": "^6.4.3",
-    "vue-tsc": "^2.2.0"
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.5",
+    "vue-tsc": "^3.3.13"
   },
   "overrides": {
     "postcss": "8.5.26",
