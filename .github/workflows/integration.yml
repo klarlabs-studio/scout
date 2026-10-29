@@ -4,7 +4,7 @@
 # compiles or executes them.
 #
 # Cost-aware matrix (same shape as the rest of the org bar): PRs run ubuntu +
-# Go 1.25 only; push-to-main adds macOS and Go 1.26 to validate OS-specific
+# Go 1.26 only; push-to-main adds macOS to validate OS-specific
 # browser/launcher behavior. macOS = ~10x runner cost, so it stays off PRs.
 name: Integration
 
@@ -36,13 +36,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: ${{ github.event_name == 'pull_request' && fromJSON('["1.25"]') || fromJSON('["1.25", "1.26"]') }}
+        go-version: ${{ fromJSON('["1.26"]') }}
         os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest"]') }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
