@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish to the MCP Registry (for registry-only retries)
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -37,6 +43,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run GoReleaser
+        if: github.event_name == 'push'
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
@@ -48,7 +55,11 @@ jobs:
 
       - name: Update server.json version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
           jq --arg v "$VERSION" '.version = $v' server.json > server.tmp && mv server.tmp server.json
           jq --arg id "ghcr.io/klarlabs-studio/scout:${VERSION}" '.packages[0].identifier = $id' server.json > server.tmp && mv server.tmp server.json
 

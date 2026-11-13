@@ -17,12 +17,12 @@
       },
       "packageArguments": [
         {
-          "value": "mcp",
-          "isFixed": true
+          "type": "positional",
+          "value": "mcp"
         },
         {
-          "value": "serve",
-          "isFixed": true
+          "type": "positional",
+          "value": "serve"
         }
       ]
     }
