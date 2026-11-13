@@ -17,6 +17,9 @@ func withResolver(t *testing.T, fn func(host string) ([]net.IP, error)) {
 
 func TestURLValidator_ValidURLs(t *testing.T) {
 	v := URLValidator{AllowPrivateIPs: false}
+	withResolver(t, func(string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("93.184.216.34")}, nil
+	})
 
 	tests := []struct {
 		name string
@@ -225,14 +228,17 @@ func TestURLValidator_DNSResolutionBlocked(t *testing.T) {
 	if err := v.Validate("http://good.example/"); err != nil {
 		t.Errorf("host resolving to a public IP should be allowed, got: %v", err)
 	}
-	// A name that fails to resolve is not a policy violation (navigation fails
-	// on its own); it must not error the validator.
-	if err := v.Validate("http://nonexistent.example/"); err != nil {
-		t.Errorf("unresolvable host should not error, got: %v", err)
+	// Fail closed if the policy resolver cannot classify a name; Chrome has its
+	// own resolver and might otherwise reach an address the policy did not check.
+	if err := v.Validate("http://nonexistent.example/"); err == nil || !strings.Contains(err.Error(), "could not be verified") {
+		t.Errorf("unresolvable host should fail closed with a verification error, got: %v", err)
 	}
 }
 
 func TestDefaultURLValidator(t *testing.T) {
+	withResolver(t, func(string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("93.184.216.34")}, nil
+	})
 	if DefaultURLValidator.AllowPrivateIPs {
 		t.Error("DefaultURLValidator should have AllowPrivateIPs=false")
 	}
@@ -241,5 +247,19 @@ func TestDefaultURLValidator(t *testing.T) {
 	}
 	if err := DefaultURLValidator.Validate("http://127.0.0.1"); err == nil {
 		t.Error("DefaultURLValidator should block private IPs")
+	}
+}
+
+func TestURLValidator_AllowedOrigins(t *testing.T) {
+	v := URLValidator{AllowPrivateIPs: true, AllowedOrigins: []string{"https://example.com/app", "http://localhost:8080"}}
+	for _, raw := range []string{"https://example.com/", "http://localhost:8080/login"} {
+		if err := v.Validate(raw); err != nil {
+			t.Errorf("expected %q to pass origin allowlist: %v", raw, err)
+		}
+	}
+	for _, raw := range []string{"https://sub.example.com/", "http://localhost/", "http://example.com/"} {
+		if err := v.Validate(raw); err == nil {
+			t.Errorf("expected %q to fail exact-origin allowlist", raw)
+		}
 	}
 }

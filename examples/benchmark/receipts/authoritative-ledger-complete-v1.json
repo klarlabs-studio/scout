@@ -1,0 +1,8 @@
+{
+  "task_id": "checkout-42",
+  "source": "fixture_append_only_ledger",
+  "observed_at": "2026-11-06T21:30:00Z",
+  "accepted_effects": 1,
+  "expected_effects": 1,
+  "authoritative": true
+}

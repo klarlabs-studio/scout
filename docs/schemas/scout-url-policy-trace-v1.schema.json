@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klarlabs.de/scout/schemas/scout-url-policy-trace-v1.schema.json",
+  "title": "Scout URL Policy Trace v1",
+  "description": "Request-level URL policy verdicts and whether Scout resolved each paused CDP request. This is page-target Fetch coverage, not browser-wide egress evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decisions", "dropped"],
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["timestamp_ms", "url", "allowed"],
+        "properties": {
+          "timestamp_ms": {"type": "integer", "minimum": 0},
+          "target_id": {"type": "string"},
+          "url": {"type": "string", "description": "URL with credentials, query, and fragment removed in exported traces."},
+          "method": {"type": "string"},
+          "resource_type": {"type": "string"},
+          "allowed": {"type": "boolean", "description": "URL policy verdict, independent of whether CDP resolved the paused request."},
+          "reason_code": {"type": "string"},
+          "policy_id": {"type": "string"},
+          "reason": {"type": "string"},
+          "resolution": {"enum": ["resolved", "failed"], "description": "Result of Fetch.continueRequest or Fetch.failRequest. Absent in older trace archives."},
+          "resolution_error": {"type": "string", "description": "Redacted CDP error text when resolution failed."}
+        }
+      }
+    },
+    "dropped": {"type": "integer", "minimum": 0}
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klarlabs.de/scout/schemas/scout-recovery-handoff-observation-v1.schema.json",
+  "title": "Scout Recovery Handoff Receiver Observation v1",
+  "description": "A browser adapter's independently collected identity for comparing a signed recovery handoff. The consuming host must authenticate the observation source; this document alone does not make its claims trusted.",
+  "$comment": "The receiver observation establishes browser context only. Application outcome must be graded separately using an authoritative application-side oracle.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "owner_scope",
+    "browser_generation",
+    "target_id",
+    "frame_binding_known",
+    "policy_id",
+    "policy_digest"
+  ],
+  "properties": {
+    "owner_scope": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Authenticated host principal or tenant scope."
+    },
+    "browser_generation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Host or broker token mapped to the live browser context."
+    },
+    "target_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target independently observed by the receiving browser adapter."
+    },
+    "frame_id": {
+      "type": "string",
+      "description": "Selected frame identity. Empty denotes the top-level frame only when frame_binding_known is true."
+    },
+    "frame_binding_known": {
+      "type": "boolean",
+      "description": "True only when the receiver has positively identified the selected frame; false prevents a context match."
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Effective policy identifier supplied by the trusted host or browser broker."
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Digest corresponding to policy_id."
+    }
+  }
+}

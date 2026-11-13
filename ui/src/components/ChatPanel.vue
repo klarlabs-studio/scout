@@ -6,6 +6,7 @@ import { renderMarkdown } from "../composables/useMarkdown";
 const props = defineProps<{
   messages: ChatMessage[];
   isRunning: boolean;
+  isClearing: boolean;
   error: string | null;
 }>();
 
@@ -21,7 +22,7 @@ const inputEl = ref<HTMLInputElement | null>(null);
 
 function submit() {
   const text = input.value.trim();
-  if (!text || props.isRunning) return;
+  if (!text || props.isRunning || props.isClearing) return;
   input.value = "";
   emit("send", text);
 }
@@ -91,19 +92,25 @@ watch(
             <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
           </svg>
         </div>
-        <span class="text-sm font-semibold text-zinc-100">Scout</span>
+        <div class="flex flex-col">
+          <span class="text-sm font-semibold text-zinc-100">Scout</span>
+          <span class="text-[10px] text-zinc-500">Conversation saved locally for 10 minutes</span>
+        </div>
       </div>
       <button
         v-if="messages.length"
+        :disabled="isRunning || isClearing"
+        :title="isRunning ? 'Stop the run and wait for its outcome before clearing' : isClearing ? 'Closing browser session…' : 'Clear conversation'"
         class="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded hover:bg-zinc-800/60"
+        :class="isRunning || isClearing ? 'opacity-40 cursor-not-allowed' : ''"
         @click="emit('clear')"
       >
-        Clear
+        {{ isClearing ? 'Clearing…' : 'Clear' }}
       </button>
     </div>
 
     <!-- Messages -->
-    <div ref="scrollEl" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <div ref="scrollEl" class="flex-1 overflow-y-auto px-4 py-4 space-y-3" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions text">
       <!-- Empty state -->
       <div
         v-if="!messages.length"
@@ -181,6 +188,7 @@ watch(
       <div
         v-if="error"
         class="rounded-xl bg-red-500/10 border border-red-500/20 px-3.5 py-2.5 text-[13px] text-red-400"
+        role="alert"
       >
         {{ error }}
       </div>
@@ -195,7 +203,8 @@ watch(
         <input
           ref="inputEl"
           v-model="input"
-          :disabled="isRunning"
+          aria-label="Message Scout"
+          :disabled="isRunning || isClearing"
           class="flex-1 bg-transparent text-sm text-zinc-100 placeholder-zinc-500 outline-none disabled:opacity-50 py-1"
           placeholder="Ask Scout… (⌘K to focus, Esc to stop)"
         />

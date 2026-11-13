@@ -1,9 +1,28 @@
 package browse
 
 import (
+	"errors"
 	"net/url"
 	"sync"
+	"time"
 )
+
+// URLPolicyDecision records the URL policy verdict for an intercepted request.
+type URLPolicyDecision struct {
+	Timestamp       int64  `json:"timestamp_ms"`
+	TargetID        string `json:"target_id,omitempty"`
+	URL             string `json:"url"`
+	Method          string `json:"method,omitempty"`
+	ResourceType    string `json:"resource_type,omitempty"`
+	Allowed         bool   `json:"allowed"`
+	ReasonCode      string `json:"reason_code,omitempty"`
+	PolicyID        string `json:"policy_id,omitempty"`
+	Reason          string `json:"reason,omitempty"`
+	Resolution      string `json:"resolution,omitempty"`
+	ResolutionError string `json:"resolution_error,omitempty"`
+}
+
+const maxURLPolicyDecisions = 10000
 
 // RequestRule inspects intercepted requests and decides what happens to each.
 // Rules are consulted in registration order: the first to Block fails the
@@ -36,9 +55,10 @@ type InterceptedRequest struct {
 
 // RequestVerdict is a rule's decision for one intercepted request.
 type RequestVerdict struct {
-	Block       bool
-	BlockReason string            // CDP errorReason; defaults to BlockedByClient
-	AddHeaders  map[string]string // merged onto the continued request's headers
+	Block          bool
+	BlockReason    string            // CDP errorReason; defaults to BlockedByClient
+	AddHeaders     map[string]string // merged onto the continued request's headers
+	policyDecision *URLPolicyDecision
 }
 
 // fetchInterceptor is the single owner of CDP Fetch interception for a page.
@@ -157,14 +177,19 @@ func (fi *fetchInterceptor) handle(params map[string]any) {
 	fi.mu.Unlock()
 
 	merged := map[string]string{}
+	var policyDecision *URLPolicyDecision
 	for _, r := range rules {
 		v := r.Decide(req)
+		if v.policyDecision != nil {
+			policyDecision = v.policyDecision
+		}
 		if v.Block {
 			reason := v.BlockReason
 			if reason == "" {
 				reason = "BlockedByClient"
 			}
-			_, _ = fi.page.call("Fetch.failRequest", map[string]any{"requestId": reqID, "errorReason": reason})
+			_, err := fi.page.call("Fetch.failRequest", map[string]any{"requestId": reqID, "errorReason": reason})
+			fi.page.finishURLPolicyDecision(policyDecision, err)
 			return
 		}
 		for k, val := range v.AddHeaders {
@@ -187,25 +212,28 @@ func (fi *fetchInterceptor) handle(params map[string]any) {
 		}
 		cont["headers"] = entries
 	}
-	_, _ = fi.page.call("Fetch.continueRequest", cont)
+	_, err := fi.page.call("Fetch.continueRequest", cont)
+	fi.page.finishURLPolicyDecision(policyDecision, err)
 }
 
-// installURLPolicy adds the redirect/navigation guard: every Document request
-// (initial navigation and each redirect) is re-validated against the page's URL
-// policy, so a public URL that redirects to an internal host is blocked before
-// Chrome ever fetches it. Only meaningful when the validator blocks private IPs.
+// installURLPolicy checks every Fetch-interceptable network request against the
+// page's URL policy. This covers documents and redirects, subresources,
+// fetch/XHR, and downloads. WebSocket handshakes are not surfaced through
+// Fetch.requestPaused and remain outside this policy.
 func (p *Page) installURLPolicy() error {
 	_, err := p.InterceptRequests(RequestRule{
-		Name:          "url-policy",
-		ResourceTypes: []string{"Document"},
+		Name: "url-policy",
 		Decide: func(r InterceptedRequest) RequestVerdict {
-			if r.ResourceType != "Document" {
-				return RequestVerdict{}
-			}
 			if err := p.urlValidator.Validate(r.URL); err != nil {
-				return RequestVerdict{Block: true, BlockReason: "AccessDenied"}
+				var policyErr *URLPolicyError
+				decision := URLPolicyDecision{Timestamp: time.Now().UnixMilli(), TargetID: p.targetID, URL: r.URL, Method: r.Method, ResourceType: r.ResourceType, Reason: err.Error()}
+				if errors.As(err, &policyErr) {
+					decision.ReasonCode, decision.PolicyID = policyErr.Code, policyErr.PolicyID
+				}
+				return RequestVerdict{Block: true, BlockReason: "BlockedByClient", policyDecision: &decision}
 			}
-			return RequestVerdict{}
+			decision := URLPolicyDecision{Timestamp: time.Now().UnixMilli(), TargetID: p.targetID, URL: r.URL, Method: r.Method, ResourceType: r.ResourceType, Allowed: true, PolicyID: p.urlValidator.PolicyID}
+			return RequestVerdict{policyDecision: &decision}
 		},
 	})
 	return err

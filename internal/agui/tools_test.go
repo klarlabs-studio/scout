@@ -75,6 +75,7 @@ func assertHasCase(t *testing.T, name string) {
 // out: multi-tab, network, cookies, eval, frames, form submit, upload,
 // framework detection, and waiting variants.
 func TestCuratedTools_CoversCapabilityFamilies(t *testing.T) {
+	t.Setenv("SCOUT_ENABLE_EVAL", "1")
 	have := map[string]bool{}
 	for _, tl := range CuratedTools() {
 		have[tl.Name] = true
@@ -106,6 +107,22 @@ func TestCuratedTools_CoversCapabilityFamilies(t *testing.T) {
 	}
 }
 
+func TestCuratedTools_HidesEvalUnlessEnabled(t *testing.T) {
+	t.Setenv("SCOUT_ENABLE_EVAL", "")
+	for _, tool := range CuratedTools() {
+		if tool.Name == "eval" {
+			t.Fatal("eval should be hidden unless explicitly enabled")
+		}
+	}
+	t.Setenv("SCOUT_ENABLE_EVAL", "true")
+	for _, tool := range CuratedTools() {
+		if tool.Name == "eval" {
+			return
+		}
+	}
+	t.Fatal("eval should be advertised when explicitly enabled")
+}
+
 func TestExecuteTool_UnknownName(t *testing.T) {
 	_, err := ExecuteTool(nil, "definitely_not_a_real_tool", json.RawMessage(`{}`))
 	if err == nil {
@@ -114,6 +131,15 @@ func TestExecuteTool_UnknownName(t *testing.T) {
 	if !strings.Contains(err.Error(), "unknown tool") {
 		t.Errorf("expected 'unknown tool' in error, got %v", err)
 	}
+}
+
+func TestScreenshotTool_AdvertisesImagePayload(t *testing.T) {
+	for _, tool := range CuratedTools() {
+		if tool.Name == "screenshot" && strings.Contains(tool.Description, "base64 PNG image payload") {
+			return
+		}
+	}
+	t.Fatal("screenshot tool should describe the returned image payload")
 }
 
 func TestSchema_NoProps(t *testing.T) {

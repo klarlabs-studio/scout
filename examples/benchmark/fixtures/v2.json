@@ -1,0 +1,80 @@
+{
+  "version": "scout-browser-reliability-v2",
+  "scenarios": [
+    {
+      "id": "scoped-large-page",
+      "purpose": "Measure scope containment and bounded observation on a noisy page.",
+      "required_scope": "main",
+      "expected_text": "Target record 042",
+      "forbidden_text": "Decoy record 042",
+      "max_output_bytes": 12000
+    },
+    {
+      "id": "scope-excludes-decoy",
+      "purpose": "Ensure a target visible only outside the requested scope is not treated as found.",
+      "required_scope": "main",
+      "expected_text": "Decoy-only target",
+      "expected_miss": true
+    },
+    {
+      "id": "verified-action",
+      "purpose": "Measure whether a click is only dispatched or its requested outcome is verified.",
+      "selector": "#complete",
+      "expected_text": "Task complete"
+    },
+    {
+      "id": "form-acceptance",
+      "purpose": "Distinguish successful transport from an observed application acceptance state.",
+      "form_selector": "#checkout",
+      "match_url": "/submit",
+      "expected_text": "Order accepted"
+    },
+    {
+      "id": "form-rejection",
+      "purpose": "Ensure an HTTP error response does not count as form acceptance.",
+      "form_selector": "#checkout",
+      "match_url": "/reject",
+      "expected_status": 422,
+      "expected_failure_outcome": "response_failed"
+    },
+    {
+      "id": "playbook-replay",
+      "purpose": "Measure deterministic replay success and first-failure evidence after a controlled page change.",
+      "starting_path": "/replay",
+      "action_selector": "#advance",
+      "expected_text": "Step complete",
+      "changed_expected_text": "Different expected result"
+    },
+    {
+      "id": "playbook-change-detection",
+      "purpose": "Ensure a changed page expectation fails with evidence and recovery guidance.",
+      "starting_path": "/replay",
+      "action_selector": "#advance",
+      "expected_text": "Step complete",
+      "changed_expected_text": "Different expected result"
+    },
+    {
+      "id": "playbook-resume-after-repair",
+      "purpose": "Ensure replay can resume at the failed step after a caller repairs the page.",
+      "starting_path": "/replay",
+      "action_selector": "#advance",
+      "repair_selector": "#repair",
+      "expected_text": "Step complete"
+    },
+    {
+      "id": "shadow-root-action",
+      "purpose": "Find and verify an action inside an open shadow root while excluding outside decoys.",
+      "starting_path": "/shadow",
+      "action_selector": "#shadow-action",
+      "expected_text": "Shadow task complete"
+    },
+    {
+      "id": "iframe-action",
+      "purpose": "Switch to a named iframe and verify its action result without matching parent-frame decoys.",
+      "starting_path": "/iframe",
+      "frame_selector": "#task-frame",
+      "action_selector": "#frame-action",
+      "expected_text": "Frame task complete"
+    }
+  ]
+}

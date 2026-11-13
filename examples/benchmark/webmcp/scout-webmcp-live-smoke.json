@@ -1,0 +1,318 @@
+{
+  "classification": "single-run live Scout WebMCP bridge smoke; not a reliability estimate",
+  "date": "2026-11-06",
+  "browser": "Chrome/157.0.8103.38",
+  "fixture_url": "http://127.0.0.1:41894/action",
+  "mcp_profile": "all",
+  "mcp_tool_count": 112,
+  "webmcp_tools": [
+    "webmcp_catalog",
+    "webmcp_invoke"
+  ],
+  "catalog": {
+    "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+    "url": "http://127.0.0.1:41894/action",
+    "content_trust": "untrusted_page_content",
+    "tools": [
+      {
+        "name": "complete_task",
+        "description": "Complete the visible benchmark task by activating its button.",
+        "input_schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "annotations": {
+          "consequential": false,
+          "debugging": false,
+          "readOnly": false,
+          "untrustedContent": false
+        },
+        "frame_id": "BC528B7059555C3441A96F3D9D8AC06C",
+        "origin": "http://127.0.0.1:41894",
+        "content_trust": "untrusted_page_content"
+      }
+    ]
+  },
+  "task": {
+    "id": "webmcp-complete-task-smoke",
+    "content_trust": "untrusted_page_content",
+    "status": "completed",
+    "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+    "browser_instance_id": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+    "allow_private_ips": true,
+    "policy_id": "scout-origin-v1:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+    "policy_enforcement": "no_origin_allowlist",
+    "resume_from": 1,
+    "plan_id": "scout-task-v1:482274612e1e708252857154627f08d8c784577a5ed7213d72b8f8ce0200b21b",
+    "batch": {
+      "content_trust": "untrusted_page_content",
+      "total": 1,
+      "succeeded": 1,
+      "failed": 0,
+      "verified": 1,
+      "rejected": 0,
+      "unverified": 0,
+      "unknown": 0,
+      "next_action_index": 1,
+      "results": [
+        {
+          "index": 0,
+          "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+          "action": "webmcp_invoke",
+          "target": "complete_task",
+          "success": true,
+          "verified": true,
+          "outcome": "postcondition_verified",
+          "evidence": "declared page postcondition verified; WebMCP result is untrusted and omitted from verification; untrusted WebMCP result bytes: 15",
+          "action_receipt": {
+            "schema_version": 1,
+            "content_trust": "untrusted_page_content",
+            "run_id": "2ec86841ff768b572eb671156f75c9a8",
+            "operation_ordinal": 1,
+            "policy_id": "scout-origin-v1:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+            "action": "webmcp_complete_task",
+            "browser_ownership": "remote_cdp",
+            "target": "complete_task",
+            "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+            "browser_instance_id": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+            "frame_id": "BC528B7059555C3441A96F3D9D8AC06C",
+            "outcome": "postcondition_verified",
+            "verified": true,
+            "verification_state": "verified",
+            "evidence": "declared page postcondition verified; WebMCP result is untrusted and omitted from verification; untrusted WebMCP result bytes: 15",
+            "deadline_at_ms": 1793990998445,
+            "started_at_ms": 1793990938507,
+            "expected_postcondition": {
+              "text": "Task complete"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "same_id_retry": {
+    "id": "webmcp-complete-task-smoke",
+    "content_trust": "untrusted_page_content",
+    "status": "completed",
+    "idempotency_replay": true,
+    "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+    "browser_instance_id": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+    "allow_private_ips": true,
+    "policy_id": "scout-origin-v1:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+    "policy_enforcement": "no_origin_allowlist",
+    "resume_from": 1,
+    "plan_id": "scout-task-v1:482274612e1e708252857154627f08d8c784577a5ed7213d72b8f8ce0200b21b",
+    "batch": {
+      "content_trust": "untrusted_page_content",
+      "total": 1,
+      "succeeded": 1,
+      "failed": 0,
+      "verified": 1,
+      "rejected": 0,
+      "unverified": 0,
+      "unknown": 0,
+      "next_action_index": 1,
+      "results": [
+        {
+          "index": 0,
+          "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+          "action": "webmcp_invoke",
+          "target": "complete_task",
+          "success": true,
+          "verified": true,
+          "outcome": "postcondition_verified",
+          "evidence": "declared page postcondition verified; WebMCP result is untrusted and omitted from verification; untrusted WebMCP result bytes: 15",
+          "action_receipt": {
+            "schema_version": 1,
+            "content_trust": "untrusted_page_content",
+            "run_id": "2ec86841ff768b572eb671156f75c9a8",
+            "operation_ordinal": 1,
+            "policy_id": "scout-origin-v1:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+            "action": "webmcp_complete_task",
+            "browser_ownership": "remote_cdp",
+            "target": "complete_task",
+            "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+            "browser_instance_id": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+            "frame_id": "BC528B7059555C3441A96F3D9D8AC06C",
+            "outcome": "postcondition_verified",
+            "verified": true,
+            "verification_state": "verified",
+            "evidence": "declared page postcondition verified; WebMCP result is untrusted and omitted from verification; untrusted WebMCP result bytes: 15",
+            "deadline_at_ms": 1793990998445,
+            "started_at_ms": 1793990938507,
+            "expected_postcondition": {
+              "text": "Task complete"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "stored_task": {
+    "content_trust": "untrusted_page_content",
+    "found": true,
+    "record": {
+      "id": "webmcp-complete-task-smoke",
+      "fingerprint": "scout-task-v1:482274612e1e708252857154627f08d8c784577a5ed7213d72b8f8ce0200b21b",
+      "plan": {
+        "schema_version": 1,
+        "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+        "allow_private_ips": true,
+        "policy_id": "scout-origin-v1:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+        "policy_enforcement": "no_origin_allowlist",
+        "actions": [
+          {
+            "action": "webmcp_invoke",
+            "webmcp_name": "complete_task",
+            "webmcp_frame_id": "BC528B7059555C3441A96F3D9D8AC06C",
+            "postcondition": "text"
+          }
+        ]
+      },
+      "in_flight": false,
+      "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+      "browser_instance_id": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+      "result": {
+        "id": "webmcp-complete-task-smoke",
+        "content_trust": "untrusted_page_content",
+        "status": "completed",
+        "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+        "browser_instance_id": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+        "allow_private_ips": true,
+        "policy_id": "scout-origin-v1:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+        "policy_enforcement": "no_origin_allowlist",
+        "resume_from": 1,
+        "plan_id": "scout-task-v1:482274612e1e708252857154627f08d8c784577a5ed7213d72b8f8ce0200b21b",
+        "batch": {
+          "content_trust": "untrusted_page_content",
+          "total": 1,
+          "succeeded": 1,
+          "failed": 0,
+          "verified": 1,
+          "rejected": 0,
+          "unverified": 0,
+          "unknown": 0,
+          "next_action_index": 1,
+          "results": [
+            {
+              "index": 0,
+              "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+              "action": "webmcp_invoke",
+              "target": "complete_task",
+              "success": true,
+              "verified": true,
+              "outcome": "postcondition_verified",
+              "evidence": "declared page postcondition verified; WebMCP result is untrusted and omitted from verification; untrusted WebMCP result bytes: 15",
+              "action_receipt": {
+                "schema_version": 1,
+                "content_trust": "untrusted_page_content",
+                "run_id": "2ec86841ff768b572eb671156f75c9a8",
+                "operation_ordinal": 1,
+                "policy_id": "scout-origin-v1:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+                "action": "webmcp_complete_task",
+                "browser_ownership": "remote_cdp",
+                "target": "complete_task",
+                "target_id": "BC528B7059555C3441A96F3D9D8AC06C",
+                "browser_instance_id": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+                "frame_id": "BC528B7059555C3441A96F3D9D8AC06C",
+                "outcome": "postcondition_verified",
+                "verified": true,
+                "verification_state": "verified",
+                "evidence": "declared page postcondition verified; WebMCP result is untrusted and omitted from verification; untrusted WebMCP result bytes: 15",
+                "deadline_at_ms": 1793990998445,
+                "started_at_ms": 1793990938507,
+                "expected_postcondition": {
+                  "text": "Task complete"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "recovery": {
+        "schema_version": 1,
+        "phase": "result_persisting",
+        "steps": [
+          {
+            "action": "webmcp_invoke",
+            "webmcp_name": "complete_task",
+            "webmcp_frame_id": "BC528B7059555C3441A96F3D9D8AC06C",
+            "postcondition": "text"
+          }
+        ],
+        "current": {
+          "index": 0,
+          "status": "finished"
+        },
+        "next_action": 1
+      }
+    }
+  },
+  "recovery_receipt": {
+    "schema": "scout.recovery-receipt/v1",
+    "task": {
+      "id": "webmcp-complete-task-smoke",
+      "plan_fingerprint": "scout-task-v1:482274612e1e708252857154627f08d8c784577a5ed7213d72b8f8ce0200b21b",
+      "state": "completed"
+    },
+    "runtime": {
+      "name": "scout",
+      "receipt_schema": 1
+    },
+    "browser": {
+      "instance_id": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+      "generation": "961a1225c29280f15034952c681d60518e3637aa6438fe679cc68a8c6f214611",
+      "ownership": "attached"
+    },
+    "target": {
+      "id": "BC528B7059555C3441A96F3D9D8AC06C",
+      "frame_id": "BC528B7059555C3441A96F3D9D8AC06C"
+    },
+    "policy": {
+      "id": "scout-origin-v1:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+      "digest": "sha256:76f2ca102524d52d6a0325f2e47d72a5276acd5cfb8bb4745d7ed723e90b90f8",
+      "origins": [],
+      "allow_private_ips": true,
+      "inputs_complete": true,
+      "enforcement": "unknown"
+    },
+    "operation": {
+      "id": "webmcp-complete-task-smoke/1",
+      "ordinal": 1,
+      "name": "webmcp_complete_task",
+      "dispatch": "dispatched",
+      "outcome": "verified",
+      "verification": "verified"
+    },
+    "postcondition": {
+      "kind": "text",
+      "captured": false
+    },
+    "evidence": {
+      "created_at": "2026-11-06T18:48:58.507Z",
+      "observed_at": null,
+      "trust": "runtime_metadata",
+      "references": []
+    },
+    "recovery": {
+      "replay_authorized": false,
+      "next_step": "none"
+    }
+  },
+  "checks": {
+    "retained_webmcp_step_without_input": true,
+    "receipt_frame_id": "BC528B7059555C3441A96F3D9D8AC06C"
+  },
+  "independent_verification": {
+    "status": "Task complete",
+    "completed": true,
+    "click_count": 1
+  },
+  "passed": true,
+  "limitations": [
+    "The page tool is injected by the local fixture.",
+    "One run does not estimate reliability; repeated same-ID invocation checks only that Scout does not re-dispatch this completed task.",
+    "No delayed completion, hostile metadata, schema rejection, frame drift, cancellation, or actual-agent selection is covered."
+  ]
+}

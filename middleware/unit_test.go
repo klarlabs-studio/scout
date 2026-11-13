@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/base64"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -1247,6 +1248,55 @@ func TestRetryHandlerEventualSuccess(t *testing.T) {
 	}
 	if ctx.IsAborted() {
 		t.Error("Retry should not be aborted after eventual success")
+	}
+}
+
+func TestRetryDoesNotReplayUnknownBrowserOutcomeByDefault(t *testing.T) {
+	attempts := 0
+	h := Retry(RetryConfig{MaxAttempts: 3, InitialDelay: time.Millisecond})
+	chain := browse.HandlersChain{
+		h,
+		func(c *browse.Context) {
+			attempts++
+			c.AbortWithError(&browse.NavigationOutcomeUnknownError{
+				URL: "https://example.test/submit",
+				Err: errors.New("acknowledgment lost after dispatch"),
+			})
+		},
+	}
+	ctx := browse.NewTestContext("retry-unknown-outcome", chain)
+	ctx.Next()
+	if attempts != 1 {
+		t.Fatalf("unknown browser outcome replayed %d times, want exactly once", attempts)
+	}
+	if !browse.IsOutcomeUnknown(ctx.Errors()[0]) {
+		t.Fatalf("unknown outcome classification was lost: %v", ctx.Errors())
+	}
+}
+
+func TestRetryPredicateCanExplicitlyAllowUnknownOutcome(t *testing.T) {
+	attempts := 0
+	h := Retry(RetryConfig{
+		MaxAttempts:  2,
+		InitialDelay: time.Millisecond,
+		IsRetryable:  func(error) bool { return true },
+	})
+	chain := browse.HandlersChain{
+		h,
+		func(c *browse.Context) {
+			attempts++
+			if attempts == 1 {
+				c.AbortWithError(&browse.NavigationOutcomeUnknownError{URL: "https://example.test/submit"})
+			}
+		},
+	}
+	ctx := browse.NewTestContext("retry-explicit-override", chain)
+	ctx.Next()
+	if attempts != 2 {
+		t.Fatalf("explicit retry predicate allowed %d attempts, want 2", attempts)
+	}
+	if ctx.IsAborted() {
+		t.Fatalf("explicit retry predicate should permit eventual success: %v", ctx.Errors())
 	}
 }
 

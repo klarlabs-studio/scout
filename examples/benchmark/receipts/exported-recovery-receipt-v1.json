@@ -1,0 +1,37 @@
+{
+  "schema": "scout.recovery-receipt/v1",
+  "task": {
+    "id": "audit-sample",
+    "plan_fingerprint": "sha256:plan",
+    "state": "needs_reconciliation"
+  },
+  "runtime": {
+    "name": "scout",
+    "receipt_schema": 1
+  },
+  "browser": {
+    "instance_id": "browser-1",
+    "ownership": "owned"
+  },
+  "target": {
+    "id": "target-1"
+  },
+  "operation": {
+    "id": "scout-op-v1.YXVkaXQtc2FtcGxl.1",
+    "ordinal": 1,
+    "name": "click",
+    "dispatch": "dispatched",
+    "outcome": "verified",
+    "verification": "verified"
+  },
+  "evidence": {
+    "created_at": "2026-11-06T20:19:51.227769Z",
+    "observed_at": null,
+    "trust": "runtime_metadata",
+    "references": []
+  },
+  "recovery": {
+    "replay_authorized": false,
+    "next_step": "reconcile_with_authoritative_application_state"
+  }
+}

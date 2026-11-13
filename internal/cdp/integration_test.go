@@ -3,6 +3,7 @@ package cdp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -210,8 +211,11 @@ func TestCallSessionCtxWithSessionID(t *testing.T) {
 }
 
 func TestCallSessionCtxCancellation(t *testing.T) {
-	// Server delays response so we can cancel mid-flight.
+	// Wait until the server has received the command before canceling, proving
+	// this is a post-dispatch ambiguity rather than preflight cancellation.
+	received := make(chan struct{})
 	srv := mockCDPServer(t, func(ws *websocket.Conn, req map[string]any) {
+		close(received)
 		time.Sleep(500 * time.Millisecond)
 		id := req["id"]
 		resp := map[string]any{"id": id, "result": map[string]any{}}
@@ -226,9 +230,9 @@ func TestCallSessionCtxCancellation(t *testing.T) {
 	defer conn.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	// Cancel after a short delay.
+	defer cancel()
 	go func() {
-		time.Sleep(50 * time.Millisecond)
+		<-received
 		cancel()
 	}()
 
@@ -236,8 +240,101 @@ func TestCallSessionCtxCancellation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected cancellation error, got nil")
 	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("error %v does not wrap context.Canceled", err)
+	}
 	if !strings.Contains(err.Error(), "context canceled") {
 		t.Errorf("error = %q, want context canceled", err.Error())
+	}
+	var unknown *DispatchOutcomeUnknownError
+	if !errors.As(err, &unknown) {
+		t.Fatalf("error %T does not preserve DispatchOutcomeUnknownError", err)
+	}
+	if unknown.Method != "Page.navigate" {
+		t.Errorf("unknown method = %q, want Page.navigate", unknown.Method)
+	}
+}
+
+func TestCallSessionLateResultReturnsPromptlyAndDeliversResponse(t *testing.T) {
+	received := make(chan struct{})
+	srv := mockCDPServer(t, func(ws *websocket.Conn, req map[string]any) {
+		close(received)
+		time.Sleep(60 * time.Millisecond)
+		_ = ws.WriteJSON(map[string]any{"id": req["id"], "result": map[string]any{"sessionId": "late-session"}})
+	})
+	conn, err := Dial(wsURL(srv))
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer conn.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	result, late, err := conn.CallSessionLateResultCtx(ctx, "", "Target.attachToTarget", map[string]any{"targetId": "target"}, 250*time.Millisecond)
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("CallSessionLateResultCtx error = %v, want deadline", err)
+	}
+	if elapsed := time.Since(started); elapsed > 50*time.Millisecond {
+		t.Fatalf("call exceeded caller deadline by %s", elapsed)
+	}
+	if result != nil {
+		t.Fatalf("timed-out result = %q, want nil", result)
+	}
+	select {
+	case <-received:
+	default:
+		t.Fatal("server did not receive attach")
+	}
+	var responseMessage *Message
+	select {
+	case responseMessage = <-late:
+	case <-time.After(time.Second):
+		t.Fatal("late response was not delivered")
+	}
+	if responseMessage == nil || responseMessage.Error != nil {
+		t.Fatalf("late response = %#v", responseMessage)
+	}
+	var response struct {
+		SessionID string `json:"sessionId"`
+	}
+	if err := json.Unmarshal(responseMessage.Result, &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.SessionID != "late-session" {
+		t.Fatalf("session ID = %q, want late-session", response.SessionID)
+	}
+}
+
+func TestCallSessionCtxDisconnectAfterDispatchIsUnknown(t *testing.T) {
+	received := make(chan struct{})
+	srv := mockCDPServer(t, func(ws *websocket.Conn, _ map[string]any) {
+		close(received)
+		// The command has reached the peer, but no authoritative reply arrives.
+		_ = ws.Close()
+	})
+	conn, err := Dial(wsURL(srv))
+	if err != nil {
+		t.Fatalf("Dial error: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err = conn.CallSessionCtx(ctx, "s1", "Input.dispatchMouseEvent", map[string]any{"type": "mousePressed"})
+	if err == nil {
+		t.Fatal("expected an error after post-dispatch disconnect")
+	}
+	select {
+	case <-received:
+	default:
+		t.Fatal("server did not receive the mutation before the error")
+	}
+	var unknown *DispatchOutcomeUnknownError
+	if !errors.As(err, &unknown) {
+		t.Fatalf("error %T = %v, want DispatchOutcomeUnknownError", err, err)
+	}
+	if unknown.Method != "Input.dispatchMouseEvent" {
+		t.Errorf("unknown method = %q, want Input.dispatchMouseEvent", unknown.Method)
 	}
 }
 
@@ -680,6 +777,33 @@ func TestCloseTarget(t *testing.T) {
 	err = conn.CloseTarget("target-123")
 	if err != nil {
 		t.Errorf("CloseTarget error: %v", err)
+	}
+}
+
+func TestDetachFromTargetLeavesTargetOpen(t *testing.T) {
+	var closedTarget atomic.Bool
+	srv := mockCDPServer(t, func(ws *websocket.Conn, req map[string]any) {
+		id := req["id"]
+		method, _ := req["method"].(string)
+		if method == "Target.closeTarget" {
+			closedTarget.Store(true)
+		}
+		resp := map[string]any{"id": id, "result": map[string]any{}}
+		data, _ := json.Marshal(resp)
+		_ = ws.WriteMessage(websocket.TextMessage, data)
+	})
+
+	conn, err := Dial(wsURL(srv))
+	if err != nil {
+		t.Fatalf("Dial error: %v", err)
+	}
+	defer conn.Close()
+
+	if err := conn.DetachFromTargetCtx(context.Background(), "session-abc"); err != nil {
+		t.Fatalf("DetachFromTargetCtx error: %v", err)
+	}
+	if closedTarget.Load() {
+		t.Fatal("detaching a session must not close its target")
 	}
 }
 

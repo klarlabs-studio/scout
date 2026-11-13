@@ -130,8 +130,8 @@ func TestTrace_NavigateClickType(t *testing.T) {
 			if events[2].Action != "type" {
 				t.Errorf("event[2].action: expected 'type', got %q", events[2].Action)
 			}
-			if events[2].Value != "test-user" {
-				t.Errorf("event[2].value: expected 'test-user', got %q", events[2].Value)
+			if events[2].Value != "" || !events[2].ActionValueRedacted {
+				t.Errorf("event[2] should redact the typed value in the exported trace, got value=%q redacted=%t", events[2].Value, events[2].ActionValueRedacted)
 			}
 
 			for i, ev := range events {

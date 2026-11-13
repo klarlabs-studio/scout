@@ -1,27 +1,36 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 )
 
 // DialogInfo describes a visible modal/dialog on the page.
 type DialogInfo struct {
-	Found    bool        `json:"found"`
-	Type     string      `json:"type,omitempty"`     // dialog, modal, overlay, alert, confirm, prompt
-	Title    string      `json:"title,omitempty"`    // dialog title/heading
-	Text     string      `json:"text,omitempty"`     // dialog body text
-	Buttons  []string    `json:"buttons,omitempty"`  // available action buttons
-	Inputs   []InputInfo `json:"inputs,omitempty"`   // input fields in the dialog
-	Selector string      `json:"selector,omitempty"` // CSS selector for the dialog element
+	ContentTrust string      `json:"content_trust,omitempty"`
+	Found        bool        `json:"found"`
+	Type         string      `json:"type,omitempty"`     // dialog, modal, overlay, alert, confirm, prompt
+	Title        string      `json:"title,omitempty"`    // dialog title/heading
+	Text         string      `json:"text,omitempty"`     // dialog body text
+	Buttons      []string    `json:"buttons,omitempty"`  // available action buttons
+	Inputs       []InputInfo `json:"inputs,omitempty"`   // input fields in the dialog
+	Selector     string      `json:"selector,omitempty"` // CSS selector for the dialog element
 }
 
 // DetectDialog checks if a modal, dialog, or overlay is currently visible on the page.
 func (s *Session) DetectDialog() (*DialogInfo, error) {
-	s.mu.Lock()
+	return s.DetectDialogContext(context.Background())
+}
+
+// DetectDialogContext searches for visible dialogs while honoring ctx.
+func (s *Session) DetectDialogContext(ctx context.Context) (*DialogInfo, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
 
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -94,13 +103,16 @@ func (s *Session) DetectDialog() (*DialogInfo, error) {
 		return JSON.stringify(result);
 	})()`
 
-	resultVal, err := s.page.Evaluate(js)
+	resultVal, err := s.page.EvaluateContext(ctx, js)
 	if err != nil {
 		return nil, fmt.Errorf("dialog detection failed: %w", err)
 	}
 
 	str, _ := resultVal.(string)
-	var info DialogInfo
+	info := DialogInfo{ContentTrust: ContentTrustUntrustedPage}
 	_ = json.Unmarshal([]byte(str), &info)
+	for i := range info.Inputs {
+		info.Inputs[i].ContentTrust = ContentTrustUntrustedPage
+	}
 	return &info, nil
 }

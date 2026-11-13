@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -10,17 +11,29 @@ import (
 // text, aria-label, placeholder, title, and other accessibility attributes.
 // Returns the best match with a confidence score and up to 3 candidates.
 func (s *Session) SelectByPrompt(prompt string) (*PromptSelectResult, error) {
-	s.mu.Lock()
+	return s.SelectByPromptContext(context.Background(), prompt)
+}
+
+// SelectByPromptContext finds a matching element while honoring ctx for
+// session queueing, page setup, and browser evaluation.
+func (s *Session) SelectByPromptContext(ctx context.Context, prompt string) (*PromptSelectResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
 
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
-	return s.selectByPromptInternal(prompt)
+	return s.selectByPromptInternalContext(ctx, prompt)
 }
 
 func (s *Session) selectByPromptInternal(prompt string) (*PromptSelectResult, error) {
+	return s.selectByPromptInternalContext(context.Background(), prompt)
+}
+
+func (s *Session) selectByPromptInternalContext(ctx context.Context, prompt string) (*PromptSelectResult, error) {
 	promptJSON, _ := json.Marshal(strings.TrimSpace(prompt))
 
 	js := fmt.Sprintf(`(function() {
@@ -111,7 +124,7 @@ func (s *Session) selectByPromptInternal(prompt string) (*PromptSelectResult, er
 		return JSON.stringify(candidates.slice(0, 3));
 	})()`, promptJSON)
 
-	result, err := s.page.Evaluate(js)
+	result, err := s.page.EvaluateContext(ctx, js)
 	if err != nil {
 		return nil, fmt.Errorf("select by prompt failed: %w", err)
 	}
@@ -134,18 +147,21 @@ func (s *Session) selectByPromptInternal(prompt string) (*PromptSelectResult, er
 
 	best := candidates[0]
 	psr := &PromptSelectResult{
-		Selector:   best.Selector,
-		Text:       best.Text,
-		Tag:        best.Tag,
-		Role:       best.Role,
-		Confidence: best.Score / 100.0,
+		TargetID:     s.page.TargetID(),
+		ContentTrust: ContentTrustUntrustedPage,
+		Selector:     best.Selector,
+		Text:         best.Text,
+		Tag:          best.Tag,
+		Role:         best.Role,
+		Confidence:   best.Score / 100.0,
 	}
 
 	for _, c := range candidates {
 		psr.Candidates = append(psr.Candidates, PromptCandidate{
-			Selector: c.Selector,
-			Text:     c.Text,
-			Score:    c.Score,
+			ContentTrust: ContentTrustUntrustedPage,
+			Selector:     c.Selector,
+			Text:         c.Text,
+			Score:        c.Score,
 		})
 	}
 

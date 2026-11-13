@@ -1,5 +1,10 @@
 package agent
 
+import (
+	"context"
+	"fmt"
+)
+
 // AriaViolation is one finding from a minimal a11y scan.
 // scout intentionally keeps this lightweight — no axe-core bundle,
 // no third-party dependency — so it ships with every binary and
@@ -14,12 +19,17 @@ type AriaViolation struct {
 
 // AriaViolationReport groups violations by impact.
 type AriaViolationReport struct {
-	Critical []AriaViolation `json:"critical,omitempty"`
-	Serious  []AriaViolation `json:"serious,omitempty"`
-	Moderate []AriaViolation `json:"moderate,omitempty"`
-	Minor    []AriaViolation `json:"minor,omitempty"`
-	Count    int             `json:"count"`
+	ContentTrust string          `json:"content_trust,omitempty"`
+	Critical     []AriaViolation `json:"critical,omitempty"`
+	Serious      []AriaViolation `json:"serious,omitempty"`
+	Moderate     []AriaViolation `json:"moderate,omitempty"`
+	Minor        []AriaViolation `json:"minor,omitempty"`
+	Count        int             `json:"count"`
+	Total        int             `json:"total"`
+	Truncated    bool            `json:"truncated"`
 }
+
+const maxAriaViolationResults = 500
 
 // AriaViolations runs a minimal accessibility scan and returns
 // findings grouped by impact. The scan covers the most common
@@ -32,14 +42,23 @@ type AriaViolationReport struct {
 // the browser via one Evaluate call. For full WCAG coverage,
 // bundle axe-core in your test pipeline.
 func (s *Session) AriaViolations() (*AriaViolationReport, error) {
-	s.mu.Lock()
+	return s.AriaViolationsContext(context.Background())
+}
+
+// AriaViolationsContext runs the accessibility scan while honoring ctx for
+// session queueing, page setup, and browser evaluation.
+func (s *Session) AriaViolationsContext(ctx context.Context) (*AriaViolationReport, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
-	js := `(function() {
+	js := fmt.Sprintf(`(function() {
 		const findings = [];
+		let findingsTotal = 0;
 		function add(rule, impact, el, detail) {
 			let selector = '';
 			let tag = '';
@@ -49,7 +68,8 @@ func (s *Session) AriaViolations() (*AriaViolationReport, error) {
 				else if (el.name) selector = tag + '[name="' + el.name + '"]';
 				else selector = tag;
 			}
-			findings.push({rule:rule, impact:impact, selector:selector, tag:tag, detail:detail});
+			findingsTotal++;
+			if (findings.length < %d) findings.push({rule:rule, impact:impact, selector:selector, tag:tag, detail:detail});
 		}
 
 		function accessibleName(el) {
@@ -133,15 +153,20 @@ func (s *Session) AriaViolations() (*AriaViolationReport, error) {
 			}
 		}
 
-		return findings;
-	})()`
+		return {findings:findings, total:findingsTotal};
+	})()`, maxAriaViolationResults)
 
-	result, err := s.page.Evaluate(js)
+	result, err := s.page.EvaluateContext(ctx, js)
 	if err != nil {
 		return nil, err
 	}
-	report := &AriaViolationReport{}
-	arr, ok := result.([]any)
+	report := &AriaViolationReport{ContentTrust: ContentTrustUntrustedPage}
+	payload, ok := result.(map[string]any)
+	if !ok {
+		return report, nil
+	}
+	report.Total = observationInt(payload["total"])
+	arr, ok := payload["findings"].([]any)
 	if !ok {
 		return report, nil
 	}
@@ -168,5 +193,6 @@ func (s *Session) AriaViolations() (*AriaViolationReport, error) {
 			report.Minor = append(report.Minor, v)
 		}
 	}
+	report.Truncated = report.Total > report.Count
 	return report, nil
 }

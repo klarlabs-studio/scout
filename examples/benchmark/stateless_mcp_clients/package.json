@@ -1,0 +1,11 @@
+{
+  "name": "scout-stateless-mcp-client-compatibility",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node compatibility.mjs"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0"
+  }
+}

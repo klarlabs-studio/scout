@@ -1,12 +1,14 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 )
 
 // PageReadiness describes how ready a page is for interaction.
 type PageReadiness struct {
+	ContentTrust  string   `json:"content_trust,omitempty"`
 	Score         int      `json:"score"`                  // 0-100
 	State         string   `json:"state"`                  // loading, interactive, complete, spa_ready
 	PendingXHR    int      `json:"pending_xhr"`            // in-flight XHR/fetch requests
@@ -18,10 +20,18 @@ type PageReadiness struct {
 
 // CheckReadiness returns the current page readiness state.
 func (s *Session) CheckReadiness() (*PageReadiness, error) {
-	s.mu.Lock()
+	return s.CheckReadinessContext(context.Background())
+}
+
+// CheckReadinessContext reads page readiness while honoring ctx for queueing
+// and browser work.
+func (s *Session) CheckReadinessContext(ctx context.Context) (*PageReadiness, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
 
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -64,7 +74,7 @@ func (s *Session) CheckReadiness() (*PageReadiness, error) {
 		return JSON.stringify(r);
 	})()`
 
-	result, err := s.page.Evaluate(js)
+	result, err := s.evaluateCurrentContext(ctx, js)
 	if err != nil {
 		return nil, err
 	}
@@ -72,25 +82,35 @@ func (s *Session) CheckReadiness() (*PageReadiness, error) {
 	str, _ := result.(string)
 	var readiness PageReadiness
 	_ = json.Unmarshal([]byte(str), &readiness)
+	readiness.ContentTrust = ContentTrustUntrustedPage
 	return &readiness, nil
 }
 
 // SelectorSuggestion describes a similar element when a selector fails.
 type SelectorSuggestion struct {
-	Selector string `json:"selector"`
-	Tag      string `json:"tag"`
-	Text     string `json:"text,omitempty"`
-	ID       string `json:"id,omitempty"`
-	Classes  string `json:"classes,omitempty"`
+	ContentTrust string `json:"content_trust,omitempty"`
+	Selector     string `json:"selector"`
+	Tag          string `json:"tag"`
+	Text         string `json:"text,omitempty"`
+	ID           string `json:"id,omitempty"`
+	Classes      string `json:"classes,omitempty"`
 }
 
 // SuggestSelectors finds elements similar to a failed selector.
 // Called automatically when querySelector fails.
 func (s *Session) SuggestSelectors(failedSelector string) ([]SelectorSuggestion, error) {
-	s.mu.Lock()
+	return s.SuggestSelectorsContext(context.Background(), failedSelector)
+}
+
+// SuggestSelectorsContext finds likely replacement selectors while honoring
+// ctx for session queueing, page setup, and browser evaluation.
+func (s *Session) SuggestSelectorsContext(ctx context.Context, failedSelector string) ([]SelectorSuggestion, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
 
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -152,7 +172,7 @@ func (s *Session) SuggestSelectors(failedSelector string) ([]SelectorSuggestion,
 		return JSON.stringify(suggestions);
 	})()`, selectorJSON)
 
-	result, err := s.page.Evaluate(js)
+	result, err := s.evaluateCurrentContext(ctx, js)
 	if err != nil {
 		return nil, err
 	}
@@ -160,5 +180,8 @@ func (s *Session) SuggestSelectors(failedSelector string) ([]SelectorSuggestion,
 	str, _ := result.(string)
 	var suggestions []SelectorSuggestion
 	_ = json.Unmarshal([]byte(str), &suggestions)
+	for i := range suggestions {
+		suggestions[i].ContentTrust = ContentTrustUntrustedPage
+	}
 	return suggestions, nil
 }

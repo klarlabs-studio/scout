@@ -78,6 +78,7 @@ export interface ChatMessage {
   content: string;
   toolName?: string;
   toolCallId?: string;
+  toolCalls?: Array<{ id: string; name: string; arguments: string }>;
   status?: "streaming" | "done" | "error";
 }
 
@@ -87,5 +88,5 @@ export interface ToolAction {
   args: string;
   result?: string;
   timestamp: number;
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "unknown";
 }

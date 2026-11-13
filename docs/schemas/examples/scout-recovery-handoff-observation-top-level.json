@@ -1,0 +1,9 @@
+{
+  "owner_scope": "tenant-42",
+  "browser_generation": "broker-context-generation-7",
+  "target_id": "CDP_TARGET_ID",
+  "frame_id": "",
+  "frame_binding_known": true,
+  "policy_id": "scout-origin-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "policy_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+}

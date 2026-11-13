@@ -2,7 +2,10 @@ package browse
 
 import (
 	"errors"
+	"fmt"
 	"testing"
+
+	"go.klarlabs.de/scout/internal/cdp"
 )
 
 func TestTimeoutError(t *testing.T) {
@@ -119,5 +122,24 @@ func TestElementNotFoundErrorVariants(t *testing.T) {
 		if got := e.Error(); got != tt.expected {
 			t.Errorf("got %q, want %q", got, tt.expected)
 		}
+	}
+}
+
+func TestIsOutcomeUnknownRecognizesWrappedBrowserDispatchErrors(t *testing.T) {
+	err := fmt.Errorf("click: %w", &cdp.DispatchOutcomeUnknownError{
+		Method: "Input.dispatchMouseEvent",
+		Err:    errors.New("connection closed after write"),
+	})
+	if !IsOutcomeUnknown(err) {
+		t.Fatalf("IsOutcomeUnknown(%T) = false, want true", err)
+	}
+}
+
+func TestIsOutcomeUnknownRejectsDefinitiveErrors(t *testing.T) {
+	if IsOutcomeUnknown(&NavigationError{URL: "https://example.test", Err: errors.New("connection refused")}) {
+		t.Fatal("definitive navigation failure classified as an unknown outcome")
+	}
+	if IsOutcomeUnknown(nil) {
+		t.Fatal("nil error classified as an unknown outcome")
 	}
 }

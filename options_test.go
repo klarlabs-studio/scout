@@ -5,6 +5,22 @@ import (
 	"time"
 )
 
+func TestFingerprintBrowserEndpointIncludesBrowserContext(t *testing.T) {
+	base := fingerprintBrowserEndpoint("ws://127.0.0.1:9222/devtools/browser/secret\x00context-a")
+	if base == "" || base != fingerprintBrowserEndpoint("ws://127.0.0.1:9222/devtools/browser/secret\x00context-a") {
+		t.Fatal("browser identity fingerprint is empty or not deterministic")
+	}
+	if base == fingerprintBrowserEndpoint("ws://127.0.0.1:9222/devtools/browser/other\x00context-a") {
+		t.Fatal("different browser endpoint produced the same identity")
+	}
+	if base == fingerprintBrowserEndpoint("ws://127.0.0.1:9222/devtools/browser/secret\x00context-b") {
+		t.Fatal("different browser context produced the same identity")
+	}
+	if base == "ws://127.0.0.1:9222/devtools/browser/secret\x00context-a" {
+		t.Fatal("fingerprint exposed the browser endpoint")
+	}
+}
+
 func TestDefaultOptions(t *testing.T) {
 	opts := defaultOptions()
 
@@ -55,6 +71,13 @@ func TestWithHeadless(t *testing.T) {
 				t.Errorf("WithHeadless(%v): got %v", tt.val, opts.headless)
 			}
 		})
+	}
+}
+
+func TestWithChromePath(t *testing.T) {
+	opts := applyOptions([]Option{WithChromePath("/custom/chrome")})
+	if opts.chromePath != "/custom/chrome" {
+		t.Fatalf("WithChromePath() = %q, want %q", opts.chromePath, "/custom/chrome")
 	}
 }
 

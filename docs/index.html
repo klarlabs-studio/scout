@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scout — Browser Automation, One Binary. The Simpler Playwright.</title>
-<meta name="description" content="A simpler alternative to Playwright. One statically-linked binary — no Node, no Python, no runtime. Drive a real browser from Go, any shell, any AI agent (built-in MCP server), or a chat UI.">
+<title>Scout — Go Browser Automation for Apps and AI Agents</title>
+<meta name="description" content="A local-first Go browser automation engine with a CLI, built-in MCP server, chat UI, and Go library. Verify browser actions and recover safely when outcomes are uncertain.">
 <meta name="theme-color" content="#0a0e1a">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <style>
@@ -463,7 +463,7 @@ footer{
   font-family:var(--font-mono);background:rgba(255,255,255,.05);
   padding:2px 6px;border-radius:4px;font-size:12px;
 }
-.distill-table .size{color:var(--amber);font-weight:600}
+.distill-table .format{color:var(--amber);font-weight:600}
 
 /* --- Responsive --- */
 @media(max-width:768px){
@@ -522,6 +522,7 @@ a:focus-visible,button:focus-visible{
     </button>
     <ul class="nav-links" role="list">
       <li><a href="#why">Why Scout</a></li>
+      <li><a href="#where-scout-fits">Compare</a></li>
       <li><a href="#examples">Examples</a></li>
       <li><a href="#features">Features</a></li>
       <li><a href="#architecture">Architecture</a></li>
@@ -539,16 +540,15 @@ a:focus-visible,button:focus-visible{
 <section class="hero">
   <div class="container">
     <div class="hero-badge">
-      <span>Browser automation, one binary</span>
-      <code>v1.6.1</code>
+      <span>Go browser automation for apps and AI agents</span>
     </div>
     <img src="logo.svg" alt="Scout — Observer Eye logo" class="hero-logo" width="120" height="120">
     <h1>Scout</h1>
     <p class="hero-sub">
-      The <strong>simpler alternative to Playwright</strong>. One statically-linked binary — no Node, no Python, no runtime. Drive a real browser from a Go library, a CLI, an MCP server for AI agents, or a chat UI. Same engine. Any caller.
+      A <strong>local-first browser execution engine for Go apps and AI agents</strong>. Use the Go library, CLI, built-in MCP server, or chat UI to verify actions, bound outputs, and replay known workflows. Same engine across each interface.
     </p>
     <div class="install-bar" role="region" aria-label="Install command">
-      <code><span class="prompt" aria-hidden="true">$ </span>brew install klarlabs-studio/tap/scout</code>
+      <code><span class="prompt" aria-hidden="true">$ </span>brew install --cask klarlabs-studio/tap/scout-mcp</code>
       <button class="copy-btn" onclick="copyInstall(this)" aria-label="Copy install command">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M5 11H3.5A1.5 1.5 0 012 9.5v-6A1.5 1.5 0 013.5 2h6A1.5 1.5 0 0111 3.5V5"/></svg>
       </button>
@@ -567,16 +567,16 @@ a:focus-visible,button:focus-visible{
 <section id="why" class="fade-in">
   <div class="container">
     <p class="section-label">Why Scout</p>
-    <h2 class="section-title">One binary. Any caller.</h2>
-    <p class="section-desc">Scout is a single statically-linked binary that drives a real Chrome — from a Go program, a shell, an MCP-aware agent, or a chat UI. No runtime to install. No protocol layer between you and the browser.</p>
+    <h2 class="section-title">One engine. Four interfaces.</h2>
+    <p class="section-desc">Scout provides a Go library, CLI, MCP server, and chat UI over the same browser engine. Local sessions need Chrome or Chromium; Scout can also attach to a separately managed browser over CDP.</p>
     <div class="why-grid">
 
       <div class="why-card">
         <div class="icon icon-cdp" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 2v16M2 10h16"/><path d="M10 2a14 14 0 014 8 14 14 0 01-4 8M10 2a14 14 0 00-4 8 14 14 0 004 8"/></svg>
         </div>
-        <h3>Direct CDP. Zero abstractions.</h3>
-        <p>Direct WebSocket to Chrome DevTools Protocol — no wrapper layer, no protocol of its own on top. One binary, one connection, every CDP surface available.</p>
+        <h3>Go browser engine.</h3>
+        <p>Scout manages Chrome sessions over the DevTools Protocol and exposes browser actions through a Go API, CLI, MCP server, and chat UI.</p>
       </div>
 
       <div class="why-card">
@@ -584,7 +584,7 @@ a:focus-visible,button:focus-visible{
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h12v10H4z" rx="1.5"/><path d="M7 17h6M10 14v3"/><circle cx="7" cy="9" r="1.5"/><circle cx="13" cy="9" r="1.5"/></svg>
         </div>
         <h3>Agent-first design.</h3>
-        <p>Structured JSON output, DOM diffing that saves 50-80% tokens, content distillation at 5 levels, token budgets, and semantic form filling. Built for LLMs, not humans.</p>
+        <p>Structured observations, DOM diffs, content distillation, output budgets, and semantic form filling help agents request the evidence they need.</p>
       </div>
 
       <div class="why-card">
@@ -592,7 +592,7 @@ a:focus-visible,button:focus-visible{
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 7h14M7 7v10"/></svg>
         </div>
         <h3>MCP built in.</h3>
-        <p>Run <code style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">scout mcp serve</code> and any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has 74 browser tools. No second project to install.</p>
+        <p>Run <code style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">scout mcp serve</code> to connect an MCP-aware client to Scout’s browser actions.</p>
       </div>
 
       <div class="why-card">
@@ -600,74 +600,63 @@ a:focus-visible,button:focus-visible{
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h12M4 10h12M4 15h12"/><circle cx="8" cy="5" r="1.5" fill="currentColor"/><circle cx="14" cy="10" r="1.5" fill="currentColor"/><circle cx="6" cy="15" r="1.5" fill="currentColor"/></svg>
         </div>
         <h3>Gin-like middleware.</h3>
-        <p>Compose retry, timeout, circuit breaker, rate limit, and bulkhead patterns exactly like Gin HTTP middleware. If you know Gin, you know Scout.</p>
+        <p>Compose browser tasks with familiar Engine, Context, and Group patterns, plus middleware for retries, timeouts, and resilience.</p>
       </div>
 
+    </div>
+    <div class="why-card" style="margin-top:20px;">
+      <h3>Recover safely from uncertain outcomes.</h3>
+      <p>Verified actions can check an expected page condition. Durable task runs preserve progress and uncertainty across process restarts, so a host can reconcile against its own application state before continuing. Scout does not blindly replay a mutation whose result is unknown.</p>
     </div>
   </div>
 </section>
 
-<!-- Compared to Playwright -->
-<section id="vs-playwright" class="fade-in">
+<!-- Where Scout fits -->
+<section id="where-scout-fits" class="fade-in">
   <div class="container">
-    <p class="section-label">Versus Playwright</p>
-    <h2 class="section-title">Same browser. Less ceremony.</h2>
-    <p class="section-desc">Playwright is the gold standard for browser automation — and a 600 MB Node tree, a separate language wrapper, and a separate MCP project to wire any of it to AI. Scout collapses all of that into one binary.</p>
+    <p class="section-label">Choose by workflow</p>
+    <h2 class="section-title">Find the right browser tool.</h2>
+    <p class="section-desc">Browser automation tools make different tradeoffs. Scout focuses on an embeddable Go engine, shared CLI and MCP workflows, and explicit evidence for browser actions.</p>
 
     <div class="compare-wrap">
-      <table class="compare-table" aria-label="Scout versus Playwright capability matrix">
+      <table class="compare-table" aria-label="Browser automation tools by workflow">
         <thead>
           <tr>
             <th class="axis">Capability</th>
             <th class="scout-col">Scout</th>
-            <th>Playwright</th>
+            <th>Other tools to consider</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="axis">Install footprint</td>
-            <td class="scout-cell">One ~15&nbsp;MB binary. <code>brew install</code> or download.</td>
-            <td class="other-cell">npm + ~600&nbsp;MB browser cache + per-language wrapper.</td>
+            <td class="axis">Go application integration</td>
+            <td class="scout-cell">Go library with CLI, MCP server, and chat UI over the same engine.</td>
+            <td class="other-cell">Playwright offers mature SDKs across TypeScript, Python, Java, and .NET.</td>
           </tr>
           <tr>
-            <td class="axis">Runtime dependency</td>
-            <td class="scout-cell"><span class="yes">None.</span> Statically linked.</td>
-            <td class="other-cell">Node.js (always). Python/Java/.NET wrappers as second class.</td>
+            <td class="axis">Browser setup</td>
+            <td class="scout-cell">Uses installed Chrome or Chromium, or attaches to a separately managed browser over CDP.</td>
+            <td class="other-cell">Playwright manages browser installations through its tooling.</td>
           </tr>
           <tr>
-            <td class="axis">Languages it drives from</td>
-            <td class="scout-cell">Any. Go library, CLI from any shell, MCP from any LLM host, HTTP-shaped from any agent.</td>
-            <td class="other-cell">TypeScript / JavaScript first-class. Others lag releases.</td>
+            <td class="axis">Agent workflows</td>
+            <td class="scout-cell">Built-in MCP server, structured observations, budgets, and deterministic playbooks.</td>
+            <td class="other-cell">Playwright also offers agent-oriented CLI and MCP workflows.</td>
           </tr>
           <tr>
-            <td class="axis">AI-agent native</td>
-            <td class="scout-cell"><span class="yes">Built-in MCP server.</span> <code>scout mcp serve</code>.</td>
-            <td class="other-cell">Separate <code>playwright-mcp</code> project. Extra setup, extra runtime.</td>
+            <td class="axis">Terminal-first automation</td>
+            <td class="scout-cell">CLI actions share the same engine and session model as the Go API and MCP server.</td>
+            <td class="other-cell">Consider agent-browser for persistent terminal sessions and agent skills.</td>
           </tr>
           <tr>
-            <td class="axis">Token-aware extraction</td>
-            <td class="scout-cell"><span class="yes">DOM diff, content distillation, observation budgets.</span> 50–80% fewer tokens.</td>
-            <td class="other-cell">Not provided. Page text dumped raw.</td>
+            <td class="axis">Natural-language actions</td>
+            <td class="scout-cell">Explicit browser actions and evidence, with optional structured observations.</td>
+            <td class="other-cell">Consider Stagehand for natural-language actions, extraction, and self-healing workflows.</td>
           </tr>
           <tr>
-            <td class="axis">Action playbooks</td>
-            <td class="scout-cell"><span class="yes">Record &amp; replay</span> deterministic JSON playbooks. No LLM at replay time.</td>
-            <td class="other-cell">Codegen produces a script you maintain by hand.</td>
-          </tr>
-          <tr>
-            <td class="axis">Containerised deploy</td>
-            <td class="scout-cell">Drop the binary into <code>scratch</code> or <code>distroless</code>. Tens of MB.</td>
-            <td class="other-cell">Carry Node + browser binaries. Hundreds of MB.</td>
-          </tr>
-          <tr>
-            <td class="axis">Video recording</td>
-            <td class="scout-cell"><span class="yes">Built-in.</span> <code>start_screen_recording</code> / <code>stop_screen_recording</code> — survives navigations and tab switches, encodes to webm/mp4 via ffmpeg or returns frames if ffmpeg is absent. Always a file path, never base64.</td>
-            <td class="other-cell"><code>recordVideo</code> context option in JS/TS only; not exposed via the MCP variant.</td>
-          </tr>
-          <tr>
-            <td class="axis">CDP access</td>
-            <td class="scout-cell">Direct WebSocket. Zero abstraction layer.</td>
-            <td class="other-cell">Internal protocol over CDP. Some surfaces hidden.</td>
+            <td class="axis">Uncertain browser mutations</td>
+            <td class="scout-cell">Durable task runs can preserve uncertainty and let a host reconcile against its own application state.</td>
+            <td class="other-cell">Choose based on each tool’s workflow, language support, and browser hosting needs.</td>
           </tr>
         </tbody>
       </table>
@@ -681,6 +670,12 @@ a:focus-visible,button:focus-visible{
     <p class="section-label">Code</p>
     <h2 class="section-title">Four interfaces. One engine.</h2>
     <p class="section-desc">Embed it in a Go program, run it from any shell, plug it into an AI agent, or talk to it from a chat UI. Same browser session model, four access points.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:24px 0 28px;">
+      <div class="why-card"><h3>CLI</h3><p>One-off commands and shell scripts. Each command opens a browser, returns a result, and cleans up.</p></div>
+      <div class="why-card"><h3>MCP server</h3><p>Agent tool workflows. Create, switch, and clone named sessions; save and restore cookie and localStorage profiles.</p></div>
+      <div class="why-card"><h3>Chat UI</h3><p>Human-guided automation with a live browser view, activity timeline, and stop control.</p></div>
+      <div class="why-card"><h3>Go library</h3><p>Embed automation in Go services, tests, scrapers, and pipelines.</p></div>
+    </div>
 
     <div class="tab-bar" role="tablist" aria-label="Code examples">
       <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-core" id="tab-core" onclick="switchTab('core')">Core API</button>
@@ -736,7 +731,7 @@ a:focus-visible,button:focus-visible{
     <span class="str">"Password"</span>: <span class="str">"secret123"</span>,
 })
 
-<span class="cm">// DOM diff — only what changed (saves 50-80% tokens)</span>
+<span class="cm">// DOM diff — inspect what changed after an action</span>
 <span class="pkg">session</span>.<span class="fn">Click</span>(<span class="str">"#login"</span>)
 _, <span class="pkg">diff</span>, _ := <span class="pkg">session</span>.<span class="fn">ObserveDiff</span>()
 <span class="cm">// diff.Added: [{Tag:"div", ID:"dashboard", Text:"Welcome!"}]</span>
@@ -787,7 +782,7 @@ nextjs</code></pre>
     <div class="tab-panel" role="tabpanel" id="panel-mcp" aria-labelledby="tab-mcp">
       <div style="padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0;">
         <p style="color:var(--purple);font-weight:600;font-size:14px;margin-bottom:6px;">For giving AI assistants (Claude, Cursor, etc.) browser superpowers</p>
-        <p style="color:var(--text-dim);font-size:14px;line-height:1.5;">Use the MCP server to let your AI assistant browse the web, fill forms, extract data, and take screenshots — all via the standard Model Context Protocol. A single Go binary with 74 tools, zero runtime dependencies. Just install and add one line to your MCP config. The AI decides which tools to call; Scout handles the browser.</p>
+        <p style="color:var(--text-dim);font-size:14px;line-height:1.5;">Use the MCP server to let an AI assistant browse the web, fill forms, extract data, and take screenshots through the standard Model Context Protocol. Install Scout, connect your MCP client, and let the assistant call browser actions while Scout manages the browser session.</p>
       </div>
       <pre style="border-radius:0 0 var(--radius) var(--radius);"><code><span class="cm"># Add to Claude Code</span>
 <span class="fl">$</span> claude mcp add scout -- scout mcp serve
@@ -802,29 +797,13 @@ nextjs</code></pre>
   }
 }
 
-<span class="cm"># 74 tools available:</span>
-<span class="cm">#</span>
-<span class="cm"># Navigation:  navigate, observe, observe_diff, observe_with_budget,</span>
-<span class="cm">#              hybrid_observe</span>
-<span class="cm"># Interaction: click, click_label, type, hover, double_click,</span>
-<span class="cm">#              right_click, select_option, scroll_to, scroll_by,</span>
-<span class="cm">#              focus, drag_drop, dispatch_event,</span>
-<span class="cm">#              select_by_prompt, batch, find_by_coordinates</span>
-<span class="cm"># Forms:       fill_form, fill_form_semantic, discover_form</span>
-<span class="cm"># Extraction:  extract, extract_all, extract_table,</span>
-<span class="cm">#              markdown, readable_text, accessibility_tree</span>
-<span class="cm"># Capture:     screenshot, annotated_screenshot, pdf</span>
-<span class="cm"># Network:     enable_network_capture, network_requests</span>
-<span class="cm"># Tabs:        open_tab, switch_tab, close_tab, list_tabs</span>
-<span class="cm"># Frames:      switch_to_frame, switch_to_main_frame</span>
-<span class="cm"># Frameworks:  wait_spa, detect_frameworks,</span>
-<span class="cm">#              component_state, app_state</span>
-<span class="cm"># Playback:    start_recording, stop_recording,</span>
-<span class="cm">#              save_playbook, replay_playbook</span>
-<span class="cm"># Video:       start_screen_recording, stop_screen_recording</span>
-<span class="cm"># Tracing:     start_trace, stop_trace</span>
-<span class="cm"># Performance: web_vitals</span>
-<span class="cm"># Utility:     has_element, wait_for, configure</span></code></pre>
+<span class="cm"># Example workflows:</span>
+<span class="cm"># Navigation and evidence: navigate, observe, observe_diff</span>
+<span class="cm"># Interaction and forms:  click, type, fill_form_semantic</span>
+<span class="cm"># Extraction:             extract, markdown, accessibility_tree</span>
+<span class="cm"># Recovery:               task_run, recover_task_run, resolve_task_run</span>
+<span class="cm"># Deterministic replay:   save_playbook, replay_playbook</span>
+<span class="cm"># Run scout mcp serve --help for profiles and configuration.</span></code></pre>
     </div>
   </div>
 </section>
@@ -834,18 +813,18 @@ nextjs</code></pre>
   <div class="container">
     <p class="section-label">Token efficiency</p>
     <h2 class="section-title">Five levels of content distillation.</h2>
-    <p class="section-desc">Pages return megabytes of HTML. Scout gives your agent exactly the right amount of information.</p>
+    <p class="section-desc">Choose structured observations, diffs, or readable page content to fit the task.</p>
     <div style="overflow-x:auto">
     <table class="distill-table">
       <thead>
-        <tr><th>Method</th><th>Output size</th><th>Best for</th></tr>
+        <tr><th>Method</th><th>Output form</th><th>Best for</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>Observe()</code></td><td class="size">~2-5 KB</td><td>Deciding what to click or fill</td></tr>
-        <tr><td><code>ObserveDiff()</code></td><td class="size">~0.5-2 KB</td><td>Seeing only what changed after an action</td></tr>
-        <tr><td><code>Markdown()</code></td><td class="size">~2-8 KB</td><td>Reading page content in a compact format</td></tr>
-        <tr><td><code>ReadableText()</code></td><td class="size">~1-4 KB</td><td>Main article or body text only</td></tr>
-        <tr><td><code>AccessibilityTree()</code></td><td class="size">~1-4 KB</td><td>Compact semantic element tree</td></tr>
+        <tr><td><code>Observe()</code></td><td class="format">Structured page elements</td><td>Deciding what to click or fill</td></tr>
+        <tr><td><code>ObserveDiff()</code></td><td class="format">Changes since the prior observation</td><td>Seeing what changed after an action</td></tr>
+        <tr><td><code>Markdown()</code></td><td class="format">Markdown content</td><td>Reading page content in a compact format</td></tr>
+        <tr><td><code>ReadableText()</code></td><td class="format">Readable body text</td><td>Main article or body text</td></tr>
+        <tr><td><code>AccessibilityTree()</code></td><td class="format">Semantic element tree</td><td>Inspecting accessible controls and structure</td></tr>
       </tbody>
     </table>
     </div>
@@ -879,7 +858,7 @@ nextjs</code></pre>
       <h3 class="feat-cat-title"><span class="dot dot-amber" aria-hidden="true"></span> Agent Package</h3>
       <div class="feat-grid">
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Structured JSON</strong> output</span></div>
-        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>DOM diffing</strong> (50-80% token savings)</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>DOM diffing</strong> to inspect page changes</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Token budgets</strong> for observation</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Semantic form fill</strong> by field name</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Annotated screenshots</strong> with labels</span></div>
@@ -891,6 +870,10 @@ nextjs</code></pre>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>NL selectors</strong> by prompt text</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Vision hybrid</strong> mode with bounding boxes</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Batch operations</strong> for multi-action</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Action postconditions</strong> with observed evidence</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Durable task runs</strong> with explicit recovery</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Held-key controls</strong> with release on shutdown</span></div>
+        <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Bounded outputs</strong> and private artifact retrieval</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Trace export</strong> to zip files</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>Web vitals</strong> LCP/CLS/INP extraction</span></div>
         <div class="feat-item"><span class="check" aria-hidden="true">+</span><span><strong>click_text</strong> visible-text shortcut</span></div>
@@ -949,7 +932,7 @@ nextjs</code></pre>
 
       <div class="arch-layer">
         <div class="arch-box arch-l1">CLI<br><span style="font-weight:400;font-size:11px;opacity:.7">scout observe / screenshot / extract</span></div>
-        <div class="arch-box arch-l1">MCP Server<br><span style="font-weight:400;font-size:11px;opacity:.7">74 tools via stdio</span></div>
+        <div class="arch-box arch-l1">MCP Server<br><span style="font-weight:400;font-size:11px;opacity:.7">browser actions via stdio</span></div>
       </div>
       <div class="arch-arrow" aria-hidden="true">|</div>
 
@@ -1009,13 +992,13 @@ nextjs</code></pre>
   <div class="container">
     <p class="section-label">Get started</p>
     <h2 class="section-title">Install Scout.</h2>
-    <p class="section-desc">Install the binary, connect to your AI agent, and start browsing. Go library also available.</p>
+    <p class="section-desc">Local sessions need Chrome or Chromium installed; you can also connect to a separately managed browser over CDP. The Linux/macOS installer verifies the downloaded release archive's SHA-256 checksum. See the <a href="https://github.com/klarlabs-studio/scout/releases">latest release</a> for version notes and downloads. The Go library is available separately.</p>
 
     <div class="install-grid">
 
       <div class="install-card">
         <h3>Homebrew <span class="badge">recommended</span></h3>
-        <pre><code><span class="fl">$</span> brew install klarlabs-studio/tap/scout</code></pre>
+        <pre><code><span class="fl">$</span> brew install --cask klarlabs-studio/tap/scout-mcp</code></pre>
       </div>
 
       <div class="install-card">
@@ -1036,9 +1019,14 @@ nextjs</code></pre>
       </div>
 
       <div class="install-card">
-        <h3>Binary <span class="badge">any platform</span></h3>
+        <h3>Linux / macOS <span class="badge">installer</span></h3>
         <pre><code><span class="fl">$</span> curl -fsSL https://raw.githubusercontent.com/\
   klarlabs-studio/scout/main/install.sh | bash</code></pre>
+      </div>
+
+      <div class="install-card">
+        <h3>Windows <span class="badge">release archive</span></h3>
+        <p style="font-size:13px;color:var(--text-dim);line-height:1.5;">Download the Windows archive for your architecture from <a href="https://github.com/klarlabs-studio/scout/releases">GitHub Releases</a>, then add the extracted directory to PATH.</p>
       </div>
 
       <div class="install-card">
@@ -1077,7 +1065,7 @@ nextjs</code></pre>
 <script>
 // Copy install command
 function copyInstall(btn){
-  var text='brew install klarlabs-studio/tap/scout';
+  var text='brew install --cask klarlabs-studio/tap/scout-mcp';
   navigator.clipboard.writeText(text).then(function(){
     btn.classList.add('copied');
     btn.setAttribute('aria-label','Copied!');

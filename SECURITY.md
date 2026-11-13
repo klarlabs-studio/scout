@@ -13,18 +13,19 @@ Instead, please email security concerns to the maintainer or use [GitHub Securit
 Scout launches and controls a Chrome browser process. Be aware of these security considerations:
 
 ### URL Validation
-- Navigation blocks non-http(s) schemes (no `file://`, `javascript:`, `data:`)
-- Private/loopback IPs are blocked by default (opt-in via `WithAllowPrivateIPs`)
+- Navigation and page-target HTTP(S) requests, redirects, and subresources are checked against the URL policy. Service-worker requests and WebSocket handshakes are outside page-target Fetch interception.
+- Non-http(s) navigation schemes are blocked. Private, loopback, and link-local IPs are blocked by default (opt-in via `WithAllowPrivateIPs`).
 
 ### MCP Server
-- The `eval` tool (arbitrary JavaScript execution) is disabled by default
-- Enable only with `SCOUT_ENABLE_EVAL=1` environment variable
+- Arbitrary JavaScript `eval` is disabled by default in the chat UI and can be enabled only with `SCOUT_ENABLE_EVAL=1`. The one-shot `scout eval` CLI command is an explicit operator invocation.
+- MCP output paths reject traversal and protected system/credential locations. Relative output paths resolve under the OS temp directory.
+- MCP capture and profile outputs are created with private file permissions and refuse existing paths; profile files contain cookies and local storage.
 - All tool inputs are validated via typed structs
 
 ### File Operations
-- Screenshot/PDF write paths reject path traversal (`..`)
-- Files are written with `0600` permissions
-- Temp directories for recordings use OS-provided secure temp paths
+- MCP screenshot, annotated screenshot, hybrid screenshot, PDF, page snapshot, profile, playbook, and trace outputs reject path traversal, protected system/credential locations, and existing destination files.
+- Capture and profile files use `0600` permissions. Trace and generated recording directories use private temporary directories; explicit recording parents should be writable only by trusted local users.
+- Upload tools block well-known credential files and directories.
 
 ### Browser Process
 - Chrome is launched with security-hardening flags
@@ -40,3 +41,9 @@ Scout launches and controls a Chrome browser process. Be aware of these security
 ## Dependencies
 
 We monitor dependencies via `nox scan` for known vulnerabilities. Run `make nox` to check locally.
+
+The release workflow downloads `mcp-publisher` from a versioned registry
+release and verifies the archive against its pinned SHA-256 before running it
+with GitHub OIDC publishing credentials. Keep the publisher version and digest
+updated together from the official
+[registry release assets](https://github.com/modelcontextprotocol/registry/releases).

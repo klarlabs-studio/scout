@@ -1,6 +1,9 @@
 package browse
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestSameOrigin(t *testing.T) {
 	cases := []struct {
@@ -73,5 +76,49 @@ func TestRequestVerdictSameOriginAsTop(t *testing.T) {
 	cross := InterceptedRequest{URL: "https://evil.example.com/steal", TopLevelOrigin: "https://api.example.com"}
 	if cross.SameOriginAsTop() {
 		t.Error("cross-origin request must not match the top-level origin")
+	}
+}
+
+func TestURLPolicyDecisionLogIsBoundedAndReturnsSnapshot(t *testing.T) {
+	p := &Page{}
+	for i := 0; i < maxURLPolicyDecisions+1; i++ {
+		p.recordURLPolicyDecision(URLPolicyDecision{URL: "https://example.test", Allowed: true})
+	}
+	decisions, dropped := p.URLPolicyDecisions()
+	if len(decisions) != maxURLPolicyDecisions || dropped != 1 {
+		t.Fatalf("URL policy log length/dropped = %d/%d, want %d/1", len(decisions), dropped, maxURLPolicyDecisions)
+	}
+	decisions[0].URL = "changed"
+	copyOfLog, _ := p.URLPolicyDecisions()
+	if copyOfLog[0].URL != "https://example.test" {
+		t.Fatal("URLPolicyDecisions returned a mutable view of the internal log")
+	}
+}
+
+func TestURLPolicyDecisionResolution(t *testing.T) {
+	p := &Page{}
+	decision := URLPolicyDecision{URL: "https://example.test", Allowed: true}
+	p.finishURLPolicyDecision(&decision, nil)
+	decisions, _ := p.URLPolicyDecisions()
+	if decisions[0].Resolution != "resolved" {
+		t.Fatalf("resolution = %q, want resolved", decisions[0].Resolution)
+	}
+	failed := URLPolicyDecision{URL: "https://blocked.example", Allowed: false}
+	p.finishURLPolicyDecision(&failed, errors.New("CDP disposition failed"))
+	decisions, _ = p.URLPolicyDecisions()
+	last := decisions[len(decisions)-1]
+	if last.Resolution != "failed" || last.ResolutionError != "CDP disposition failed" {
+		t.Fatalf("failed resolution = %q / %q", last.Resolution, last.ResolutionError)
+	}
+}
+
+func TestURLPolicyInstalledReportsInterceptorState(t *testing.T) {
+	p := &Page{}
+	if p.URLPolicyInstalled() {
+		t.Fatal("new page unexpectedly reports URL policy installed")
+	}
+	p.setURLPolicyInstalled(true)
+	if !p.URLPolicyInstalled() {
+		t.Fatal("page did not report installed URL policy")
 	}
 }

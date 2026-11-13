@@ -9,6 +9,7 @@ const {
   actions,
   browserState,
   isRunning,
+  isClearing,
   isNavigating,
   error,
   send,
@@ -18,20 +19,21 @@ const {
 </script>
 
 <template>
-  <div class="flex h-screen bg-zinc-950">
+  <div class="flex h-screen bg-zinc-950 max-md:flex-col">
     <!-- Chat sidebar -->
     <ChatPanel
       :messages="messages"
       :is-running="isRunning"
+      :is-clearing="isClearing"
       :error="error"
-      class="w-[380px] shrink-0 border-r border-zinc-800/60"
+      class="w-[380px] shrink-0 border-r border-zinc-800/60 max-md:w-full max-md:h-[48vh] max-md:border-r-0 max-md:border-b"
       @send="send"
       @cancel="stop"
       @clear="clear"
     />
 
     <!-- Main area -->
-    <div class="flex-1 flex flex-col min-h-0">
+    <div class="flex-1 flex flex-col min-h-0 max-md:min-h-[52vh]">
       <!-- Browser viewport -->
       <div class="flex-1 min-h-0 overflow-hidden">
         <BrowserView

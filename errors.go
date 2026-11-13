@@ -3,11 +3,39 @@ package browse
 import (
 	"errors"
 	"fmt"
+
+	"go.klarlabs.de/scout/internal/cdp"
 )
 
 // ErrNoHistoryEntry is returned by GoBack/GoForward when there is no history
 // entry in the requested direction.
 var ErrNoHistoryEntry = errors.New("browse: no navigation history entry in that direction")
+
+// URLPolicyError reports a stable policy denial for one URL. PolicyID is an
+// opaque identity supplied by the caller; TargetID and EvidenceReference are
+// populated by Page when the denial is tied to a browser target. It never
+// authorizes access or retry.
+type URLPolicyError struct {
+	Code              string
+	PolicyID          string
+	TargetID          string
+	EvidenceReference string
+	Err               error
+}
+
+func (e *URLPolicyError) Error() string {
+	if e == nil || e.Err == nil {
+		return "browse: URL blocked by policy"
+	}
+	return e.Err.Error()
+}
+
+func (e *URLPolicyError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
 
 // TimeoutError is returned when an operation exceeds its deadline.
 type TimeoutError struct {
@@ -37,7 +65,36 @@ type NavigationError struct {
 	Err error
 }
 
+// NavigationOutcomeUnknownError indicates a navigation command may have been
+// dispatched but its completion could not be confirmed.
+type NavigationOutcomeUnknownError struct {
+	URL string
+	Err error
+}
+
+func (e *NavigationOutcomeUnknownError) Error() string {
+	return fmt.Sprintf("browse: navigation outcome unknown for %q: %v", e.URL, e.Err)
+}
+
+func (e *NavigationOutcomeUnknownError) Unwrap() error { return e.Err }
+
+// IsOutcomeUnknown reports whether err indicates that a browser command may
+// have been dispatched without an authoritative completion response. Callers
+// must inspect application state before replaying such an operation.
+func IsOutcomeUnknown(err error) bool {
+	var navigationErr *NavigationOutcomeUnknownError
+	if errors.As(err, &navigationErr) {
+		return true
+	}
+	var dispatchErr *cdp.DispatchOutcomeUnknownError
+	return errors.As(err, &dispatchErr)
+}
+
 func (e *NavigationError) Error() string {
+	var policyErr *URLPolicyError
+	if errors.As(e.Err, &policyErr) {
+		return fmt.Sprintf("browse: navigation denied by URL policy: %v", policyErr)
+	}
 	return fmt.Sprintf("browse: navigation to %q failed: %v", e.URL, e.Err)
 }
 

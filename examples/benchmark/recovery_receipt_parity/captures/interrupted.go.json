@@ -1,0 +1,45 @@
+{
+  "schema": "scout.recovery-receipt/v1",
+  "task": {
+    "id": "parity-fixture-task-interrupted",
+    "plan_fingerprint": "e2b8035547a8ff805584ea1e5b0adb281610f5ee302b3c112c8e439bf5dc30b9",
+    "state": "interrupted"
+  },
+  "runtime": {
+    "name": "scout",
+    "receipt_schema": 1
+  },
+  "browser": {
+    "instance_id": "parity-fixture-browser",
+    "ownership": "unknown"
+  },
+  "target": {
+    "id": "parity-fixture-target"
+  },
+  "policy": {
+    "id": "scout-origin-v1:e40b288ff0dc289fc18ac3da6b83f289831f3b2b77e2df256a3bdf3e160c187f",
+    "digest": "sha256:e40b288ff0dc289fc18ac3da6b83f289831f3b2b77e2df256a3bdf3e160c187f",
+    "origins": [],
+    "allow_private_ips": false,
+    "inputs_complete": true,
+    "enforcement": "session_page_policy"
+  },
+  "operation": {
+    "id": "scout-op-v1.cGFyaXR5LWZpeHR1cmUtdGFzay1pbnRlcnJ1cHRlZA.1",
+    "ordinal": 1,
+    "name": "click",
+    "dispatch": "may_have_dispatched",
+    "outcome": "unknown",
+    "verification": "unknown"
+  },
+  "evidence": {
+    "created_at": "2026-11-11T20:15:27.704443Z",
+    "observed_at": null,
+    "trust": "runtime_metadata",
+    "references": []
+  },
+  "recovery": {
+    "replay_authorized": false,
+    "next_step": "reconcile_with_authoritative_application_state"
+  }
+}

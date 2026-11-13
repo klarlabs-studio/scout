@@ -1,15 +1,50 @@
 package launcher
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestDevToolsURL(t *testing.T) {
+	browser := &Browser{port: 12345}
+	if got, want := browser.DevToolsURL(), "http://127.0.0.1:12345"; got != want {
+		t.Fatalf("DevToolsURL() = %q, want %q", got, want)
+	}
+}
+
+func TestBrowserCloseContextTreatsSuccessfulFallbackKillAsCleanup(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=^TestLauncherCloseHelperProcess$")
+	cmd.Env = append(os.Environ(), "SCOUT_LAUNCHER_CLOSE_HELPER=1")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start helper: %v", err)
+	}
+	browser := &Browser{cmd: cmd}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := browser.CloseContext(ctx); err != nil {
+		t.Fatalf("CloseContext after successful fallback kill: %v", err)
+	}
+}
+
+func TestLauncherCloseHelperProcess(t *testing.T) {
+	if os.Getenv("SCOUT_LAUNCHER_CLOSE_HELPER") != "1" {
+		return
+	}
+	for {
+		time.Sleep(time.Hour)
+	}
+}
 
 func TestBrowserWSEndpoint(t *testing.T) {
 	tests := []struct {
@@ -78,6 +113,47 @@ func TestFindChromeCandidatesList(t *testing.T) {
 	// If err == nil, Chrome was found. Either way, no panic is the key assertion.
 }
 
+func TestFindChromeUsesConfiguredPath(t *testing.T) {
+	browser := filepath.Join(t.TempDir(), "browser")
+	if err := os.WriteFile(browser, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SCOUT_CHROME_PATH", browser)
+
+	got, err := findChrome()
+	if err != nil {
+		t.Fatalf("findChrome() with SCOUT_CHROME_PATH: %v", err)
+	}
+	if got != browser {
+		t.Fatalf("findChrome() = %q, want configured path %q", got, browser)
+	}
+}
+
+func TestFindChromeExplicitPathOverridesEnvironment(t *testing.T) {
+	browser := filepath.Join(t.TempDir(), "browser")
+	if err := os.WriteFile(browser, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SCOUT_CHROME_PATH", filepath.Join(t.TempDir(), "missing-browser"))
+
+	got, err := findChromeAt(browser, false)
+	if err != nil {
+		t.Fatalf("findChromeAt(explicit path): %v", err)
+	}
+	if got != browser {
+		t.Fatalf("findChromeAt() = %q, want explicit path %q", got, browser)
+	}
+}
+
+func TestFindChromeRejectsInvalidConfiguredPath(t *testing.T) {
+	t.Setenv("SCOUT_CHROME_PATH", filepath.Join(t.TempDir(), "missing-browser"))
+
+	_, err := findChrome()
+	if err == nil || !strings.Contains(err.Error(), "SCOUT_CHROME_PATH") {
+		t.Fatalf("findChrome() error = %v, want invalid SCOUT_CHROME_PATH diagnostic", err)
+	}
+}
+
 func TestFindChromePlatformCandidates(t *testing.T) {
 	// Verify the candidates list is non-empty for the current platform.
 	goos := runtime.GOOS
@@ -99,6 +175,19 @@ func TestOptionsDefaults(t *testing.T) {
 	}
 	if opts.ProxyServer != "" {
 		t.Error("Options.ProxyServer should default to empty string")
+	}
+}
+
+func TestEnabled(t *testing.T) {
+	for _, value := range []string{"1", "true", "TRUE", " yes ", "on"} {
+		if !enabled(value) {
+			t.Errorf("enabled(%q) = false, want true", value)
+		}
+	}
+	for _, value := range []string{"", "0", "false", "no", "off", "anything"} {
+		if enabled(value) {
+			t.Errorf("enabled(%q) = true, want false", value)
+		}
 	}
 }
 
@@ -155,7 +244,16 @@ func TestChromeArgConstruction(t *testing.T) {
 				args = append([]string{"--headless=new"}, args...)
 			}
 			if tt.opts.ProxyServer != "" {
-				args = append([]string{fmt.Sprintf("--proxy-server=%s", tt.opts.ProxyServer)}, args...)
+				resolverRules, err := proxyHostResolverRules(tt.opts.ProxyServer)
+				if err != nil {
+					t.Fatalf("proxyHostResolverRules() error = %v", err)
+				}
+				args = append([]string{
+					fmt.Sprintf("--proxy-server=%s", tt.opts.ProxyServer),
+					"--proxy-bypass-list=<-loopback>",
+					resolverRules,
+					"--webrtc-ip-handling-policy=disable_non_proxied_udp",
+				}, args...)
 			}
 
 			// Verify expected flags are present.
@@ -176,6 +274,17 @@ func TestChromeArgConstruction(t *testing.T) {
 				if !strings.Contains(joined, expected) {
 					t.Errorf("expected %s in args", expected)
 				}
+				if !strings.Contains(joined, "--proxy-bypass-list=<-loopback>") {
+					t.Error("expected loopback traffic to use the configured proxy")
+				}
+				if !strings.Contains(joined, "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE ") {
+					t.Error("expected local DNS resolution to be disabled except for the proxy")
+				}
+				if !strings.Contains(joined, "--webrtc-ip-handling-policy=disable_non_proxied_udp") {
+					t.Error("expected WebRTC IP handling policy to avoid non-proxied UDP")
+				}
+			} else if strings.Contains(joined, "--webrtc-ip-handling-policy=") {
+				t.Error("unexpected WebRTC proxy policy without a configured proxy")
 			}
 
 			portFlag := fmt.Sprintf("--remote-debugging-port=%d", tt.opts.Port)
@@ -194,6 +303,73 @@ func TestChromeArgConstruction(t *testing.T) {
 				if !strings.Contains(joined, flag) {
 					t.Errorf("missing required flag %q", flag)
 				}
+			}
+		})
+	}
+}
+
+func TestProxyHostResolverRules(t *testing.T) {
+	tests := []struct {
+		proxy string
+		want  string
+		bad   bool
+	}{
+		{proxy: "http://proxy.example:8080", want: "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE proxy.example"},
+		{proxy: "socks5://büro.example:1080", want: "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE xn--bro-hoa.example"},
+		{proxy: "http://127.0.0.1:8080", want: "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"},
+		{proxy: "http://[::1]:8080", want: "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE [::1]"},
+		{proxy: "http://user:pass@proxy.example:8080", bad: true},
+		{proxy: "http://proxy.example:8080/path", bad: true},
+		{proxy: "http://proxy.example,EXCLUDEevil:8080", bad: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.proxy, func(t *testing.T) {
+			got, err := proxyHostResolverRules(tt.proxy)
+			if tt.bad {
+				if err == nil {
+					t.Fatalf("proxyHostResolverRules(%q) unexpectedly succeeded: %q", tt.proxy, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("proxyHostResolverRules(%q) error = %v", tt.proxy, err)
+			}
+			if got != tt.want {
+				t.Fatalf("proxyHostResolverRules(%q) = %q, want %q", tt.proxy, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProtectedProxyArgument(t *testing.T) {
+	for _, arg := range []string{
+		"--proxy-server=http://other:8080",
+		"--no-proxy-server",
+		"--proxy-pac-url=http://other/pac.js",
+		"--proxy-auto-detect",
+		"--proxy-bypass-list=*",
+		"--host-resolver-rules=MAP * 127.0.0.1",
+		"--webrtc-ip-handling-policy=default",
+		"--force-webrtc-ip-handling-policy=default",
+		"--disable-webrtc",
+	} {
+		if !protectedProxyArgument(arg) {
+			t.Errorf("protectedProxyArgument(%q) = false", arg)
+		}
+	}
+	for _, arg := range []string{"--window-size=1000,800", "--lang=en-US", "--enable-features=NetworkService"} {
+		if protectedProxyArgument(arg) {
+			t.Errorf("protectedProxyArgument(%q) = true", arg)
+		}
+	}
+}
+
+func TestLaunchRejectsProxyOverrideBeforeBrowserDiscovery(t *testing.T) {
+	for _, arg := range []string{"--proxy-server=http://other:8080", "--proxy-bypass-list=*", "--webrtc-ip-handling-policy=default"} {
+		t.Run(arg, func(t *testing.T) {
+			_, err := LaunchContext(context.Background(), Options{ProxyServer: "http://proxy.example:8080", ChromeArgs: []string{arg}})
+			if err == nil || !strings.Contains(err.Error(), "conflicts with configured proxy policy") {
+				t.Fatalf("LaunchContext error = %v, want proxy policy conflict", err)
 			}
 		})
 	}

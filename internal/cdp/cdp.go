@@ -84,11 +84,16 @@ const (
 
 // Dial connects to a CDP WebSocket endpoint.
 func Dial(url string) (*Conn, error) {
+	return DialContext(context.Background(), url)
+}
+
+// DialContext connects to a CDP WebSocket endpoint within ctx.
+func DialContext(ctx context.Context, url string) (*Conn, error) {
 	dialer := websocket.Dialer{
 		ReadBufferSize:  1 << 20, // 1MB for large responses (screenshots)
 		WriteBufferSize: 32 * 1024,
 	}
-	ws, _, err := dialer.Dial(url, nil)
+	ws, _, err := dialer.DialContext(ctx, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cdp: failed to connect to %s: %w", url, err)
 	}
@@ -132,6 +137,40 @@ func (c *Conn) CallSession(sessionID, method string, params any) (json.RawMessag
 
 // CallSessionCtx sends a CDP method call with context-based cancellation.
 func (c *Conn) CallSessionCtx(ctx context.Context, sessionID, method string, params any) (json.RawMessage, error) {
+	return c.callSessionCtx(ctx, sessionID, method, params, 0)
+}
+
+// CallSessionCleanupCtx waits for a late response for up to cleanupWindow
+// after ctx expires. It is reserved for operations that create resources and
+// need the response to reclaim them, such as Target.attachToTarget.
+func (c *Conn) CallSessionCleanupCtx(ctx context.Context, sessionID, method string, params any, cleanupWindow time.Duration) (json.RawMessage, error) {
+	return c.callSessionCtx(ctx, sessionID, method, params, cleanupWindow)
+}
+
+// CallSessionLateResultCtx returns promptly with ctx's error and delivers a
+// later protocol response on lateResult. The response remains registered for
+// at most cleanupWindow, then is discarded.
+func (c *Conn) CallSessionLateResultCtx(ctx context.Context, sessionID, method string, params any, cleanupWindow time.Duration) (json.RawMessage, <-chan *Message, error) {
+	return c.callSessionLateResultCtx(ctx, sessionID, method, params, cleanupWindow)
+}
+
+func (c *Conn) callSessionCtx(ctx context.Context, sessionID, method string, params any, cleanupWindow time.Duration) (json.RawMessage, error) {
+	return c.callSession(ctx, sessionID, method, params, cleanupWindow, nil)
+}
+
+func (c *Conn) callSessionLateResultCtx(ctx context.Context, sessionID, method string, params any, cleanupWindow time.Duration) (json.RawMessage, <-chan *Message, error) {
+	late := make(chan *Message, 1)
+	result, err := c.callSession(ctx, sessionID, method, params, cleanupWindow, late)
+	if err != nil {
+		return nil, late, err
+	}
+	return result, late, nil
+}
+
+func (c *Conn) callSession(ctx context.Context, sessionID, method string, params any, cleanupWindow time.Duration, late chan *Message) (json.RawMessage, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	id := c.nextID.Add(1)
 
 	var rawParams json.RawMessage
@@ -148,6 +187,9 @@ func (c *Conn) CallSessionCtx(ctx context.Context, sessionID, method string, par
 		SessionID: sessionID,
 		Method:    method,
 		Params:    rawParams,
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	ch := make(chan *Message, 1)
@@ -167,25 +209,73 @@ func (c *Conn) CallSessionCtx(ctx context.Context, sessionID, method string, par
 		c.pendingMu.Lock()
 		delete(c.pending, id)
 		c.pendingMu.Unlock()
-		return nil, fmt.Errorf("cdp: write error: %w", err)
+		return nil, &DispatchOutcomeUnknownError{Method: method, Err: fmt.Errorf("cdp: write error: %w", err)}
 	}
 
 	select {
 	case resp, ok := <-ch:
 		if !ok {
-			return nil, fmt.Errorf("cdp: connection closed while waiting for response")
+			return nil, &DispatchOutcomeUnknownError{Method: method, Err: fmt.Errorf("cdp: connection closed while waiting for response")}
 		}
 		if resp.Error != nil {
 			return nil, resp.Error
 		}
 		return resp.Result, nil
 	case <-c.closed:
-		return nil, fmt.Errorf("cdp: connection closed")
-	case <-ctx.Done():
 		c.pendingMu.Lock()
 		delete(c.pending, id)
 		c.pendingMu.Unlock()
-		return nil, fmt.Errorf("cdp: %w waiting for %s (id=%d)", ctx.Err(), method, id)
+		return nil, &DispatchOutcomeUnknownError{Method: method, Err: fmt.Errorf("cdp: connection closed")}
+	case <-ctx.Done():
+		if cleanupWindow > 0 {
+			if late != nil {
+				// The read loop removes the pending entry before delivering the
+				// response. If it already won the lock, consume ch directly; else
+				// atomically redirect future delivery to the late-result channel.
+				c.pendingMu.Lock()
+				pending, exists := c.pending[id]
+				if exists && pending == ch {
+					c.pending[id] = late
+					c.pendingMu.Unlock()
+					time.AfterFunc(cleanupWindow, func() {
+						c.pendingMu.Lock()
+						if c.pending[id] == late {
+							delete(c.pending, id)
+						}
+						c.pendingMu.Unlock()
+					})
+				} else {
+					c.pendingMu.Unlock()
+					select {
+					case resp := <-ch:
+						if resp.Error != nil {
+							return nil, resp.Error
+						}
+						return nil, &DispatchOutcomeUnknownError{Method: method, Err: fmt.Errorf("cdp: response for %s arrived as caller deadline expired", method)}
+					default:
+					}
+				}
+				return nil, &DispatchOutcomeUnknownError{Method: method, Err: fmt.Errorf("cdp: waiting for %s (id=%d): %w", method, id, ctx.Err())}
+			}
+			timer := time.NewTimer(cleanupWindow)
+			defer timer.Stop()
+			select {
+			case resp, ok := <-ch:
+				if !ok {
+					return nil, &DispatchOutcomeUnknownError{Method: method, Err: fmt.Errorf("cdp: connection closed while waiting for response")}
+				}
+				if resp.Error != nil {
+					return nil, resp.Error
+				}
+				return resp.Result, nil
+			case <-c.closed:
+			case <-timer.C:
+			}
+		}
+		c.pendingMu.Lock()
+		delete(c.pending, id)
+		c.pendingMu.Unlock()
+		return nil, &DispatchOutcomeUnknownError{Method: method, Err: fmt.Errorf("cdp: waiting for %s (id=%d): %w", method, id, ctx.Err())}
 	}
 }
 
@@ -247,6 +337,9 @@ func (c *Conn) Close() error {
 	c.wakeDispatch()
 	return c.ws.Close()
 }
+
+// Done is closed when the underlying CDP connection is closed.
+func (c *Conn) Done() <-chan struct{} { return c.closed }
 
 // pingLoop sends periodic WebSocket pings to keep the connection alive.
 // Chrome's CDP WebSocket can drop idle connections; this prevents that.

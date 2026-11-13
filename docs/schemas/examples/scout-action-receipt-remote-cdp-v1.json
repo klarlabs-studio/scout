@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "content_trust": "untrusted_page_content",
+  "run_id": "run-7a2e",
+  "operation_ordinal": 4,
+  "policy_id": "scout-origin-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "policy": {
+    "id": "scout-origin-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "allowed_origins": ["https://api.example.test:443", "https://example.test:443"],
+    "allow_private_ips": false,
+    "enforcement": "session_page_policy",
+    "proxy_configured": true,
+    "proxy_applied_by_scout": false,
+    "remote_host_policy": "unverified",
+    "known_unobserved_paths": ["service_worker_requests", "websocket_handshakes"],
+    "evidence_reference": "trace:trace-7a2e#url-policy.json",
+    "decision_window": {
+      "target_id": "CDP_TARGET_ID",
+      "started_at_ms": 1793966399000,
+      "ended_at_ms": 1793966399540,
+      "decision_indices": [4, 5],
+      "allowed": 1,
+      "blocked": 1
+    }
+  },
+  "action": "click",
+  "browser_ownership": "remote_cdp",
+  "target": "#save",
+  "target_id": "CDP_TARGET_ID",
+  "browser_instance_id": "scout-local-fingerprint",
+  "outcome": "postcondition_verified",
+  "verified": true,
+  "verification_state": "verified",
+  "evidence": "selector resolved and expected text observed",
+  "deadline_at_ms": 1793966400000,
+  "started_at_ms": 1793966399000,
+  "duration_ms": 540
+}

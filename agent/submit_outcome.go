@@ -1,6 +1,9 @@
 package agent
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // SubmitOutcome captures the structured aftermath of the most recent
 // form submission or submit-button click on the page. Designed for
@@ -14,6 +17,7 @@ import "fmt"
 // at read time, DefaultPrevented + XHRCount come from a page-side
 // tracker installed on first read.
 type SubmitOutcome struct {
+	ContentTrust string `json:"content_trust,omitempty"`
 	// DefaultPrevented is true when the most recent submit event had
 	// preventDefault() called on it (i.e. client validation blocked
 	// the form). Requires the tracker to have been installed before
@@ -108,12 +112,19 @@ const scoutSubmitTrackerJS = `(function() {
 // LastSubmitOutcome reads can return defaultPrevented + XHRCount.
 // Idempotent — safe to call from auto-init paths.
 func (s *Session) InstallSubmitTracker() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ensurePage(); err != nil {
+	return s.InstallSubmitTrackerContext(context.Background())
+}
+
+// InstallSubmitTrackerContext injects the submit tracker while honoring ctx.
+func (s *Session) InstallSubmitTrackerContext(ctx context.Context) error {
+	if err := s.mu.LockContext(ctx); err != nil {
 		return err
 	}
-	_, err := s.page.Evaluate(scoutSubmitTrackerJS)
+	defer s.mu.Unlock()
+	if err := s.ensurePageContext(ctx); err != nil {
+		return err
+	}
+	_, err := s.page.EvaluateContext(ctx, scoutSubmitTrackerJS)
 	return err
 }
 
@@ -124,9 +135,16 @@ func (s *Session) InstallSubmitTracker() error {
 // because the tracker booted too late. The caller should re-fire
 // the action and read again.
 func (s *Session) LastSubmitOutcome() (*SubmitOutcome, error) {
-	s.mu.Lock()
+	return s.LastSubmitOutcomeContext(context.Background())
+}
+
+// LastSubmitOutcomeContext reads submit aftermath while honoring ctx.
+func (s *Session) LastSubmitOutcomeContext(ctx context.Context) (*SubmitOutcome, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -184,7 +202,7 @@ func (s *Session) LastSubmitOutcome() (*SubmitOutcome, error) {
 		};
 	})()`
 
-	result, err := s.page.Evaluate(js)
+	result, err := s.page.EvaluateContext(ctx, js)
 	if err != nil {
 		return nil, fmt.Errorf("submit-outcome read failed: %w", err)
 	}
@@ -193,7 +211,7 @@ func (s *Session) LastSubmitOutcome() (*SubmitOutcome, error) {
 		return nil, fmt.Errorf("unexpected submit-outcome result")
 	}
 
-	out := &SubmitOutcome{}
+	out := &SubmitOutcome{ContentTrust: ContentTrustUntrustedPage}
 	out.DefaultPrevented, _ = m["default_prevented"].(bool)
 	out.SubmittedForm, _ = m["submitted_form"].(string)
 	out.FrameworkErrorOverlay, _ = m["framework_error_overlay"].(string)

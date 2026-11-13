@@ -97,6 +97,54 @@ func TestObserveScoped_landmarkFilter(t *testing.T) {
 	if len(obs.Buttons) != 1 {
 		t.Errorf("expected 1 main-scope button, got %d", len(obs.Buttons))
 	}
+	if obs.ScopeMatched != 1 || len(obs.ScopeSelectors) != 1 || obs.ScopeSelectors[0] != "main" || len(obs.ScopeMisses) == 0 {
+		t.Errorf("unexpected scope evidence: matched=%d selectors=%v misses=%v", obs.ScopeMatched, obs.ScopeSelectors, obs.ScopeMisses)
+	}
+}
+
+func TestObserveScopedInvalidSelector(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in short mode")
+	}
+	ts := scopedTestServer()
+	defer ts.Close()
+	s, err := NewSession(SessionConfig{Headless: true, AllowPrivateIPs: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ObserveScoped(ObserveOptions{Sections: []string{"div[="}}); err == nil || !strings.Contains(err.Error(), "invalid observation scope selector") {
+		t.Fatalf("expected precise selector error, got %v", err)
+	}
+}
+
+func TestObserveScopedEmptyPolicy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in short mode")
+	}
+	ts := scopedTestServer()
+	defer ts.Close()
+	s, err := NewSession(SessionConfig{Headless: true, AllowPrivateIPs: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ObserveScoped(ObserveOptions{Sections: []string{"#not-present"}}); err == nil || !strings.Contains(err.Error(), "no observation scopes matched") {
+		t.Fatalf("expected unmatched scope error, got %v", err)
+	}
+	obs, err := s.ObserveScoped(ObserveOptions{Sections: []string{"#not-present"}, AllowEmpty: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obs.ScopeMatched != 0 || len(obs.ScopeMisses) != 1 || obs.Text != "" {
+		t.Fatalf("unexpected allowed empty observation: %+v", obs)
+	}
 }
 
 func TestObserveScoped_linksLimit(t *testing.T) {

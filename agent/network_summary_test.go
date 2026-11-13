@@ -45,7 +45,7 @@ func TestNetworkSummary_buckets(t *testing.T) {
 	s := &Session{
 		network: &networkState{
 			enabled: true,
-			requests: []NetworkCapture{
+			history: []NetworkCapture{
 				{URL: "/a", Status: 200},
 				{URL: "/b", Status: 204},
 				{URL: "/c", Status: 301},
@@ -59,8 +59,8 @@ func TestNetworkSummary_buckets(t *testing.T) {
 		},
 	}
 	out := s.NetworkSummary("")
-	if out.Total != 6 {
-		t.Errorf("total = %d, want 6", out.Total)
+	if out.Total != 5 {
+		t.Errorf("total = %d, want 5 completed HTTP requests", out.Total)
 	}
 	if out.Pending != 1 {
 		t.Errorf("pending = %d, want 1", out.Pending)
@@ -68,7 +68,7 @@ func TestNetworkSummary_buckets(t *testing.T) {
 	if !out.CaptureEnabled {
 		t.Error("capture_enabled = false, want true")
 	}
-	wantBuckets := map[string]int{"2xx": 2, "3xx": 1, "4xx": 1, "5xx": 1, "0": 1}
+	wantBuckets := map[string]int{"2xx": 2, "3xx": 1, "4xx": 1, "5xx": 1}
 	for k, want := range wantBuckets {
 		if out.ByStatus[k] != want {
 			t.Errorf("by_status[%q] = %d, want %d", k, out.ByStatus[k], want)
@@ -79,11 +79,23 @@ func TestNetworkSummary_buckets(t *testing.T) {
 	}
 }
 
+func TestNetworkSummaryBoundsFailureDetails(t *testing.T) {
+	requests := make([]NetworkCapture, 65)
+	for i := range requests {
+		requests[i] = NetworkCapture{URL: "/failure", Status: 500}
+	}
+	s := &Session{network: &networkState{enabled: true, history: requests}}
+	out := s.NetworkSummary("")
+	if out.Total != 65 || out.FailureTotal != 65 || len(out.Failures) != 50 || !out.FailuresTruncated {
+		t.Fatalf("failure summary was not bounded accurately: total=%d failure_total=%d returned=%d truncated=%t", out.Total, out.FailureTotal, len(out.Failures), out.FailuresTruncated)
+	}
+}
+
 func TestNetworkSummary_patternFilter(t *testing.T) {
 	s := &Session{
 		network: &networkState{
 			enabled: true,
-			requests: []NetworkCapture{
+			history: []NetworkCapture{
 				{URL: "/api/auth/signin", Status: 401},
 				{URL: "/static/icon.png", Status: 200},
 				{URL: "/api/auth/signup", Status: 201},

@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "name": "interrupted-seed-fixture",
+      "scenario": "interrupted",
+      "receipts": {
+        "go": "examples/benchmark/recovery_receipt_parity/captures/interrupted.go.json",
+        "cli": "examples/benchmark/recovery_receipt_parity/captures/interrupted.cli.json",
+        "mcp": "examples/benchmark/recovery_receipt_parity/captures/interrupted.mcp.json"
+      },
+      "namespaces": {
+        "go": "SDK task store / temporary fixture",
+        "cli": "stateful CLI task store / temporary fixture",
+        "mcp": "stdio/session/default"
+      }
+    },
+    {
+      "name": "completed-seed-fixture",
+      "scenario": "completed",
+      "receipts": {
+        "go": "examples/benchmark/recovery_receipt_parity/captures/completed.go.json",
+        "cli": "examples/benchmark/recovery_receipt_parity/captures/completed.cli.json",
+        "mcp": "examples/benchmark/recovery_receipt_parity/captures/completed.mcp.json"
+      },
+      "namespaces": {
+        "go": "SDK task store / temporary fixture",
+        "cli": "stateful CLI task store / temporary fixture",
+        "mcp": "stdio/session/default"
+      }
+    },
+    {
+      "name": "completed-non-first-step-seed-fixture",
+      "scenario": "non_first_step",
+      "receipts": {
+        "go": "examples/benchmark/recovery_receipt_parity/captures/non_first_step.go.json",
+        "cli": "examples/benchmark/recovery_receipt_parity/captures/non_first_step.cli.json",
+        "mcp": "examples/benchmark/recovery_receipt_parity/captures/non_first_step.mcp.json"
+      },
+      "namespaces": {
+        "go": "SDK task store / temporary fixture",
+        "cli": "stateful CLI task store / temporary fixture",
+        "mcp": "stdio/session/default"
+      }
+    }
+  ]
+}

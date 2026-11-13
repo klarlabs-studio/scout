@@ -1,0 +1,26 @@
+{
+  "version": "scout-browser-reliability-v1",
+  "scenarios": [
+    {
+      "id": "scoped-large-page",
+      "purpose": "Measure scope containment and bounded observation on a noisy page.",
+      "required_scope": "main",
+      "expected_text": "Target record 042",
+      "forbidden_text": "Decoy record 042",
+      "max_output_bytes": 12000
+    },
+    {
+      "id": "verified-action",
+      "purpose": "Measure whether a click is only dispatched or its requested outcome is verified.",
+      "selector": "#complete",
+      "expected_text": "Task complete"
+    },
+    {
+      "id": "form-acceptance",
+      "purpose": "Distinguish successful transport from an observed application acceptance state.",
+      "form_selector": "#checkout",
+      "match_url": "/submit",
+      "expected_text": "Order accepted"
+    }
+  ]
+}

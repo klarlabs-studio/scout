@@ -9,21 +9,33 @@ policy:
   domains:
     - name: middleware
       match:
-        - ./middleware/...
-      min: 30
+        - go.klarlabs.de/scout/middleware/...
+      min: 75
     - name: cdp
       match:
-        - ./internal/cdp/...
-      min: 0
+        - go.klarlabs.de/scout/internal/cdp/...
+      min: 68
     - name: launcher
       match:
-        - ./internal/launcher/...
-      min: 0
+        - go.klarlabs.de/scout/internal/launcher/...
+      min: 50
     - name: wait
       match:
-        - ./internal/wait/...
-      min: 0
+        - go.klarlabs.de/scout/internal/wait/...
+      min: 70
     - name: agent
       match:
-        - ./agent/...
-      min: 0
+        - go.klarlabs.de/scout/agent/...
+      min: 23
+    - name: core
+      match:
+        - go.klarlabs.de/scout
+      min: 20
+    - name: cli
+      match:
+        - go.klarlabs.de/scout/cmd/scout/...
+      min: 25
+    - name: agui
+      match:
+        - go.klarlabs.de/scout/internal/agui/...
+      min: 40

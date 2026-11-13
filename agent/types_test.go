@@ -2,8 +2,196 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 )
+
+func TestPageContentResultsExposeUntrustedProvenance(t *testing.T) {
+	results := []any{
+		Observation{ContentTrust: ContentTrustUntrustedPage, Text: "page text"},
+		PageResult{ContentTrust: ContentTrustUntrustedPage, Title: "page title"},
+		ContentResult{ContentTrust: ContentTrustUntrustedPage, Content: "page body"},
+		ElementResult{ContentTrust: ContentTrustUntrustedPage, Text: "element text"},
+		ExtractAllResult{ContentTrust: ContentTrustUntrustedPage, Items: []string{"item"}},
+		TableResult{ContentTrust: ContentTrustUntrustedPage, Rows: [][]string{{"cell"}}},
+		PromptSelectResult{ContentTrust: ContentTrustUntrustedPage, Text: "matched page text"},
+		NetworkCapture{ContentTrust: ContentTrustUntrustedPage, ResponseBody: "page response"},
+		TraceResult{ContentTrust: ContentTrustUntrustedPage, TraceID: "trace-1"},
+		AnnotatedResult{ContentTrust: ContentTrustUntrustedPage, Elements: []AnnotatedElement{{Text: "page button"}}},
+		HybridResult{ContentTrust: ContentTrustUntrustedPage, Elements: []HybridElement{{Text: "page control"}}},
+		ActionReceipt{ContentTrust: ContentTrustUntrustedPage, Evidence: "page changed"},
+		ActionOutcomeError{ContentTrust: ContentTrustUntrustedPage, Evidence: "page outcome unknown"},
+		ActionRecoveryRecord{ContentTrust: ContentTrustUntrustedPage},
+		BatchResult{ContentTrust: ContentTrustUntrustedPage, Results: []BatchActionResult{{Receipt: &ActionReceipt{ContentTrust: ContentTrustUntrustedPage}}}},
+		TaskRunResult{ContentTrust: ContentTrustUntrustedPage, Batch: &BatchResult{ContentTrust: ContentTrustUntrustedPage}},
+		PlaybookResult{ContentTrust: ContentTrustUntrustedPage, StepReceipts: []PlaybookStepReceipt{{ActionReceipt: ActionReceipt{ContentTrust: ContentTrustUntrustedPage}}}},
+		AssertResult{ContentTrust: ContentTrustUntrustedPage, Snippet: "page instruction"},
+		FormDiscoveryResult{ContentTrust: ContentTrustUntrustedPage, Fields: []FormFieldInfo{{Label: "page label"}}},
+		FormResult{ContentTrust: ContentTrustUntrustedPage, Fields: []FieldResult{{ValueObserved: "page value"}}},
+		SemanticFillResult{ContentTrust: ContentTrustUntrustedPage, Fields: []SemanticFieldResult{{HumanName: "page label"}}},
+		DOMDiff{ContentTrust: ContentTrustUntrustedPage, Added: []DOMElement{{Text: "page text"}}},
+		NavigationOutcome{ContentTrust: ContentTrustUntrustedPage, URL: "https://example.test"},
+		SubmitOutcome{ContentTrust: ContentTrustUntrustedPage, AlertsVisible: []string{"page alert"}},
+		SubmitFormResult{ContentTrust: ContentTrustUntrustedPage, Evidence: "page response"},
+		NetworkSummary{ContentTrust: ContentTrustUntrustedPage, Failures: []NetworkCapture{{ContentTrust: ContentTrustUntrustedPage}}},
+		DiagnosticsResult{ContentTrust: ContentTrustUntrustedPage, Messages: []ConsoleMessage{{ContentTrust: ContentTrustUntrustedPage}}},
+		HistoryEntry{ContentTrust: ContentTrustUntrustedPage, Result: "page result"},
+		DialogInfo{ContentTrust: ContentTrustUntrustedPage, Text: "page dialog"},
+		CookieInfo{ContentTrust: ContentTrustUntrustedPage, Name: "session"},
+		LinkInfo{ContentTrust: ContentTrustUntrustedPage, Text: "page link"},
+		InputInfo{ContentTrust: ContentTrustUntrustedPage, Label: "page input"},
+		ButtonInfo{ContentTrust: ContentTrustUntrustedPage, Text: "page button"},
+		CookieSummary{ContentTrust: ContentTrustUntrustedPage, Names: []string{"session"}},
+		FormFieldInfo{ContentTrust: ContentTrustUntrustedPage, Label: "page field"},
+		FieldResult{ContentTrust: ContentTrustUntrustedPage, ValueObserved: "page value"},
+		SemanticFieldResult{ContentTrust: ContentTrustUntrustedPage, HumanName: "page field"},
+		PromptCandidate{ContentTrust: ContentTrustUntrustedPage, Text: "page candidate"},
+		AnnotatedElement{ContentTrust: ContentTrustUntrustedPage, Text: "page element"},
+		ClickTextOption{ContentTrust: ContentTrustUntrustedPage, Text: "page click candidate"},
+		ClickTextResult{ContentTrust: ContentTrustUntrustedPage, URL: "https://example.test", Title: "page title"},
+		Profile{ContentTrust: ContentTrustUntrustedPage, LocalStorage: map[string]string{"key": "page value"}},
+		AuthWallResult{ContentTrust: ContentTrustUntrustedPage, Reason: "page signal"},
+		AriaViolationReport{ContentTrust: ContentTrustUntrustedPage},
+		PageReadiness{ContentTrust: ContentTrustUntrustedPage},
+		WebVitalsResult{ContentTrust: ContentTrustUntrustedPage},
+		TabInfo{ContentTrust: ContentTrustUntrustedPage, URL: "https://example.test"},
+		SelectorSuggestion{ContentTrust: ContentTrustUntrustedPage, Text: "page text"},
+	}
+	for _, result := range results {
+		t.Run(fmt.Sprintf("%T", result), func(t *testing.T) {
+			data, err := json.Marshal(result)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got["content_trust"] != ContentTrustUntrustedPage {
+				t.Fatalf("content_trust = %v, want %q", got["content_trust"], ContentTrustUntrustedPage)
+			}
+		})
+	}
+}
+
+func TestVerificationStateFor(t *testing.T) {
+	condition := &Postcondition{Text: "saved"}
+	tests := []struct {
+		name      string
+		outcome   ActionOutcome
+		verified  bool
+		condition *Postcondition
+		want      VerificationState
+	}{
+		{"verified", OutcomePostconditionVerified, true, condition, VerificationVerified},
+		{"rejected", OutcomePostconditionFailed, false, condition, VerificationRejected},
+		{"unknown", OutcomeUnknown, false, condition, VerificationUnknown},
+		{"without check", OutcomeEventObserved, false, nil, VerificationUnverified},
+		{"failed action", OutcomeActionFailed, false, nil, VerificationRejected},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := verificationStateFor(tt.outcome, tt.verified, tt.condition); got != tt.want {
+				t.Fatalf("verificationStateFor() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestActionReceipt_JSONIncludesVerificationState(t *testing.T) {
+	receipt := ActionReceipt{SchemaVersion: 1, Action: "click", BrowserOwnership: "remote_cdp", Outcome: OutcomeUnknown, Verification: VerificationUnknown}
+	data, err := json.Marshal(receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["verification_state"] != string(VerificationUnknown) {
+		t.Fatalf("verification_state = %v, want %q", got["verification_state"], VerificationUnknown)
+	}
+	if got["browser_ownership"] != "remote_cdp" {
+		t.Fatalf("browser_ownership = %v, want remote_cdp", got["browser_ownership"])
+	}
+}
+
+func TestActionReceiptCapturesBrowserOwnership(t *testing.T) {
+	for _, ownership := range []string{"scout_launched", "remote_cdp"} {
+		t.Run(ownership, func(t *testing.T) {
+			s := &Session{browserOwnership: ownership, runID: "run-owner"}
+			receipt := s.newActionReceipt("navigate", "https://example.test", "target-1", string(OutcomePostconditionVerified), "URL matched", "", true, 1, nil)
+			if receipt.BrowserOwnership != ownership {
+				t.Fatalf("browser_ownership = %q, want %q", receipt.BrowserOwnership, ownership)
+			}
+		})
+	}
+}
+
+func TestActionReceiptCarriesScopedPolicyEvidence(t *testing.T) {
+	s := &Session{
+		browserOwnership:    "remote_cdp",
+		allowedOrigins:      []string{"https://example.test:443", "https://api.example.test"},
+		allowPrivateIPs:     false,
+		proxyServer:         "http://proxy.internal:8080",
+		proxyAppliedByScout: false,
+	}
+	receipt := s.newActionReceipt("click", "#save", "target-1", string(OutcomePostconditionVerified), "clicked", "", true, 1, nil)
+	if receipt.Policy == nil {
+		t.Fatal("action receipt has no policy snapshot")
+	}
+	if receipt.Policy.ID != receipt.PolicyID || receipt.Policy.Enforcement != "session_page_policy" || receipt.Policy.RemoteHostPolicy != "unverified" {
+		t.Fatalf("unexpected policy identity/scope: %+v", receipt.Policy)
+	}
+	if receipt.Policy.ProxyAppliedByScout || !receipt.Policy.ProxyConfigured {
+		t.Fatalf("remote proxy configuration was misrepresented: %+v", receipt.Policy)
+	}
+	if len(receipt.Policy.AllowedOrigins) != 2 || receipt.Policy.AllowedOrigins[0] != "https://api.example.test:443" || receipt.Policy.AllowedOrigins[1] != "https://example.test:443" {
+		t.Fatalf("origins were not normalized and sorted: %#v", receipt.Policy.AllowedOrigins)
+	}
+	if len(receipt.Policy.KnownUnobservedPaths) != 2 || receipt.Policy.KnownUnobservedPaths[0] != "service_worker_requests" || receipt.Policy.KnownUnobservedPaths[1] != "websocket_handshakes" {
+		t.Fatalf("known unobserved paths = %#v", receipt.Policy.KnownUnobservedPaths)
+	}
+}
+
+func TestActionReceiptSummarizesTargetPolicyDecisionsInActionWindow(t *testing.T) {
+	start := time.UnixMilli(1_700_000_000_000)
+	end := start.Add(time.Second)
+	s := &Session{
+		browserOwnership: "scout_launched", runID: "run-window", allowedOrigins: []string{"https://example.test"},
+		tracing: true, lastActionName: "click", lastActionStartedAt: start, lastActionEndedAt: end,
+		trace: &traceState{run: TraceRunMetadata{TraceID: "trace-window"}, policyDecisions: []TraceURLPolicyDecision{
+			{Index: 0, TargetID: "target-1", Timestamp: start.Add(100 * time.Millisecond).UnixMilli(), Allowed: true, PolicyID: taskOriginPolicyID([]string{"https://example.test"}, false)},
+			{Index: 1, TargetID: "target-1", Timestamp: start.Add(200 * time.Millisecond).UnixMilli(), Allowed: false, PolicyID: taskOriginPolicyID([]string{"https://example.test"}, false)},
+			{Index: 2, TargetID: "target-other", Timestamp: start.Add(300 * time.Millisecond).UnixMilli(), Allowed: false, PolicyID: taskOriginPolicyID([]string{"https://example.test"}, false)},
+			{Index: 3, TargetID: "target-1", Timestamp: end.Add(time.Millisecond).UnixMilli(), Allowed: true, PolicyID: taskOriginPolicyID([]string{"https://example.test"}, false)},
+		}},
+	}
+	receipt := s.newActionReceipt("click", "#save", "target-1", string(OutcomePostconditionVerified), "saved", "", true, 1, nil)
+	if receipt.Policy == nil || receipt.Policy.DecisionWindow == nil {
+		t.Fatal("traced action receipt has no policy decision window")
+	}
+	window := receipt.Policy.DecisionWindow
+	if receipt.Policy.EvidenceReference != "trace:trace-window#url-policy.json" || window.TargetID != "target-1" || window.Allowed != 1 || window.Blocked != 1 || len(window.DecisionIndices) != 2 || window.DecisionIndices[0] != 0 || window.DecisionIndices[1] != 1 {
+		t.Fatalf("unexpected policy evidence window: reference=%q window=%+v", receipt.Policy.EvidenceReference, window)
+	}
+}
+
+func TestElementResult_JSONIncludesFrameIdentity(t *testing.T) {
+	want := ElementResult{Selector: "#message", TargetID: "target-7", FrameID: "frame-3", Text: "approved", ContentTrust: ContentTrustUntrustedPage}
+	data, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got ElementResult
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.TargetID != want.TargetID || got.FrameID != want.FrameID || got.Text != want.Text {
+		t.Fatalf("element result lost evidence identity: got %+v, want %+v", got, want)
+	}
+}
 
 func TestPageResult_JSON(t *testing.T) {
 	tests := []struct {
@@ -11,6 +199,8 @@ func TestPageResult_JSON(t *testing.T) {
 		pr   PageResult
 	}{
 		{"basic", PageResult{URL: "https://example.com", Title: "Example"}},
+		{"verified action", PageResult{URL: "https://example.com", Title: "Example", Action: "clicked", Target: "#submit", Verified: true, Evidence: "target resolved"}},
+		{"unverified action", PageResult{URL: "https://example.com", Title: "Example", Action: "clicked", Target: "#submit", Evidence: "click dispatched"}},
 		{"empty", PageResult{}},
 		{"unicode", PageResult{URL: "https://example.com/日本語", Title: "日本語ページ"}},
 	}
@@ -31,13 +221,54 @@ func TestPageResult_JSON(t *testing.T) {
 	}
 }
 
+func TestClickTextResult_JSONIncludesOperationOrdinal(t *testing.T) {
+	want := ClickTextResult{OperationOrdinal: 14, URL: "https://example.test/", Title: "Example", Matched: "#continue", MatchType: "button_text"}
+	data, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got ClickTextResult
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.OperationOrdinal != want.OperationOrdinal || got.URL != want.URL || got.Title != want.Title || got.Matched != want.Matched || got.MatchType != want.MatchType {
+		t.Fatalf("ClickTextResult roundtrip = %+v, want %+v", got, want)
+	}
+}
+
+func TestPostconditionValidate(t *testing.T) {
+	wantCount := 2
+	wantValue := "saved"
+	tests := []struct {
+		name string
+		pc   Postcondition
+		want bool
+	}{
+		{"text", Postcondition{Text: "Saved"}, true},
+		{"empty input value", Postcondition{ValueSelector: "#name", Value: ""}, true},
+		{"exact value", Postcondition{ValueSelector: "#status", Value: wantValue}, true},
+		{"exact count", Postcondition{CountSelector: ".row", Count: &wantCount}, true},
+		{"negative count", Postcondition{CountSelector: ".row", Count: func() *int { n := -1; return &n }()}, false},
+		{"missing count", Postcondition{CountSelector: ".row"}, false},
+		{"multiple conditions", Postcondition{Text: "Saved", CountSelector: ".row", Count: &wantCount}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.pc.Validate() == nil
+			if got != tt.want {
+				t.Errorf("Validate() success = %t, want %t", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestElementResult_JSON(t *testing.T) {
 	tests := []struct {
 		name string
 		er   ElementResult
 	}{
 		{"with text", ElementResult{Selector: "#foo", Text: "hello", Action: "extracted"}},
-		{"with value", ElementResult{Selector: "input", Value: "bar", Action: "typed"}},
+		{"with value", ElementResult{Selector: "input", Value: "bar", ValueCommitted: "bar", Action: "typed", Verified: true, Evidence: "value reread"}},
 		{"omitempty text", ElementResult{Selector: "p", Action: "extracted"}},
 	}
 	for _, tt := range tests {
@@ -81,12 +312,37 @@ func TestExtractAllResult_JSON(t *testing.T) {
 	}
 }
 
+func TestBoundedContentResult(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		limit     int
+		total     int
+		want      string
+		truncated bool
+	}{
+		{"within limit", "hello", 5, 5, "hello", false},
+		{"at limit with omitted source", "hello", 5, 6, "hello", true},
+		{"over limit", "hello", 5, 11, "hello", true},
+		{"unicode boundary", "a日", 2, 4, "a日", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := boundedContentResult(tt.input, tt.total, tt.limit)
+			if got.Content != tt.want || got.Truncated != tt.truncated || got.MaxLength != tt.limit {
+				t.Fatalf("got %+v", got)
+			}
+		})
+	}
+}
+
 func TestTableResult_JSON(t *testing.T) {
 	r := TableResult{
 		Selector:  "table",
 		Headers:   []string{"Name", "Age"},
 		Rows:      [][]string{{"Alice", "30"}, {"Bob", "25"}},
 		RowCount:  2,
+		TotalRows: 2,
 		ColCount:  2,
 		Truncated: false,
 	}
@@ -98,7 +354,7 @@ func TestTableResult_JSON(t *testing.T) {
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if got.RowCount != 2 || got.ColCount != 2 {
+	if got.RowCount != 2 || got.TotalRows != 2 || got.ColCount != 2 {
 		t.Errorf("table counts: got %d/%d, want 2/2", got.RowCount, got.ColCount)
 	}
 	if len(got.Rows) != 2 || len(got.Headers) != 2 {
@@ -130,6 +386,38 @@ func TestFormResult_JSON(t *testing.T) {
 	}
 	if got.Fields[0].Success != true || got.Fields[1].Error != "not found" {
 		t.Errorf("field roundtrip mismatch")
+	}
+}
+
+func TestSubmitFormResult_JSONPreservesOutcomeEvidence(t *testing.T) {
+	r := SubmitFormResult{
+		Submitted:           true,
+		Verified:            false,
+		ResponseObserved:    true,
+		ApplicationAccepted: false,
+		Outcome:             "response_failed",
+		StatusCode:          422,
+		Evidence:            "observed POST response for /reject",
+	}
+	data, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["response_observed"] != true || got["application_accepted"] != false || got["outcome"] != "response_failed" || got["status_code"] != float64(422) {
+		t.Fatalf("serialized submit result lost outcome evidence: %s", data)
+	}
+}
+
+func TestFieldValueMismatch(t *testing.T) {
+	if got := fieldValueMismatch(true); got != "" {
+		t.Fatalf("verified value mismatch error = %q, want empty", got)
+	}
+	if got := fieldValueMismatch(false); got == "" {
+		t.Fatal("unverified value should explain the mismatch")
 	}
 }
 
@@ -371,11 +659,17 @@ func TestAnnotatedResult_ImageOmitted(t *testing.T) {
 
 func TestTraceEvent_JSON(t *testing.T) {
 	te := TraceEvent{
-		Index:     0,
-		Action:    "navigate",
-		URL:       "https://example.com",
-		Timestamp: 1234567890,
-		Duration:  500,
+		Index:             0,
+		ActionOrdinal:     3,
+		Action:            "navigate",
+		TargetID:          "page-1",
+		URL:               "https://example.com",
+		Outcome:           string(OutcomeNavigationCompleted),
+		Verified:          true,
+		VerificationKnown: true,
+		Evidence:          "location matched requested URL",
+		Timestamp:         1234567890,
+		Duration:          500,
 	}
 	data, err := json.Marshal(te)
 	if err != nil {
@@ -385,7 +679,7 @@ func TestTraceEvent_JSON(t *testing.T) {
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if got.Action != "navigate" || got.Timestamp != 1234567890 {
+	if got.Action != "navigate" || got.ActionOrdinal != 3 || got.Timestamp != 1234567890 || got.TargetID != "page-1" || got.Outcome != string(OutcomeNavigationCompleted) || !got.Verified || !got.VerificationKnown || got.Evidence != "location matched requested URL" {
 		t.Errorf("roundtrip mismatch: %+v", got)
 	}
 }
@@ -453,6 +747,36 @@ func TestCookieDismissResult_JSON(t *testing.T) {
 	}
 	if !got.Found || got.Method != "selector" || got.Text != "Accept All" {
 		t.Errorf("roundtrip mismatch: %+v", got)
+	}
+}
+
+func TestCookieDismissResultPreservedOnUnknownOutcome(t *testing.T) {
+	result := &CookieDismissResult{
+		Found: true, Method: "selector", Selector: "#accept-cookies",
+		Action: "dismiss_cookies", Target: "cookie consent banner", TargetID: "target-7", OperationOrdinal: 2,
+	}
+	receipt := &ActionReceipt{SchemaVersion: 1, Action: "dismiss_cookies", TargetID: "target-7", OperationOrdinal: 1, Outcome: OutcomeUnknown}
+	outcomeErr := &ActionOutcomeError{
+		Action: "dismiss_cookies", Target: result.Target, TargetID: result.TargetID,
+		OperationOrdinal: 1, Outcome: OutcomeUnknown,
+		Evidence:     "banner click was dispatched but settling was interrupted",
+		RecoveryHint: "Inspect before retrying", Receipt: receipt,
+	}
+	preserveCookieDismissalUnknownOutcome(result, outcomeErr)
+	outcomeErr.PartialResult = result
+
+	partial, ok := outcomeErr.PartialResult.(*CookieDismissResult)
+	if !ok {
+		t.Fatalf("PartialResult type = %T, want *CookieDismissResult", outcomeErr.PartialResult)
+	}
+	if !partial.Found || partial.Method != "selector" || partial.Outcome != string(OutcomeUnknown) || partial.Verified || partial.Dismissed {
+		t.Fatalf("partial dismissal result lost uncertainty evidence: %+v", partial)
+	}
+	if partial.OperationOrdinal != outcomeErr.OperationOrdinal || partial.Evidence != outcomeErr.Evidence || partial.RecoveryHint != outcomeErr.RecoveryHint {
+		t.Fatalf("partial dismissal result does not match unknown outcome: result=%+v error=%+v", partial, outcomeErr)
+	}
+	if partial.Receipt != outcomeErr.Receipt {
+		t.Fatal("partial dismissal result does not carry the authoritative unknown-outcome receipt")
 	}
 }
 

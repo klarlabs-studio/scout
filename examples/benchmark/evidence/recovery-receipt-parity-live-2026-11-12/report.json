@@ -1,0 +1,51 @@
+{
+  "schema": "scout.recovery-receipt-parity/v1",
+  "passed": true,
+  "covered_scenarios": [
+    "completed",
+    "interrupted",
+    "non_first_step"
+  ],
+  "required_scenarios": [
+    "interrupted",
+    "completed",
+    "non_first_step"
+  ],
+  "missing_scenarios": [],
+  "producer_authenticated": false,
+  "browser_binding_independently_observed": false,
+  "application_outcome_independently_observed": false,
+  "case_count": 3,
+  "case_results": [
+    {
+      "scenario": "interrupted",
+      "passed": true,
+      "field_parity": {
+        "cli": true,
+        "go": true,
+        "mcp": true
+      },
+      "operation_ordinal": 1
+    },
+    {
+      "scenario": "completed",
+      "passed": true,
+      "field_parity": {
+        "cli": true,
+        "go": true,
+        "mcp": true
+      },
+      "operation_ordinal": 1
+    },
+    {
+      "scenario": "non_first_step",
+      "passed": true,
+      "field_parity": {
+        "cli": true,
+        "go": true,
+        "mcp": true
+      },
+      "operation_ordinal": 2
+    }
+  ]
+}

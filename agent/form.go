@@ -1,9 +1,13 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	browse "go.klarlabs.de/scout"
 )
@@ -11,194 +15,21 @@ import (
 // DiscoverForm analyzes form fields on the page and returns their labels and selectors.
 // If formSelector is empty, discovers all forms on the page.
 func (s *Session) DiscoverForm(formSelector string) (*FormDiscoveryResult, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+	return s.DiscoverFormContext(ctx, formSelector)
+}
 
-	if err := s.ensurePage(); err != nil {
+// DiscoverFormContext discovers form fields under the caller's deadline.
+func (s *Session) DiscoverFormContext(ctx context.Context, formSelector string) (*FormDiscoveryResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
 		return nil, err
 	}
-
-	sel := "document.body"
-	if formSelector != "" {
-		selJSON, _ := json.Marshal(formSelector)
-		sel = fmt.Sprintf("document.querySelector(%s)", selJSON)
+	defer s.mu.Unlock()
+	if err := s.ensurePageContext(ctx); err != nil {
+		return nil, err
 	}
-
-	js := fmt.Sprintf(`(function() {
-		const root = %s;
-		if (!root) return null;
-
-		function findLabel(el) {
-			if (el.id) {
-				const label = document.querySelector('label[for="' + CSS.escape(el.id) + '"]');
-				if (label) return label.textContent.trim();
-			}
-			const ariaLabel = el.getAttribute('aria-label');
-			if (ariaLabel) return ariaLabel;
-			const labelledBy = el.getAttribute('aria-labelledby');
-			if (labelledBy) {
-				const ref = document.getElementById(labelledBy);
-				if (ref) return ref.textContent.trim();
-			}
-			const parent = el.closest('label');
-			if (parent) {
-				const clone = parent.cloneNode(true);
-				const inputs = clone.querySelectorAll('input,textarea,select');
-				inputs.forEach(i => i.remove());
-				return clone.textContent.trim();
-			}
-			if (el.placeholder) return el.placeholder;
-			const prev = el.previousElementSibling;
-			if (prev && ['LABEL','SPAN','DIV','P','TD','TH'].includes(prev.tagName)) {
-				return prev.textContent.trim();
-			}
-			return el.name || el.id || '';
-		}
-
-		// uniquePath walks parents up to the nearest stable anchor (id or
-		// document root) and emits a CSS path with :nth-of-type so the
-		// resulting selector matches exactly one element. Required for
-		// Vue v-model / React forms where inputs lack id and name.
-		function uniquePath(el) {
-			const segments = [];
-			let cur = el;
-			while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
-				if (cur.id) {
-					segments.unshift('#' + CSS.escape(cur.id));
-					break;
-				}
-				const tag = cur.tagName.toLowerCase();
-				let idx = 1;
-				let sib = cur.previousElementSibling;
-				while (sib) {
-					if (sib.tagName === cur.tagName) idx++;
-					sib = sib.previousElementSibling;
-				}
-				segments.unshift(tag + ':nth-of-type(' + idx + ')');
-				cur = cur.parentElement;
-			}
-			return segments.join(' > ');
-		}
-
-		function buildSelector(el) {
-			if (el.id) return '#' + CSS.escape(el.id);
-			const t = (el.type || '').toLowerCase();
-			if ((t==='radio' || t==='checkbox') && el.name) {
-				const v = el.value || '';
-				if (v) return 'input[type="'+t+'"][name="'+el.name+'"][value="'+v+'"]';
-			}
-			if (el.name) {
-				const candidate = el.tagName.toLowerCase() + '[name="' + el.name + '"]';
-				if (document.querySelectorAll(candidate).length === 1) return candidate;
-			}
-			return uniquePath(el);
-		}
-
-		const fields = [];
-
-		// Deep query: collects matching elements from "start" AND every
-		// shadow root reachable below it. Lets us pull inputs out of
-		// Lit / Vue / React custom elements whose internals are
-		// invisible to querySelectorAll alone. The walker also descends
-		// into slot assignments implicitly via getRootNode chains.
-		function deepQueryAll(start, selectorList) {
-			const out = [];
-			const seen = new Set();
-			function walk(node) {
-				if (!node || seen.has(node)) return;
-				seen.add(node);
-				try {
-					node.querySelectorAll(selectorList).forEach(el => out.push(el));
-				} catch (_) { /* DocumentFragments without querySelectorAll */ }
-				const candidates = node.querySelectorAll ? node.querySelectorAll('*') : [];
-				for (const el of candidates) {
-					if (el.shadowRoot) walk(el.shadowRoot);
-				}
-			}
-			walk(start);
-			return out;
-		}
-
-		// pierceSelector lets the fill stage find the same element on a
-		// later DOM tick even if it's behind a shadow boundary. We tag
-		// each discovered input with a stable data-scout-id and use
-		// the attribute selector [data-scout-id="..."]. The Go side
-		// runs QuerySelectorPiercing which walks the flattened DOM
-		// tree to resolve it across shadow boundaries.
-		let scoutCounter = (window.__scoutFieldCounter || 0);
-		function pierceSelector(el) {
-			let id = el.getAttribute('data-scout-id');
-			if (!id) {
-				id = 'f' + (++scoutCounter);
-				el.setAttribute('data-scout-id', id);
-			}
-			return '[data-scout-id="' + id + '"]';
-		}
-		window.__scoutFieldCounter = scoutCounter;
-
-		const inputs = deepQueryAll(root, 'input,textarea,select');
-		for (const el of inputs) {
-			if (el.type === 'hidden' || el.type === 'submit') continue;
-			// Prefer the standard heuristic when the element is in the
-			// document scope (cheap, no DOM mutation). Fall back to the
-			// pierce-tag for elements behind a shadow boundary so the
-			// fill path can locate them.
-			let sel;
-			const inMainDoc = el.getRootNode() === document;
-			if (inMainDoc) {
-				sel = buildSelector(el);
-				if (document.querySelectorAll(sel).length !== 1) {
-					sel = uniquePath(el);
-				}
-				if (document.querySelectorAll(sel).length !== 1) {
-					sel = pierceSelector(el);
-				}
-			} else {
-				sel = pierceSelector(el);
-			}
-			const field = {
-				selector: sel,
-				label: findLabel(el),
-				type: el.type || el.tagName.toLowerCase(),
-				name: el.name || '',
-				id: el.id || '',
-				placeholder: el.placeholder || '',
-				required: el.required || false
-			};
-			if (el.tagName === 'SELECT') {
-				field.options = Array.from(el.options).slice(0, 10).map(o => o.text.trim());
-			}
-			fields.push(field);
-		}
-
-		const form = root.tagName === 'FORM' ? root : root.querySelector('form');
-		return JSON.stringify({
-			formSelector: form ? buildSelector(form) : '',
-			action: form ? form.action : '',
-			method: form ? form.method : '',
-			fields: fields
-		});
-	})()`, sel)
-
-	result, err := s.page.Evaluate(js)
-	if err != nil {
-		return nil, fmt.Errorf("form discovery failed: %w", err)
-	}
-	if result == nil {
-		return nil, fmt.Errorf("no form found")
-	}
-
-	str, ok := result.(string)
-	if !ok {
-		return nil, fmt.Errorf("unexpected form discovery result")
-	}
-
-	var discovery FormDiscoveryResult
-	if err := json.Unmarshal([]byte(str), &discovery); err != nil {
-		return nil, fmt.Errorf("failed to parse form discovery: %w", err)
-	}
-
-	return &discovery, nil
+	return s.discoverFormInternalContext(ctx, formSelector)
 }
 
 // FillFormSemantic fills form fields using human-readable names instead of CSS selectors.
@@ -220,185 +51,319 @@ func (s *Session) FillFormSemantic(fields map[string]string) (*SemanticFillResul
 // the DOM after dispatching input/change events, and a warning when the framework's
 // reactive binding (Vue v-model / React onChange) didn't pick up the change.
 func (s *Session) FillFormSemanticAny(fields map[string]any) (*SemanticFillResult, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+	return s.FillFormSemanticAnyContext(ctx, fields)
+}
 
-	if err := s.ensurePage(); err != nil {
+// FillFormSemanticAnyContext performs semantic discovery, matching, field
+// actions, and readback under one caller deadline and one session lock.
+func (s *Session) FillFormSemanticAnyContext(ctx context.Context, fields map[string]any) (*SemanticFillResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
 		return nil, err
 	}
-
-	discovery, err := s.discoverFormInternal("")
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := s.ensurePageContext(ctx); err != nil {
+		return nil, err
+	}
+	start, before := s.traceBeforeActionContext(ctx)
+	discovery, err := s.discoverFormInternalContext(ctx, "")
 	if err != nil {
 		return nil, err
 	}
-
-	result := &SemanticFillResult{
-		Fields:  make([]SemanticFieldResult, 0, len(fields)),
-		Success: true,
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
 	}
-
-	for humanName, value := range fields {
-		fr := s.fillSemanticField(humanName, value, discovery.Fields)
-		if !fr.Success {
+	sort.Strings(names)
+	result := &SemanticFillResult{ContentTrust: ContentTrustUntrustedPage, TargetID: s.page.TargetID(), Fields: make([]SemanticFieldResult, 0, len(fields)), Success: true}
+	mutationsDispatched := false
+	for _, name := range names {
+		if err := ctx.Err(); err != nil {
+			if mutationsDispatched {
+				return nil, s.semanticFillOutcomeAfterDispatch(result, name, "semantic form fill was interrupted after earlier fields changed", err)
+			}
+			return nil, err
+		}
+		fieldResult := s.fillSemanticFieldContext(ctx, name, fields[name], discovery.Fields, nil)
+		fieldResult.ContentTrust = ContentTrustUntrustedPage
+		if fieldResult.Outcome == string(OutcomeUnknown) {
+			cause := ctx.Err()
+			if cause == nil {
+				cause = errors.New(fieldResult.Error)
+			}
+			fieldResult.Success = false
+			result.Success = false
+			result.Fields = append(result.Fields, fieldResult)
+			return nil, s.semanticFillOutcomeAfterDispatch(result, fieldResult.Selector, fieldResult.Error, cause)
+		}
+		if fieldResult.Outcome == "value_verified" || fieldResult.Outcome == "value_mismatch" {
+			mutationsDispatched = true
+		}
+		if err := ctx.Err(); err != nil {
+			if mutationsDispatched {
+				if fieldResult.HumanName != "" {
+					result.Fields = append(result.Fields, fieldResult)
+				}
+				return nil, s.semanticFillOutcomeAfterDispatch(result, fieldResult.Selector, "semantic form fill was interrupted after a field mutation", err)
+			}
+			return nil, err
+		}
+		if !fieldResult.Success {
 			result.Success = false
 		}
-		result.Fields = append(result.Fields, fr)
+		result.Fields = append(result.Fields, fieldResult)
 	}
-
+	result.Outcome = string(OutcomePostconditionVerified)
+	result.Evidence = "all semantic form fields were processed and their outcomes are included"
+	if !result.Success {
+		result.Outcome = string(OutcomeValueMismatch)
+		result.RecoveryHint = "Inspect field-level outcomes and correct missing, invalid, or mismatched controls before continuing."
+		for _, field := range result.Fields {
+			if field.Outcome == string(OutcomeActionFailed) {
+				result.Outcome = string(OutcomeActionFailed)
+				break
+			}
+		}
+	}
+	s.traceAfterActionContext(ctx, start, before, "fill_form_semantic", "", "", "", nil)
+	result.OperationOrdinal = s.operationOrdinalForResult("fill_form_semantic", "")
+	result.Receipt = s.newActionReceipt("fill_form_semantic", "", result.TargetID, result.Outcome, result.Evidence, result.RecoveryHint, result.Success, result.OperationOrdinal, nil, ctx)
+	actionReceiptDeadline(ctx, result.Receipt)
 	return result, nil
 }
 
-// fillSemanticField fills one field and returns a structured outcome.
-// Caller must hold s.mu.
-func (s *Session) fillSemanticField(humanName string, value any, candidates []FormFieldInfo) SemanticFieldResult {
+func (s *Session) semanticFillOutcomeAfterDispatch(result *SemanticFillResult, target, evidence string, cause error) error {
+	if result != nil {
+		result.Success = false
+		result.Outcome = string(OutcomeUnknown)
+		result.Evidence = evidence
+		result.RecoveryHint = "Inspect each field outcome and current form values before retrying; some earlier fields may already have changed."
+	}
+	err := s.actionOutcomeAfterDispatch("fill_form_semantic", target, evidence, cause)
+	if outcome, ok := err.(*ActionOutcomeError); ok {
+		outcome.PartialResult = result
+	}
+	return err
+}
+
+func (s *Session) fillSemanticFieldContext(ctx context.Context, humanName string, value any, candidates []FormFieldInfo, beforeMutation func() error) SemanticFieldResult {
 	best, score := MatchFormFieldWithScore(humanName, candidates)
 	if best == nil {
-		return SemanticFieldResult{
-			HumanName: humanName,
-			Error:     fmt.Sprintf("no matching field found for %q", humanName),
+		return SemanticFieldResult{HumanName: humanName, Outcome: "action_failed", RecoveryHint: "Inspect the form labels and choose a field name that maps to an available control.", Error: fmt.Sprintf("no matching field found for %q", humanName)}
+	}
+	target := *best
+	typeName := strings.ToLower(best.Type)
+	want := fmt.Sprint(value)
+	if typeName == "radio" {
+		matched := radioMatches(target, want)
+		for _, candidate := range candidates {
+			if strings.EqualFold(candidate.Type, "radio") && candidate.Name == best.Name && radioMatches(candidate, want) {
+				target, matched = candidate, true
+				break
+			}
+		}
+		if !matched {
+			return SemanticFieldResult{HumanName: humanName, Selector: best.Selector, Type: best.Type, Value: want, MatchConfidence: score, Outcome: "action_failed", Error: fmt.Sprintf("no radio option in group %q matches %q", best.Name, want)}
 		}
 	}
-
-	var res SemanticFieldResult
-	switch strings.ToLower(best.Type) {
-	case "checkbox":
-		res = s.fillCheckbox(humanName, *best, value)
-	case "radio":
-		res = s.fillRadio(humanName, *best, value, candidates)
-	default:
-		res = s.fillTextField(humanName, *best, value)
-	}
-	res.MatchConfidence = score
-	// Low-confidence matches (placeholder/type hint fallback only) are
-	// almost always a sign that the form lacks distinguishing labels —
-	// surface a warning so callers don't act on a guess. Doesn't fail
-	// the fill (the value did land somewhere), but flags it loudly.
-	if score > 0 && score < 50 && res.Warning == "" && res.Error == "" {
-		res.Warning = fmt.Sprintf("low-confidence field match (score %d/100) — verify before submitting", score)
-	}
-	return res
-}
-
-func (s *Session) fillTextField(humanName string, field FormFieldInfo, value any) SemanticFieldResult {
-	str := fmt.Sprint(value)
-	var sel *browse.Selection
-	if err := s.withStaleNodeRetry(field.Selector, func(nodeID int64) error {
-		sel = browse.NewSelection(s.page, nodeID, field.Selector)
-		return sel.Input(str)
-	}); err != nil {
-		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: s.decodeNodeError(field.Selector, err).Error()}
-	}
-	// Dispatch input + change so frameworks update their bound state.
-	dispatchEvents(s.page, field.Selector, "input", "change")
-	observed, _ := sel.Value()
-	reactive := observed == str
-	res := SemanticFieldResult{
-		HumanName:         humanName,
-		Selector:          field.Selector,
-		Type:              field.Type,
-		Value:             str,
-		ValueObserved:     observed,
-		FrameworkReactive: reactive,
-		Success:           true,
-	}
-	if !reactive {
-		res.Warning = "DOM value matched but observed value differs — framework binding may not have updated"
-	}
-	return res
-}
-
-func (s *Session) fillCheckbox(humanName string, field FormFieldInfo, value any) SemanticFieldResult {
-	want, ok := toBool(value)
-	if !ok {
-		return SemanticFieldResult{
-			HumanName: humanName,
-			Selector:  field.Selector,
-			Type:      field.Type,
-			Error:     fmt.Sprintf("checkbox %q expects bool, got %T", humanName, value),
-		}
-	}
-
-	checked, err := readChecked(s.page, field.Selector)
+	nodeID, err := s.querySelectorForCurrentContext(ctx, target.Selector)
 	if err != nil {
-		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: err.Error()}
+		return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, MatchConfidence: score, Outcome: "action_failed", Error: s.decodeNodeError(target.Selector, err).Error(), RecoveryHint: "Inspect the form and confirm the selected control is still present."}
 	}
-	wantStr := boolStr(want)
-
-	if checked == want {
-		return SemanticFieldResult{
-			HumanName: humanName, Selector: field.Selector, Type: field.Type,
-			Value: wantStr, ValueObserved: wantStr, FrameworkReactive: true, Success: true,
-		}
-	}
-
-	if err := clickCheckbox(s.page, field.Selector); err != nil {
-		return SemanticFieldResult{HumanName: humanName, Selector: field.Selector, Type: field.Type, Error: err.Error()}
-	}
-	dispatchEvents(s.page, field.Selector, "input", "change")
-
-	observed, _ := readChecked(s.page, field.Selector)
-	reactive := observed == want
-	res := SemanticFieldResult{
-		HumanName:         humanName,
-		Selector:          field.Selector,
-		Type:              field.Type,
-		Value:             wantStr,
-		ValueObserved:     boolStr(observed),
-		FrameworkReactive: reactive,
-		Success:           true,
-	}
-	if !reactive {
-		res.Warning = "checkbox click fired but observed checked state didn't change — framework binding may not have updated"
-		res.Success = false
-	}
-	return res
-}
-
-func (s *Session) fillRadio(humanName string, field FormFieldInfo, value any, candidates []FormFieldInfo) SemanticFieldResult {
-	str := fmt.Sprint(value)
-	// Radio set: pick the radio whose label/ID matches str within the same name
-	// group. The fuzzy-matched field only picks the *group*; the value must select
-	// a specific option, so a value that matches no option is an error — NOT a
-	// silent click on the arbitrary fuzzy match (which would report success while
-	// selecting the wrong radio).
-	target := field
-	matched := radioMatches(field, str)
-	for _, c := range candidates {
-		if strings.EqualFold(c.Type, "radio") && c.Name == field.Name && radioMatches(c, str) {
-			target = c
-			matched = true
+	selection := browse.NewSelection(s.page, nodeID, target.Selector)
+	observed, reactive, err := "", false, error(nil)
+	selectedValue, selectedText := "", ""
+	mutationAttempted := false
+	switch typeName {
+	case "checkbox", "radio":
+		checkedValue, callErr := formNodeCallContext(ctx, s.page, nodeID, `function(){return !!this.checked}`, nil)
+		if callErr != nil {
+			err = callErr
 			break
 		}
-	}
-	if !matched {
-		return SemanticFieldResult{
-			HumanName: humanName,
-			Selector:  field.Selector,
-			Type:      field.Type,
-			Value:     str,
-			Success:   false,
-			Error:     fmt.Sprintf("no radio option in group %q matches %q", field.Name, str),
+		checked, _ := checkedValue.(bool)
+		wantChecked := typeName == "radio"
+		if typeName == "checkbox" {
+			wantChecked, _ = toBool(value)
+		}
+		if typeName == "checkbox" {
+			if _, ok := toBool(value); !ok {
+				return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, MatchConfidence: score, Outcome: "action_failed", Error: fmt.Sprintf("checkbox %q expects bool, got %T", humanName, value)}
+			}
+		}
+		if checked != wantChecked {
+			mutationAttempted = true
+			if beforeMutation != nil {
+				if err := beforeMutation(); err != nil {
+					return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, MatchConfidence: score, Outcome: string(OutcomeActionFailed), Error: err.Error()}
+				}
+			}
+			_, err = formNodeCallContext(ctx, s.page, nodeID, `function(){this.click();this.dispatchEvent(new Event('input',{bubbles:true,cancelable:true}));this.dispatchEvent(new Event('change',{bubbles:true,cancelable:true}));return !!this.checked}`, nil)
+			if err != nil {
+				break
+			}
+		}
+		read, callErr := formNodeCallContext(ctx, s.page, nodeID, `function(){return !!this.checked}`, nil)
+		if callErr != nil {
+			err = callErr
+			break
+		}
+		checked, _ = read.(bool)
+		observed, reactive = boolStr(checked), checked == wantChecked
+	case "select", "select-one", "select-multiple":
+		mutationAttempted = true
+		if beforeMutation != nil {
+			if err := beforeMutation(); err != nil {
+				return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, MatchConfidence: score, Outcome: string(OutcomeActionFailed), Error: err.Error()}
+			}
+		}
+		selected, callErr := formNodeCallContext(ctx, s.page, nodeID, `function(want){if(this.tagName!=='SELECT')return null;for(const option of this.options){if(option.text.trim()===want||option.value===want){const setter=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set;setter.call(this,option.value);this.dispatchEvent(new Event('input',{bubbles:true}));this.dispatchEvent(new Event('change',{bubbles:true}));return {value:String(this.value),text:option.text.trim()}}}return null}`, []any{want})
+		if callErr != nil {
+			err = callErr
+			break
+		}
+		if selected == nil {
+			mutationAttempted = false
+			err = fmt.Errorf("option %q not found in %s", want, target.Selector)
+			break
+		}
+		selectedValues, _ := selected.(map[string]any)
+		selectedValue, _ = selectedValues["value"].(string)
+		selectedText, _ = selectedValues["text"].(string)
+	default:
+		mutationAttempted = true
+		if err = selection.InputContextWithGuard(ctx, want, beforeMutation); err != nil {
+			break
+		}
+		if beforeMutation != nil {
+			if err = beforeMutation(); err != nil {
+				break
+			}
+		}
+		_, err = formNodeCallContext(ctx, s.page, nodeID, `function(){this.dispatchEvent(new Event('input',{bubbles:true,cancelable:true}));this.dispatchEvent(new Event('change',{bubbles:true,cancelable:true}));this.dispatchEvent(new Event('blur',{bubbles:true,cancelable:true}));const proto=this.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;const getter=Object.getOwnPropertyDescriptor(proto,'value');return getter&&getter.get?String(getter.get.call(this)):String(this.value||'')}`, nil)
+		if err == nil {
+			actual, e := formNodeCallContext(ctx, s.page, nodeID, `function(){return String(this.value||'')}`, nil)
+			if e != nil {
+				err = e
+			} else {
+				observed, _ = actual.(string)
+				reactive = observed == want
+			}
 		}
 	}
-	if err := clickCheckbox(s.page, target.Selector); err != nil {
-		return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Error: err.Error()}
+	if err == nil {
+		err = s.page.WaitStableContext(ctx, 50*time.Millisecond)
 	}
-	dispatchEvents(s.page, target.Selector, "input", "change")
+	if ctx.Err() != nil {
+		if mutationAttempted {
+			return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, MatchConfidence: score, Outcome: string(OutcomeUnknown), Error: "field mutation may have been dispatched, but its value could not be verified", RecoveryHint: "Inspect this field and the page before retrying; the requested value may already be present."}
+		}
+		return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, MatchConfidence: score, Outcome: "action_failed", Error: ctx.Err().Error()}
+	}
+	if err != nil {
+		if mutationAttempted {
+			return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, MatchConfidence: score, Outcome: string(OutcomeUnknown), Error: err.Error(), RecoveryHint: "Inspect this field and the page before retrying; the requested value may already be present."}
+		}
+		return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, MatchConfidence: score, Outcome: "action_failed", Error: err.Error(), RecoveryHint: "Inspect the field and application state, then retry after the form is ready."}
+	}
+	if refreshed, refreshErr := s.querySelectorForCurrentContext(ctx, target.Selector); refreshErr == nil {
+		nodeID = refreshed
+	}
+	switch typeName {
+	case "checkbox", "radio":
+		read, readErr := formNodeCallContext(ctx, s.page, nodeID, `function(){return !!this.checked}`, nil)
+		if readErr != nil {
+			err = readErr
+		} else {
+			checked, _ := read.(bool)
+			observed = boolStr(checked)
+			expected := typeName == "radio"
+			if typeName == "checkbox" {
+				expected, _ = toBool(value)
+			}
+			reactive = checked == expected
+		}
+	case "select":
+		read, readErr := formNodeCallContext(ctx, s.page, nodeID, `function(){return String(this.value)}`, nil)
+		if readErr != nil {
+			err = readErr
+		} else {
+			observed, _ = read.(string)
+			reactive = observed == selectedValue && (selectedText == want || selectedValue == want)
+		}
+	default:
+		read, readErr := formNodeCallContext(ctx, s.page, nodeID, `function(){const proto=this.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;const getter=Object.getOwnPropertyDescriptor(proto,'value');return getter&&getter.get?String(getter.get.call(this)):String(this.value||'')}`, nil)
+		if readErr != nil {
+			err = readErr
+		} else {
+			observed, _ = read.(string)
+			reactive = observed == want
+		}
+	}
+	if err != nil {
+		if mutationAttempted {
+			return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, MatchConfidence: score, Outcome: string(OutcomeUnknown), Error: err.Error(), RecoveryHint: "Inspect this field and the page before retrying; the requested value may already be present."}
+		}
+		return SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, MatchConfidence: score, Outcome: "action_failed", Error: err.Error()}
+	}
+	result := SemanticFieldResult{HumanName: humanName, Selector: target.Selector, Type: target.Type, Value: want, ValueObserved: observed, FrameworkReactive: reactive, Success: reactive, MatchConfidence: score}
+	if reactive {
+		result.Outcome = "value_verified"
+	} else {
+		result.Outcome = "value_mismatch"
+		result.Error = fmt.Sprintf("requested value %q but observed %q", want, observed)
+		result.RecoveryHint = "Inspect the field and application state; retry the fill after the form is ready."
+		result.Warning = "observed field value differs from the requested value"
+	}
+	if score > 0 && score < 50 && result.Warning == "" && result.Error == "" {
+		result.Warning = fmt.Sprintf("low-confidence field match (score %d/100) — verify before submitting", score)
+	}
+	return result
+}
 
-	observed, _ := readChecked(s.page, target.Selector)
-	res := SemanticFieldResult{
-		HumanName:         humanName,
-		Selector:          target.Selector,
-		Type:              target.Type,
-		Value:             str,
-		ValueObserved:     boolStr(observed),
-		FrameworkReactive: observed,
-		Success:           observed,
+func formNodeCallContext(ctx context.Context, page *browse.Page, nodeID int64, declaration string, args []any) (any, error) {
+	objectID, err := page.ResolveNodeContext(ctx, nodeID)
+	if err != nil {
+		return nil, err
 	}
-	if !observed {
-		res.Warning = "radio click fired but observed checked state is false — framework binding may not have updated"
+	params := map[string]any{"functionDeclaration": declaration, "objectId": objectID, "returnByValue": true, "awaitPromise": true}
+	if len(args) > 0 {
+		cdpArgs := make([]map[string]any, 0, len(args))
+		for _, arg := range args {
+			cdpArgs = append(cdpArgs, map[string]any{"value": arg})
+		}
+		params["arguments"] = cdpArgs
 	}
-	return res
+	raw, err := page.CallContext(ctx, "Runtime.callFunctionOn", params)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Result struct {
+			Value json.RawMessage `json:"value"`
+		} `json:"result"`
+		ExceptionDetails *struct {
+			Text string `json:"text"`
+		} `json:"exceptionDetails"`
+	}
+	if err := json.Unmarshal(raw, &response); err != nil {
+		return nil, err
+	}
+	if response.ExceptionDetails != nil {
+		return nil, fmt.Errorf("browser evaluation: %s", response.ExceptionDetails.Text)
+	}
+	if len(response.Result.Value) == 0 {
+		return nil, nil
+	}
+	var value any
+	if err := json.Unmarshal(response.Result.Value, &value); err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 // radioMatches reports whether a radio option is the one identified by value,
@@ -434,43 +399,11 @@ func boolStr(b bool) string {
 	return "false"
 }
 
-func dispatchEvents(p *browse.Page, selector string, events ...string) {
-	selJSON, _ := json.Marshal(selector)
-	for _, ev := range events {
-		evJSON, _ := json.Marshal(ev)
-		js := fmt.Sprintf(`(function(){const el=document.querySelector(%s);if(!el)return false;el.dispatchEvent(new Event(%s,{bubbles:true,cancelable:true}));return true;})()`, selJSON, evJSON)
-		_, _ = p.Evaluate(js)
-	}
+func (s *Session) discoverFormInternalContext(ctx context.Context, formSelector string) (*FormDiscoveryResult, error) {
+	return s.discoverFormInternalWithEvaluator(formSelector, func(js string) (any, error) { return s.evaluateCurrentContext(ctx, js) })
 }
 
-func readChecked(p *browse.Page, selector string) (bool, error) {
-	selJSON, _ := json.Marshal(selector)
-	js := fmt.Sprintf(`(function(){const el=document.querySelector(%s);return el?!!el.checked:false;})()`, selJSON)
-	r, err := p.Evaluate(js)
-	if err != nil {
-		return false, err
-	}
-	if b, ok := r.(bool); ok {
-		return b, nil
-	}
-	return false, nil
-}
-
-func clickCheckbox(p *browse.Page, selector string) error {
-	selJSON, _ := json.Marshal(selector)
-	js := fmt.Sprintf(`(function(){const el=document.querySelector(%s);if(!el)return false;el.scrollIntoView({block:'center'});el.click();return true;})()`, selJSON)
-	r, err := p.Evaluate(js)
-	if err != nil {
-		return err
-	}
-	if b, ok := r.(bool); ok && !b {
-		return fmt.Errorf("element not found for click")
-	}
-	return nil
-}
-
-// discoverFormInternal is the non-locking version of DiscoverForm.
-func (s *Session) discoverFormInternal(formSelector string) (*FormDiscoveryResult, error) {
+func (s *Session) discoverFormInternalWithEvaluator(formSelector string, evaluate func(string) (any, error)) (*FormDiscoveryResult, error) {
 	sel := "document.body"
 	if formSelector != "" {
 		selJSON, _ := json.Marshal(formSelector)
@@ -555,7 +488,7 @@ func (s *Session) discoverFormInternal(formSelector string) (*FormDiscoveryResul
 		return JSON.stringify({formSelector:form?buildSelector(form):'',action:form?form.action:'',method:form?form.method:'',fields:fields});
 	})()`, sel)
 
-	result, err := s.page.Evaluate(js)
+	result, err := evaluate(js)
 	if err != nil {
 		return nil, err
 	}
@@ -566,6 +499,10 @@ func (s *Session) discoverFormInternal(formSelector string) (*FormDiscoveryResul
 	var discovery FormDiscoveryResult
 	if err := json.Unmarshal([]byte(str), &discovery); err != nil {
 		return nil, err
+	}
+	discovery.ContentTrust = ContentTrustUntrustedPage
+	for i := range discovery.Fields {
+		discovery.Fields[i].ContentTrust = ContentTrustUntrustedPage
 	}
 	return &discovery, nil
 }
@@ -582,7 +519,7 @@ func MatchFormField(humanName string, fields []FormFieldInfo) *FormFieldInfo {
 // match score (0–100). Callers can use this to detect low-confidence
 // resolutions and ask the user for confirmation before acting on them.
 func MatchFormFieldWithScore(humanName string, fields []FormFieldInfo) (*FormFieldInfo, int) {
-	humanLower := strings.ToLower(humanName)
+	humanLower := strings.ToLower(strings.TrimSpace(humanName))
 	var best *FormFieldInfo
 	bestScore := 0
 

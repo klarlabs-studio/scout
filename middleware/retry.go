@@ -15,6 +15,10 @@ type RetryConfig struct {
 	InitialDelay time.Duration
 	Multiplier   float64
 	Jitter       bool
+	// IsRetryable overrides the default retry predicate. By default, errors
+	// reporting an unknown browser outcome are not retried because the command
+	// may already have changed application state.
+	IsRetryable func(error) bool
 }
 
 // Retry returns middleware that retries failed task handlers using fortify's Retry pattern.
@@ -28,6 +32,9 @@ func Retry(cfg RetryConfig) browse.HandlerFunc {
 	if cfg.Multiplier == 0 {
 		cfg.Multiplier = 2.0
 	}
+	if cfg.IsRetryable == nil {
+		cfg.IsRetryable = func(err error) bool { return !browse.IsOutcomeUnknown(err) }
+	}
 
 	r := retry.New[struct{}](retry.Config{
 		MaxAttempts:   cfg.MaxAttempts,
@@ -35,6 +42,7 @@ func Retry(cfg RetryConfig) browse.HandlerFunc {
 		Multiplier:    cfg.Multiplier,
 		BackoffPolicy: retry.BackoffExponential,
 		Jitter:        cfg.Jitter,
+		IsRetryable:   cfg.IsRetryable,
 	})
 
 	return func(c *browse.Context) {

@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add durable task runs with owner-scoped persistence, process-loss recovery,
+  explicit handoff and reconciliation, and portable recovery receipts. Unknown
+  browser outcomes remain explicit; Scout does not automatically replay a
+  mutation whose application effect is uncertain.
+- Add a stateful JSONL CLI and MCP workflows for session lifecycle, task runs,
+  recovery, and operator diagnostics. Add tool profiles and curated catalogs to
+  reduce discovery overhead while keeping profile selection separate from
+  authorization.
+- Add action postconditions and evidence across the Go, CLI, and MCP surfaces;
+  add held-key controls, frame-bound action checks, bounded artifacts, and
+  expanded browser lifecycle support.
+- Add a Go service integration guide, runnable worker-pool and durable-recovery
+  examples, and versioned schemas for action, recovery, network, and policy
+  evidence.
+
+### Security
+
+- Enforce exact-origin policies for browser-facing AG-UI requests and bind the
+  unauthenticated AG-UI listener to loopback.
+- Harden browser target and frame identity checks, recovery record decoding,
+  principal-scoped session recovery, and output/artifact limits.
+
+### Fixed
+
+- Prevent retry middleware from replaying actions with unknown outcomes unless
+  callers explicitly mark them retryable.
+- Reject task-run dispatch when the selected frame's document identity changes,
+  and treat detached out-of-process iframe sessions as completed cleanup.
+- Make macOS Meta+A select all through the native Select All command; key
+  dispatch alone is no longer used as evidence that the page handled a shortcut.
+- Recover interrupted operations with explicit partial results and portable
+  recovery records, and preserve held-key cleanup on reset and shutdown.
+
+### Changed
+
+- Upgrade Go and UI dependencies, strengthen CI coverage and security gates, and
+  update container and release workflows. Remove the unused `brace-expansion`
+  override; retain TypeScript 5 because TypeScript 7 is incompatible with the
+  current Volar peer range.
+
+
 ## [1.14.0] - 2026-07-05
 
 Security & correctness hardening from a full multi-agent code review (#51–#58),

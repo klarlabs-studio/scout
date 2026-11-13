@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"go.klarlabs.de/scout/internal/agui"
@@ -13,7 +14,7 @@ import (
 
 func serveUI(args []string) {
 	if err := runServeUI(args); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		writeCLIError(err, "")
 		os.Exit(1)
 	}
 }
@@ -27,10 +28,21 @@ func runServeUI(args []string) error {
 	}
 
 	cfg := agui.ServerConfig{
-		Port:     4200,
-		Provider: provider,
-		Model:    flags.get("model", os.Getenv("SCOUT_MODEL")),
-		BaseURL:  flags.get("base-url", os.Getenv("SCOUT_BASE_URL")),
+		Port:        4200,
+		Provider:    provider,
+		Model:       flags.get("model", os.Getenv("SCOUT_MODEL")),
+		BaseURL:     flags.get("base-url", os.Getenv("SCOUT_BASE_URL")),
+		ProxyServer: configuredProxyServer(),
+	}
+	var err error
+	cfg.AllowedOrigins, err = configuredUIOrigins(flags, os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	for key := range flags.flags {
+		if key != "provider" && key != "model" && key != "base-url" && key != "api-key" && key != "port" && key != "allowed-origins" {
+			return fmt.Errorf("unknown ui serve flag --%s", key)
+		}
 	}
 
 	// Resolve API key from flag or environment
@@ -62,4 +74,20 @@ func runServeUI(args []string) error {
 	}()
 
 	return agui.Serve(ctx, cfg)
+}
+
+func configuredUIOrigins(flags cliFlags, lookupEnv func(string) (string, bool)) ([]string, error) {
+	if raw, configured := flags.flags["allowed-origins"]; configured {
+		if strings.TrimSpace(raw) == "" {
+			return nil, fmt.Errorf("--allowed-origins is set but empty")
+		}
+		return strings.Split(raw, ","), nil
+	}
+	if raw, configured := lookupEnv("SCOUT_UI_ALLOWED_ORIGINS"); configured {
+		if strings.TrimSpace(raw) == "" {
+			return nil, fmt.Errorf("SCOUT_UI_ALLOWED_ORIGINS is set but empty")
+		}
+		return strings.Split(raw, ","), nil
+	}
+	return nil, nil
 }

@@ -1,0 +1,34 @@
+{
+  "application_outcome_independently_observed": false,
+  "browser_binding_independently_observed": false,
+  "covered_scenarios": [
+    "completed",
+    "interrupted",
+    "non_first_step"
+  ],
+  "missing_scenarios": [],
+  "normalized_dynamic_fields": [
+    "evidence.created_at",
+    "evidence.observed_at",
+    "operation.deadline_at_ms"
+  ],
+  "passed": true,
+  "producer_authenticated": false,
+  "required_scenarios": [
+    "interrupted",
+    "completed",
+    "non_first_step"
+  ],
+  "schema": "scout.recovery-receipt-parity/v1",
+  "case_count": 31,
+  "passed_case_count": 31,
+  "surfaces": [
+    "Go SDK",
+    "stateful CLI",
+    "MCP"
+  ],
+  "notes": [
+    "Local fixture evidence only.",
+    "No producer authentication, independent browser binding, or application outcome was established."
+  ]
+}

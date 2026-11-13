@@ -1,6 +1,7 @@
 package browse
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -19,6 +20,16 @@ var lookupIP = net.LookupIP
 // Set AllowPrivateIPs to true to permit loopback/private IP navigation (e.g., for testing).
 type URLValidator struct {
 	AllowPrivateIPs bool
+	// PolicyID is an opaque, stable identifier supplied by the embedding
+	// application so policy denials can be correlated across interfaces.
+	PolicyID string
+	// AllowedOrigins restricts top-level document navigations and redirects to
+	// exact origins. Scheme and non-default port are part of the origin; default
+	// ports are normalized, paths are ignored, and malformed entries return an
+	// error. The policy is applied to top-level navigations, redirects, and
+	// Fetch-interceptable HTTP(S) requests, including subresources, fetch/XHR, and
+	// downloads. WebSocket handshakes are outside CDP Fetch interception.
+	AllowedOrigins []string
 }
 
 // DefaultURLValidator blocks private IPs and non-http(s) schemes.
@@ -33,41 +44,94 @@ var DefaultURLValidator = URLValidator{AllowPrivateIPs: false}
 // (decimal, hex, and octal inet_aton forms) before checking, and resolves DNS
 // hostnames and blocks any answer in an internal range.
 //
-// It does NOT defend against DNS rebinding (a host that resolves public here but
-// private when Chrome navigates) or a redirect to a private host — those require
-// enforcement at the network layer as Chrome makes each request.
+// Redirects are also checked by each Page's request interceptor. It does not
+// defend against DNS rebinding (a host that resolves public here but private
+// when Chrome navigates); that requires enforcement at the network layer.
 func (v URLValidator) Validate(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return fmt.Errorf("browse: invalid URL: %w", err)
+		return &URLPolicyError{Code: "SCOUT_POLICY_INVALID_URL", PolicyID: v.PolicyID, Err: fmt.Errorf("browse: invalid URL: %w", err)}
 	}
-	if !allowedSchemes[u.Scheme] {
-		return fmt.Errorf("browse: blocked URL scheme %q (only http/https allowed)", u.Scheme)
+	scheme := strings.ToLower(u.Scheme)
+	if !allowedSchemes[scheme] {
+		return &URLPolicyError{Code: "SCOUT_POLICY_SCHEME_BLOCKED", PolicyID: v.PolicyID, Err: fmt.Errorf("browse: blocked URL scheme %q (only http/https allowed)", u.Scheme)}
+	}
+	if len(v.AllowedOrigins) > 0 {
+		origin := normalizedOrigin(u)
+		allowed := false
+		for _, candidate := range v.AllowedOrigins {
+			parsed, parseErr := url.Parse(candidate)
+			if parseErr != nil {
+				return fmt.Errorf("browse: invalid allowed origin %q: %w", candidate, parseErr)
+			}
+			candidateScheme := strings.ToLower(parsed.Scheme)
+			if parsed.User != nil {
+				return fmt.Errorf("browse: invalid allowed origin %q: credentials are not allowed", candidate)
+			}
+			if parsed.Host == "" || (candidateScheme != "http" && candidateScheme != "https") {
+				return fmt.Errorf("browse: invalid allowed origin %q: expected an http(s) origin", candidate)
+			}
+			if normalizedOrigin(parsed) == origin {
+				allowed = true
+			}
+		}
+		if !allowed {
+			return &URLPolicyError{Code: "SCOUT_POLICY_ORIGIN_DENIED", PolicyID: v.PolicyID, Err: fmt.Errorf("browse: blocked request to origin %q; origin is not in the allowlist", origin)}
+		}
 	}
 	if v.AllowPrivateIPs {
 		return nil
 	}
-	return checkHost(u.Hostname())
+	if err := checkHost(u.Hostname()); err != nil {
+		var policyErr *URLPolicyError
+		if errors.As(err, &policyErr) {
+			copy := *policyErr
+			copy.PolicyID = v.PolicyID
+			return &copy
+		}
+		return err
+	}
+	return nil
+}
+
+// normalizedOrigin returns the URL origin tuple with scheme/host casing
+// normalized and default ports omitted. URL paths are intentionally ignored
+// because existing allowlist configuration accepts origin URLs with paths.
+func normalizedOrigin(u *url.URL) string {
+	scheme := strings.ToLower(u.Scheme)
+	hostname := strings.ToLower(u.Hostname())
+	port := u.Port()
+	if (scheme == "http" && port == "80") || (scheme == "https" && port == "443") {
+		port = ""
+	}
+	host := hostname
+	if strings.Contains(hostname, ":") {
+		host = "[" + hostname + "]"
+	}
+	if port != "" {
+		host += ":" + port
+	}
+	return scheme + "://" + host
 }
 
 // checkHost blocks a host that names, encodes, or resolves to a private,
 // loopback, link-local, or unspecified address.
 func checkHost(host string) error {
 	if host == "" {
-		return fmt.Errorf("browse: blocked navigation to URL with no host")
+		return &URLPolicyError{Code: "SCOUT_POLICY_INVALID_URL", Err: fmt.Errorf("browse: blocked navigation to URL with no host")}
 	}
 
 	// "localhost" and any *.localhost always name the loopback interface,
 	// regardless of what a resolver returns.
 	lower := strings.ToLower(strings.TrimSuffix(host, "."))
 	if lower == "localhost" || strings.HasSuffix(lower, ".localhost") {
-		return fmt.Errorf("browse: blocked navigation to loopback host %q", host)
+		return &URLPolicyError{Code: "SCOUT_POLICY_PRIVATE_ADDRESS_BLOCKED", Err: fmt.Errorf("browse: blocked navigation to loopback host %q", host)}
 	}
 
 	// An IP literal (dotted-quad or IPv6) — check directly.
 	if ip := net.ParseIP(host); ip != nil {
 		if isBlockedIP(ip) {
-			return fmt.Errorf("browse: blocked navigation to private/loopback IP %s", ip)
+			return &URLPolicyError{Code: "SCOUT_POLICY_PRIVATE_ADDRESS_BLOCKED", Err: fmt.Errorf("browse: blocked navigation to private/loopback IP %s", ip)}
 		}
 		return nil
 	}
@@ -76,24 +140,21 @@ func checkHost(host string) error {
 	// 0177.0.0.1) that net.ParseIP rejects but Chrome resolves to an IP.
 	if ip, ok := parseIPv4Number(host); ok {
 		if isBlockedIP(ip) {
-			return fmt.Errorf("browse: blocked navigation to private/loopback IP %s (encoded as %q)", ip, host)
+			return &URLPolicyError{Code: "SCOUT_POLICY_PRIVATE_ADDRESS_BLOCKED", Err: fmt.Errorf("browse: blocked navigation to private/loopback IP %s (encoded as %q)", ip, host)}
 		}
 		return nil
 	}
 
-	// A DNS name — resolve and block if any answer is internal. A resolution
-	// failure is not a policy violation (the navigation will fail on its own);
-	// this closes static A-record and *.nip.io style bypasses.
+	// A DNS name — resolve and block if any answer is internal. Fail closed on
+	// resolution errors: Chrome has a separate resolver and could otherwise reach
+	// a host that the policy check could not classify.
 	ips, err := lookupIP(host)
 	if err != nil {
-		// A name that won't resolve can't reach an internal host, and the
-		// navigation will fail on its own — so a lookup failure is deliberately
-		// not treated as a policy violation.
-		return nil //nolint:nilerr // resolution failure is intentionally allowed
+		return &URLPolicyError{Code: "SCOUT_POLICY_ADDRESS_UNVERIFIED", Err: fmt.Errorf("browse: blocked navigation to %q because its address could not be verified: %w", host, err)}
 	}
 	for _, ip := range ips {
 		if isBlockedIP(ip) {
-			return fmt.Errorf("browse: blocked navigation to %q which resolves to private/loopback IP %s", host, ip)
+			return &URLPolicyError{Code: "SCOUT_POLICY_PRIVATE_ADDRESS_BLOCKED", Err: fmt.Errorf("browse: blocked navigation to %q which resolves to private/loopback IP %s", host, ip)}
 		}
 	}
 	return nil

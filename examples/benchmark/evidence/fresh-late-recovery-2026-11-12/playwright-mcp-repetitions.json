@@ -1,0 +1,36 @@
+{
+  "repetitions": 10,
+  "passed": 10,
+  "runs": [
+    {
+      "success": true
+    },
+    {
+      "success": true
+    },
+    {
+      "success": true
+    },
+    {
+      "success": true
+    },
+    {
+      "success": true
+    },
+    {
+      "success": true
+    },
+    {
+      "success": true
+    },
+    {
+      "success": true
+    },
+    {
+      "success": true
+    },
+    {
+      "success": true
+    }
+  ]
+}

@@ -129,6 +129,33 @@ func TestContentLimits(t *testing.T) {
 	}
 }
 
+func TestContentResultReportsTruncation(t *testing.T) {
+	ts := testServer()
+	defer ts.Close()
+
+	s := newSession(t)
+	s.SetContentOptions(agent.ContentOptions{MaxLength: 20})
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
+
+	for name, get := range map[string]func() (*agent.ContentResult, error){
+		"markdown":      s.MarkdownResult,
+		"readable":      s.ReadableTextResult,
+		"accessibility": s.AccessibilityTreeResult,
+	} {
+		t.Run(name, func(t *testing.T) {
+			result, err := get()
+			if err != nil {
+				t.Fatalf("result: %v", err)
+			}
+			if len([]rune(result.Content)) > 20 || result.Length != len([]rune(result.Content)) || result.MaxLength != 20 || !result.Truncated {
+				t.Fatalf("unexpected bounded result: %+v", result)
+			}
+		})
+	}
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a

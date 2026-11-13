@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -19,19 +20,58 @@ func (s *Session) Observe() (*Observation, error) {
 	return s.observeInternal()
 }
 
+// ObserveContext captures page state using the caller's deadline for both
+// session queueing and browser evaluations.
+func (s *Session) ObserveContext(ctx context.Context) (*Observation, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := s.ensurePageContext(ctx); err != nil {
+		return nil, err
+	}
+	return s.observeInternalWithEvaluator(func(js string) (any, error) { return s.evaluateCurrentContext(ctx, js) })
+}
+
 // observeInternal is the non-locking implementation of Observe.
 // Caller must hold s.mu.
 func (s *Session) observeInternal() (*Observation, error) {
+	return s.observeInternalWithEvaluator(s.evaluateInFrame)
+}
+
+func (s *Session) observeInternalWithEvaluator(evaluate func(string) (any, error)) (*Observation, error) {
+	return s.observeInternalWithEvaluatorAndLimits(evaluate, nil)
+}
+
+type observationLimits struct {
+	links   int
+	inputs  int
+	buttons int
+}
+
+func (s *Session) observeInternalWithEvaluatorAndLimits(evaluate func(string) (any, error), limits *observationLimits) (*Observation, error) {
 
 	js := `(function() {
+		const bodyText = document.body ? document.body.innerText : '';
 		const obs = {
-			url: window.location.href,
-			title: document.title,
-			text: document.body ? document.body.innerText.slice(0, 2000) : '',
+			url: window.location.href.slice(0, 2048),
+			url_length: window.location.href.length,
+			title: document.title.slice(0, 500),
+			title_length: document.title.length,
+			text: bodyText.slice(0, 2000),
+			text_length: bodyText.length,
+			text_truncated: bodyText.length > 2000,
 			links: [],
+			links_total: document.querySelectorAll('a[href]').length,
 			inputs: [],
+			inputs_total: document.querySelectorAll('input, textarea, select').length,
 			buttons: [],
-			meta: {}
+			buttons_total: document.querySelectorAll('button, input[type=submit], input[type=button], [role=button]').length,
+			meta: {},
+			meta_total: document.querySelectorAll('meta[name], meta[property]').length
 		};
 
 		// Collect links. Accessible name fallback so card-style anchors
@@ -74,10 +114,10 @@ func (s *Session) observeInternal() (*Observation, error) {
 			} catch (_) {}
 			return '';
 		}
-		for (const a of document.querySelectorAll('a[href]')) {
+		for (const a of Array.from(document.querySelectorAll('a[href]')).slice(0, 100)) {
 			const text = linkText(a);
 			if (text || a.href) {
-				obs.links.push({text: text.slice(0, 100), href: a.getAttribute('href')});
+				obs.links.push({text: text.slice(0, 100), href: (a.getAttribute('href') || '').slice(0, 500)});
 			}
 		}
 
@@ -97,14 +137,14 @@ func (s *Session) observeInternal() (*Observation, error) {
 			}
 			return '';
 		}
-		for (const input of document.querySelectorAll('input, textarea, select')) {
+		for (const input of Array.from(document.querySelectorAll('input, textarea, select')).slice(0, 100)) {
 			const t = (input.type || input.tagName.toLowerCase()).toLowerCase();
 			const item = {
-				id: input.id || '',
-				name: input.name || '',
+				id: (input.id || '').slice(0, 200),
+				name: (input.name || '').slice(0, 200),
 				type: t,
-				value: input.value || '',
-				placeholder: input.placeholder || ''
+				value: t === 'password' || t === 'file' ? '' : (input.value || '').slice(0, 200),
+				placeholder: (input.placeholder || '').slice(0, 200)
 			};
 			if (t === 'checkbox' || t === 'radio') {
 				item.checked = !!input.checked;
@@ -115,31 +155,31 @@ func (s *Session) observeInternal() (*Observation, error) {
 		}
 
 		// Collect buttons
-		for (const btn of document.querySelectorAll('button, input[type=submit], input[type=button], [role=button]')) {
+		for (const btn of Array.from(document.querySelectorAll('button, input[type=submit], input[type=button], [role=button]')).slice(0, 100)) {
 			obs.buttons.push({
 				text: (btn.textContent || btn.value || '').trim().slice(0, 100),
-				id: btn.id || '',
+				id: (btn.id || '').slice(0, 200),
 				type: btn.type || ''
 			});
 		}
 
 		// Collect meta tags
-		for (const meta of document.querySelectorAll('meta[name], meta[property]')) {
+		for (const meta of Array.from(document.querySelectorAll('meta[name], meta[property]')).slice(0, 50)) {
 			const key = meta.getAttribute('name') || meta.getAttribute('property');
 			const val = meta.getAttribute('content');
-			if (key && val) obs.meta[key] = val.slice(0, 200);
+			if (key && val && Object.keys(obs.meta).length < 50) obs.meta[key.slice(0, 100)] = val.slice(0, 200);
 		}
 
 		// Active tab — [role=tab][aria-selected=true]
 		const selectedTab = document.querySelector('[role="tab"][aria-selected="true"]');
 		if (selectedTab) {
 			obs.active_tab = (selectedTab.textContent || '').trim().slice(0, 80);
-			obs.active_tab_id = selectedTab.id || selectedTab.getAttribute('data-tab-id') || selectedTab.getAttribute('aria-controls') || '';
+			obs.active_tab_id = (selectedTab.id || selectedTab.getAttribute('data-tab-id') || selectedTab.getAttribute('aria-controls') || '').slice(0, 200);
 		}
 
 		// Active navigation breadcrumb — [aria-current=page] links + page H1
 		const nav = [];
-		for (const el of document.querySelectorAll('[aria-current="page"]')) {
+		for (const el of Array.from(document.querySelectorAll('[aria-current="page"]')).slice(0, 10)) {
 			const t = (el.textContent || '').trim();
 			if (t) nav.push(t.slice(0, 60));
 		}
@@ -157,11 +197,11 @@ func (s *Session) observeInternal() (*Observation, error) {
 		}
 		if (nav.length > 0) obs.active_navigation = nav;
 
-		obs.interactive = obs.links.length + obs.inputs.length + obs.buttons.length;
+		obs.interactive = obs.links_total + obs.inputs_total + obs.buttons_total;
 		return obs;
 	})()`
 
-	result, err := s.page.Evaluate(js)
+	result, err := evaluate(js)
 	if err != nil {
 		return nil, fmt.Errorf("failed to observe page: %w", err)
 	}
@@ -171,23 +211,35 @@ func (s *Session) observeInternal() (*Observation, error) {
 		return nil, fmt.Errorf("unexpected observation result type")
 	}
 
-	maxLinks := s.contentOpts.MaxLinks
-	if maxLinks == 0 {
-		maxLinks = 25
-	}
-	maxInputs := s.contentOpts.MaxInputs
-	if maxInputs == 0 {
-		maxInputs = 20
-	}
-	maxButtons := s.contentOpts.MaxButtons
-	if maxButtons == 0 {
-		maxButtons = 15
+	maxLinks, maxInputs, maxButtons := s.contentOpts.MaxLinks, s.contentOpts.MaxInputs, s.contentOpts.MaxButtons
+	if limits != nil {
+		maxLinks, maxInputs, maxButtons = limits.links, limits.inputs, limits.buttons
+	} else {
+		if maxLinks == 0 {
+			maxLinks = 25
+		}
+		if maxInputs == 0 {
+			maxInputs = 20
+		}
+		if maxButtons == 0 {
+			maxButtons = 15
+		}
 	}
 
-	obs := &Observation{}
+	obs := &Observation{ContentTrust: ContentTrustUntrustedPage}
+	obs.TargetID = s.page.TargetID()
+	obs.FrameID = s.frameID
 	obs.URL, _ = m["url"].(string)
 	obs.Title, _ = m["title"].(string)
+	obs.URLLength = observationInt(m["url_length"])
+	obs.TitleLength = observationInt(m["title_length"])
 	obs.Text, _ = m["text"].(string)
+	obs.TextLength = observationInt(m["text_length"])
+	obs.TextTruncated, _ = m["text_truncated"].(bool)
+	obs.LinksTotal = observationInt(m["links_total"])
+	obs.InputsTotal = observationInt(m["inputs_total"])
+	obs.ButtonsTotal = observationInt(m["buttons_total"])
+	obs.MetaTotal = observationInt(m["meta_total"])
 	if v, ok := m["interactive"].(float64); ok {
 		obs.Interactive = int(v)
 	}
@@ -201,10 +253,12 @@ func (s *Session) observeInternal() (*Observation, error) {
 				text, _ := lm["text"].(string)
 				href, _ := lm["href"].(string)
 				cost := estimateLinkCost(href)
-				obs.Links = append(obs.Links, LinkInfo{Text: text, Href: href, Cost: cost})
+				obs.Links = append(obs.Links, LinkInfo{ContentTrust: ContentTrustUntrustedPage, Text: text, Href: href, Cost: cost})
 			}
 		}
 	}
+	obs.Truncated = obs.LinksTotal > len(obs.Links) || obs.TextTruncated ||
+		obs.URLLength > len(obs.URL) || obs.TitleLength > len(obs.Title)
 
 	if inputs, ok := m["inputs"].([]any); ok {
 		for i, inp := range inputs {
@@ -213,12 +267,13 @@ func (s *Session) observeInternal() (*Observation, error) {
 			}
 			if im, ok := inp.(map[string]any); ok {
 				info := InputInfo{
-					ID:          strVal(im, "id"),
-					Name:        strVal(im, "name"),
-					Type:        strVal(im, "type"),
-					Value:       strVal(im, "value"),
-					Placeholder: strVal(im, "placeholder"),
-					Label:       strVal(im, "label"),
+					ContentTrust: ContentTrustUntrustedPage,
+					ID:           strVal(im, "id"),
+					Name:         strVal(im, "name"),
+					Type:         strVal(im, "type"),
+					Value:        strVal(im, "value"),
+					Placeholder:  strVal(im, "placeholder"),
+					Label:        strVal(im, "label"),
 				}
 				if c, ok := im["checked"].(bool); ok {
 					info.Checked = &c
@@ -227,6 +282,7 @@ func (s *Session) observeInternal() (*Observation, error) {
 			}
 		}
 	}
+	obs.Truncated = obs.Truncated || obs.InputsTotal > len(obs.Inputs)
 
 	if buttons, ok := m["buttons"].([]any); ok {
 		for i, btn := range buttons {
@@ -237,14 +293,16 @@ func (s *Session) observeInternal() (*Observation, error) {
 				btnType := strVal(bm, "type")
 				cost := estimateButtonCost(btnType, strVal(bm, "text"))
 				obs.Buttons = append(obs.Buttons, ButtonInfo{
-					Text: strVal(bm, "text"),
-					ID:   strVal(bm, "id"),
-					Type: btnType,
-					Cost: cost,
+					ContentTrust: ContentTrustUntrustedPage,
+					Text:         strVal(bm, "text"),
+					ID:           strVal(bm, "id"),
+					Type:         btnType,
+					Cost:         cost,
 				})
 			}
 		}
 	}
+	obs.Truncated = obs.Truncated || obs.ButtonsTotal > len(obs.Buttons)
 
 	if meta, ok := m["meta"].(map[string]any); ok {
 		obs.Meta = make(map[string]string)
@@ -254,6 +312,7 @@ func (s *Session) observeInternal() (*Observation, error) {
 			}
 		}
 	}
+	obs.Truncated = obs.Truncated || obs.MetaTotal > len(obs.Meta)
 
 	if v, ok := m["active_tab"].(string); ok {
 		obs.ActiveTab = v
@@ -291,7 +350,7 @@ func (s *Session) observeInternal() (*Observation, error) {
 		}
 		return JSON.stringify({found:false});
 	})()`
-	dialogResult, err := s.page.Evaluate(dialogJS)
+	dialogResult, err := evaluate(dialogJS)
 	if err == nil {
 		if dStr, ok := dialogResult.(string); ok {
 			var dInfo struct {
@@ -308,6 +367,13 @@ func (s *Session) observeInternal() (*Observation, error) {
 	}
 
 	return obs, nil
+}
+
+func observationInt(v any) int {
+	if n, ok := v.(float64); ok {
+		return int(n)
+	}
+	return 0
 }
 
 func strVal(m map[string]any, key string) string {

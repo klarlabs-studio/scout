@@ -1,0 +1,51 @@
+{
+  "schema": "scout.recovery-receipt/v1",
+  "task": {
+    "id": "parity-fixture-task-completed",
+    "plan_fingerprint": "34e4a87ec50ecaa146d694ba2fa40504d37aae978c2cc78431d1465ee910b216",
+    "state": "completed"
+  },
+  "runtime": {
+    "name": "scout",
+    "receipt_schema": 1
+  },
+  "browser": {
+    "instance_id": "parity-fixture-browser",
+    "ownership": "owned"
+  },
+  "target": {
+    "id": "parity-fixture-target"
+  },
+  "policy": {
+    "id": "scout-origin-v1:e40b288ff0dc289fc18ac3da6b83f289831f3b2b77e2df256a3bdf3e160c187f",
+    "digest": "sha256:e40b288ff0dc289fc18ac3da6b83f289831f3b2b77e2df256a3bdf3e160c187f",
+    "origins": [],
+    "allow_private_ips": false,
+    "inputs_complete": true,
+    "enforcement": "session_page_policy"
+  },
+  "operation": {
+    "id": "scout-op-v1.cGFyaXR5LWZpeHR1cmUtdGFzay1jb21wbGV0ZWQ.1",
+    "ordinal": 1,
+    "name": "click",
+    "dispatch": "dispatched",
+    "outcome": "verified",
+    "verification": "verified"
+  },
+  "postcondition": {
+    "kind": "visible_selector",
+    "captured": false
+  },
+  "evidence": {
+    "created_at": "2026-11-11T18:00:00Z",
+    "observed_at": "2026-11-11T18:00:00.012Z",
+    "trust": "runtime_metadata",
+    "references": [
+      "trace:trace-first"
+    ]
+  },
+  "recovery": {
+    "replay_authorized": false,
+    "next_step": "reconcile_with_authoritative_application_state"
+  }
+}

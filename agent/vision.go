@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -8,14 +9,30 @@ import (
 )
 
 func (s *Session) HybridObserve() (*HybridResult, error) {
-	s.mu.Lock()
+	return s.HybridObserveWithLimits(-1, 0)
+}
+
+// HybridObserveWithLimits captures the hybrid observation with optional image
+// byte and width limits. A negative maxBytes uses the session default; zero is uncapped.
+func (s *Session) HybridObserveWithLimits(maxBytes, maxWidth int) (*HybridResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+	return s.HybridObserveWithLimitsContext(ctx, maxBytes, maxWidth)
+}
+
+// HybridObserveWithLimitsContext captures the DOM summary and screenshot under
+// the caller's deadline.
+func (s *Session) HybridObserveWithLimitsContext(ctx context.Context, maxBytes, maxWidth int) (*HybridResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
 
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
-	js := `(function() {
+	js := fmt.Sprintf(`(function() {
 		const elements = [];
 		let idx = 0;
 		const selectors = 'a[href], button, input, textarea, select, [role="button"], [onclick], [tabindex]';
@@ -35,7 +52,7 @@ func (s *Session) HybridObserve() (*HybridResult, error) {
 
 			let text = '';
 			if (tag === 'input' || tag === 'textarea') {
-				text = el.placeholder || el.value || '';
+				text = tag === 'input' && (el.type === 'password' || el.type === 'file') ? (el.placeholder || '') : (el.placeholder || el.value || '');
 			} else if (tag === 'select') {
 				text = el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '';
 			} else {
@@ -44,7 +61,7 @@ func (s *Session) HybridObserve() (*HybridResult, error) {
 
 			const role = el.getAttribute('role') || '';
 
-			elements.push({
+			if (elements.length < %d) elements.push({
 				index: idx,
 				tag: tag,
 				text: text,
@@ -59,12 +76,13 @@ func (s *Session) HybridObserve() (*HybridResult, error) {
 
 		return JSON.stringify({
 			elements: elements,
+			total: idx,
 			width: window.innerWidth,
 			height: window.innerHeight
 		});
-	})()`
+	})()`, elementLimit(s.contentOpts))
 
-	result, err := s.page.Evaluate(js)
+	result, err := s.page.EvaluateContext(ctx, js)
 	if err != nil {
 		return nil, fmt.Errorf("hybrid observe failed: %w", err)
 	}
@@ -76,6 +94,7 @@ func (s *Session) HybridObserve() (*HybridResult, error) {
 
 	var parsed struct {
 		Elements []HybridElement `json:"elements"`
+		Total    int             `json:"total"`
 		Width    int             `json:"width"`
 		Height   int             `json:"height"`
 	}
@@ -83,30 +102,47 @@ func (s *Session) HybridObserve() (*HybridResult, error) {
 		return nil, fmt.Errorf("failed to parse hybrid observe result: %w", err)
 	}
 
-	maxSize := s.contentOpts.MaxScreenshotBytes
-	if maxSize == 0 {
-		maxSize = 5 * 1024 * 1024
+	if maxBytes < 0 {
+		maxBytes = s.contentOpts.MaxScreenshotBytes
+		if maxBytes == 0 {
+			maxBytes = 5 * 1024 * 1024
+		}
 	}
-	screenshot, err := s.page.ScreenshotWithOptions(browse.ScreenshotOptions{
-		MaxSize: maxSize,
+	screenshot, imageInfo, err := s.page.ScreenshotWithOptionsInfoContext(ctx, browse.ScreenshotOptions{
+		MaxSize:  maxBytes,
+		MaxWidth: maxWidth,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("hybrid observe screenshot failed: %w", err)
 	}
 
 	return &HybridResult{
-		Screenshot: screenshot,
-		Elements:   parsed.Elements,
-		Width:      parsed.Width,
-		Height:     parsed.Height,
+		Screenshot:   screenshot,
+		ImageInfo:    imageInfo,
+		ContentTrust: ContentTrustUntrustedPage,
+		TargetID:     s.page.TargetID(),
+		Elements:     parsed.Elements,
+		Count:        len(parsed.Elements),
+		Total:        parsed.Total,
+		Truncated:    parsed.Total > len(parsed.Elements),
+		Width:        parsed.Width,
+		Height:       parsed.Height,
 	}, nil
 }
 
 func (s *Session) FindByCoordinates(x, y int) (*PromptSelectResult, error) {
-	s.mu.Lock()
+	return s.FindByCoordinatesContext(context.Background(), x, y)
+}
+
+// FindByCoordinatesContext finds an interactive element at viewport coordinates
+// while honoring ctx for queueing, page setup, and browser evaluation.
+func (s *Session) FindByCoordinatesContext(ctx context.Context, x, y int) (*PromptSelectResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
 
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -149,7 +185,7 @@ func (s *Session) FindByCoordinates(x, y int) (*PromptSelectResult, error) {
 
 			let text = '';
 			if (tag === 'input' || tag === 'textarea') {
-				text = (el.value || '').trim();
+				text = tag === 'input' && (el.type === 'password' || el.type === 'file') ? '' : (el.value || '').trim();
 			} else {
 				text = (el.textContent || '').trim().slice(0, 100);
 			}
@@ -170,7 +206,7 @@ func (s *Session) FindByCoordinates(x, y int) (*PromptSelectResult, error) {
 		return JSON.stringify(candidates.slice(0, 3));
 	})()`, x, y)
 
-	result, err := s.page.Evaluate(js)
+	result, err := s.page.EvaluateContext(ctx, js)
 	if err != nil {
 		return nil, fmt.Errorf("find by coordinates failed: %w", err)
 	}
@@ -193,18 +229,21 @@ func (s *Session) FindByCoordinates(x, y int) (*PromptSelectResult, error) {
 
 	best := candidates[0]
 	psr := &PromptSelectResult{
-		Selector:   best.Selector,
-		Text:       best.Text,
-		Tag:        best.Tag,
-		Role:       best.Role,
-		Confidence: 1.0,
+		TargetID:     s.page.TargetID(),
+		ContentTrust: ContentTrustUntrustedPage,
+		Selector:     best.Selector,
+		Text:         best.Text,
+		Tag:          best.Tag,
+		Role:         best.Role,
+		Confidence:   1.0,
 	}
 
 	for _, c := range candidates {
 		psr.Candidates = append(psr.Candidates, PromptCandidate{
-			Selector: c.Selector,
-			Text:     c.Text,
-			Score:    100.0,
+			ContentTrust: ContentTrustUntrustedPage,
+			Selector:     c.Selector,
+			Text:         c.Text,
+			Score:        100.0,
 		})
 	}
 

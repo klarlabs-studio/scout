@@ -1,0 +1,28 @@
+{
+  "captured_at": "",
+  "environment": {
+    "os": "",
+    "browser": "",
+    "browser_version": "",
+    "host": "",
+    "network": ""
+  },
+  "runs": [
+    {
+      "product": "scout",
+      "version": "fill-in-pinned-version",
+      "target_state": "discarded",
+      "target_count": 10,
+      "attach_ms": null,
+      "first_verified_read_ms": null,
+      "readiness_state": "page_unresponsive",
+      "readiness_checks": {
+        "browser_live": "ok",
+        "page_responsive": "not_checked"
+      },
+      "fault": "cdp_disconnect",
+      "recovered": null,
+      "recovery_steps": null
+    }
+  ]
+}

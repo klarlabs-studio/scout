@@ -68,6 +68,49 @@ func TestWriteFile(t *testing.T) {
 		}
 	})
 
+	t.Run("allows dots inside a filename", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "report..backup.txt")
+		if err := writeFile(path, []byte("safe")); err != nil {
+			t.Fatalf("writeFile() rejected a filename containing dots: %v", err)
+		}
+	})
+
+	t.Run("replaces a symlink without following it", func(t *testing.T) {
+		dir := t.TempDir()
+		target := filepath.Join(dir, "target.txt")
+		link := filepath.Join(dir, "output.txt")
+		if err := os.WriteFile(target, []byte("keep"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(target, link); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+		if err := writeFile(link, []byte("new artifact")); err != nil {
+			t.Fatalf("writeFile() error: %v", err)
+		}
+		gotTarget, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(gotTarget) != "keep" {
+			t.Fatalf("symlink target was modified: %q", gotTarget)
+		}
+		info, err := os.Lstat(link)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			t.Fatal("output path is still a symlink")
+		}
+		gotLink, err := os.ReadFile(link)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(gotLink) != "new artifact" {
+			t.Fatalf("output content = %q", gotLink)
+		}
+	})
+
 	t.Run("empty data", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "empty.txt")

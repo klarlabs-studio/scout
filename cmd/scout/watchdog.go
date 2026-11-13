@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	mcp "go.klarlabs.de/mcp"
@@ -16,6 +19,12 @@ import (
 // real navigations and screenshot capture but short enough that a
 // wedged CDP session can't stall the calling agent indefinitely.
 const defaultToolTimeout = 60 * time.Second
+
+type sessionStartFailure struct{ err error }
+
+func (e sessionStartFailure) Error() string {
+	return fmt.Sprintf("failed to create browser session: %v", e.err)
+}
 
 // resolveToolTimeout reads SCOUT_TOOL_TIMEOUT and falls back to the
 // default. Values are parsed with time.ParseDuration. Empty, malformed,
@@ -31,6 +40,50 @@ func resolveToolTimeout() time.Duration {
 	}
 	return d
 }
+
+// resolveSessionIdleTimeout reads SCOUT_SESSION_IDLE_TIMEOUT. Idle expiration
+// is opt-in so existing MCP users do not unexpectedly lose browser state. A
+// configured but invalid value is rejected so a typo cannot silently disable
+// the requested lifecycle bound.
+func resolveSessionIdleTimeout() (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv("SCOUT_SESSION_IDLE_TIMEOUT"))
+	if raw == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("SCOUT_SESSION_IDLE_TIMEOUT must be a positive duration (for example 30m): %w", err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("SCOUT_SESSION_IDLE_TIMEOUT must be a positive duration (for example 30m)")
+	}
+	return d, nil
+}
+
+// resolveSessionLimit reads SCOUT_MAX_SESSIONS. A non-positive or malformed
+// configured value is rejected so a typo cannot silently disable the cap.
+func resolveSessionLimit() (int, error) {
+	raw := strings.TrimSpace(os.Getenv("SCOUT_MAX_SESSIONS"))
+	if raw == "" {
+		return 0, nil
+	}
+	limit, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("SCOUT_MAX_SESSIONS must be a positive integer: %w", err)
+	}
+	if limit <= 0 {
+		return 0, fmt.Errorf("SCOUT_MAX_SESSIONS must be a positive integer")
+	}
+	return limit, nil
+}
+
+type sessionLimitReachedError struct{ limit int }
+
+func (e sessionLimitReachedError) Error() string {
+	return fmt.Sprintf("session limit of %d reached; close or allow an idle session to expire before creating another", e.limit)
+}
+
+func sessionLimitError(limit int) error { return sessionLimitReachedError{limit: limit} }
 
 // watchdogMiddleware guards every tool call with a deadline and
 // guarantees the MCP RPC returns even if the underlying handler
@@ -66,13 +119,39 @@ func watchdogMiddleware(budget time.Duration) mcp.Middleware {
 				// abandoned us.
 				defer func() {
 					if r := recover(); r != nil {
+						panicText := fmt.Sprint(r)
+						code := "SCOUT_PANIC"
+						cause := "panic"
+						hint := "The handler failed unexpectedly and browser effects may be uncertain. Inspect browser or authoritative application state before retrying; for task_run, use recover_task_run and reconcile before any follow-up action. Reset the session only after confirming no handler work remains."
+						var startFailure sessionStartFailure
+						panicErr, _ := r.(error)
+						hasStartFailure := panicErr != nil && errors.As(panicErr, &startFailure)
+						var limitFailure sessionLimitReachedError
+						switch {
+						case hasStartFailure && errors.As(startFailure.err, &limitFailure):
+							code, cause = "SCOUT_SESSION_LIMIT", "session_limit"
+							hint = "Close an unused session or wait for an idle session to expire, then retry."
+						case hasStartFailure && errors.Is(startFailure.err, context.Canceled):
+							code, cause = "SCOUT_CANCELED", "canceled"
+							hint = "The request was canceled while the browser session was starting; retry when ready."
+						case hasStartFailure && errors.Is(startFailure.err, context.DeadlineExceeded):
+							code, cause = "SCOUT_TIMEOUT", "timeout"
+							hint = "Browser session startup exceeded the request deadline; retry or configure a longer SCOUT_TOOL_TIMEOUT."
+						case hasStartFailure:
+							code, cause = "SCOUT_BROWSER_START_FAILED", "browser_start_failed"
+							hint = "Install Chrome or Chromium and ensure its executable is on PATH, or set SCOUT_REMOTE_CDP to a trusted browser DevTools WebSocket URL."
+						case strings.HasPrefix(panicText, "failed to create browser session:"):
+							code = "SCOUT_BROWSER_START_FAILED"
+							cause = "browser_start_failed"
+							hint = "Install Chrome or Chromium and ensure its executable is on PATH, or set SCOUT_REMOTE_CDP to a trusted browser DevTools WebSocket URL."
+						}
 						env := MCPErrorEnvelope{
-							Code:    "SCOUT_PANIC",
-							Message: fmt.Sprintf("tool %q panicked: %v", extractToolName(req), r),
+							Code:    code,
+							Message: fmt.Sprintf("tool %q failed: %v", extractToolName(req), r),
 							Phase:   "handler",
-							Cause:   "panic",
+							Cause:   cause,
 							Detail:  fmt.Sprintf("method=%s", req.Method),
-							Hint:    "Likely an unrecoverable session state or a bug; try `configure { fresh: true }` to reset, then retry.",
+							Hint:    hint,
 						}
 						payload, _ := json.Marshal(env)
 						done <- result{resp: protocol.NewErrorResponse(req.ID, protocol.NewInternalError(string(payload))), err: nil}
@@ -96,7 +175,7 @@ func watchdogMiddleware(budget time.Duration) mcp.Middleware {
 					Phase:   "watchdog",
 					Cause:   "timeout",
 					Detail:  fmt.Sprintf("method=%s ctx=%s", req.Method, ctx.Err()),
-					Hint:    "Try `configure { fresh: true }` to reset the browser session, then retry the action. If this recurs, raise SCOUT_TOOL_TIMEOUT.",
+					Hint:    "The handler may still be unwinding, and a mutation may have taken effect. Do not reset or retry solely because this call timed out. Inspect the browser or authoritative application state first; for task_run, use recover_task_run and reconcile before any follow-up action. If this recurs, review the timeout and browser responsiveness.",
 				}
 				payload, _ := json.Marshal(env)
 				return protocol.NewErrorResponse(

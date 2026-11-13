@@ -72,7 +72,9 @@ func TestDOMDiff(t *testing.T) {
 	defer ts.Close()
 
 	s := newFeatureSession(t)
-	s.Navigate(ts.URL)
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
 
 	// First ObserveDiff installs observer — no diff yet
 	obs, diff, err := s.ObserveDiff()
@@ -120,7 +122,9 @@ func TestDiscoverForm(t *testing.T) {
 	defer ts.Close()
 
 	s := newFeatureSession(t)
-	s.Navigate(ts.URL)
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatalf("Navigate before SaveProfile: %v", err)
+	}
 
 	result, err := s.DiscoverForm("#signup")
 	if err != nil {
@@ -309,7 +313,9 @@ func TestSaveLoadProfile(t *testing.T) {
 
 	// Load on fresh session
 	s2 := newFeatureSession(t)
-	s2.Navigate(ts.URL)
+	if _, err := s2.Navigate(ts.URL); err != nil {
+		t.Fatalf("Navigate before LoadProfile: %v", err)
+	}
 	if err := s2.LoadProfile(profilePath); err != nil {
 		t.Fatalf("LoadProfile: %v", err)
 	}

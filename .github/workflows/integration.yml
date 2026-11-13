@@ -3,9 +3,8 @@
 # behind the `integration` build tag, so the shared caller's unit run never
 # compiles or executes them.
 #
-# Cost-aware matrix (same shape as the rest of the org bar): PRs run ubuntu +
-# Go 1.26 only; push-to-main adds macOS to validate OS-specific
-# browser/launcher behavior. macOS = ~10x runner cost, so it stays off PRs.
+# Cost-aware matrix: PRs run Ubuntu; push-to-main adds macOS to validate
+# OS-specific browser/launcher behavior. macOS = ~10x runner cost, so it stays off PRs.
 name: Integration
 
 on:
@@ -30,13 +29,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  meta-key-windows:
+    name: Meta key (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.4"
+          cache: true
+
+      # Windows runners include Chrome. Keep this focused so Meta modifier
+      # behavior is checked without paying for the full browser matrix.
+      - name: Verify Meta shortcut and held modifier behavior
+        run: go test -tags=integration ./agent -run '^TestIntegrationPressKeyAndChord$' -count=1
+
   integration:
     name: Integration (Go ${{ matrix.go-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        go-version: ${{ fromJSON('["1.26"]') }}
+        go-version: ["1.27.4"]
         os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest"]') }}
 
     steps:
@@ -47,6 +62,18 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache: true
 
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: examples/benchmark/stateless_mcp_clients/package-lock.json
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: examples/benchmark/stateless_mcp_clients/requirements.lock
+
       # macOS and Windows GitHub runners ship Google Chrome pre-installed;
       # only Ubuntu needs an explicit install for chromedp to find a browser.
       - name: Install Chrome (Ubuntu)
@@ -55,8 +82,228 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable || sudo apt-get install -y chromium-browser
 
+      - name: Install mitmproxy for egress policy integration coverage
+        run: |
+          python3 -m venv "$RUNNER_TEMP/mitmproxy"
+          "$RUNNER_TEMP/mitmproxy/bin/python" -m pip install --disable-pip-version-check 'mitmproxy==12.3.1'
+          echo "$RUNNER_TEMP/mitmproxy/bin" >> "$GITHUB_PATH"
+
+      - name: Verify egress proxy startup is observable and fails closed
+        run: python3 examples/egress-proxy/check_startup.py
+
+      - name: Verify MCP output budget and artifact retrieval
+        run: ./examples/benchmark/output_limit_smoke/run.sh
+
       - name: Integration tests
         # 100+ integration tests each spin up Chrome; the suite runs ~150s
         # locally with cache and ~5min on CI under -race. The build tag keeps
         # these out of the shared unit run.
         run: go test -tags integration -race -timeout 600s -run TestIntegration ./...
+
+      - name: Doctor live browser fault integration
+        # These doctor tests are build-tagged but predate the TestIntegration
+        # naming convention, so the broad integration selector misses them.
+        run: go test -tags integration -race -timeout 180s ./cmd/scout -run '^(TestDoctorRejectsLiveCDPWithUnresponsivePage|TestDoctorReportsProbeTabWhenBrowserRejectsCleanup)$'
+
+      - name: Retain browser egress destination-oracle evidence
+        run: |
+          go test -tags integration -race -timeout 180s . -run '^TestIntegrationEgressProxyBlocksUnallowedTraffic$' -v 2>&1 | tee "$RUNNER_TEMP/scout-egress-proxy-test.log"
+          python3 - "$RUNNER_TEMP/scout-egress-proxy-test.log" "$RUNNER_TEMP/scout-egress-proxy-evidence.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          log = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+          assert "--- SKIP: TestIntegrationEgressProxyBlocksUnallowedTraffic" not in log, log
+          assert "--- PASS: TestIntegrationEgressProxyBlocksUnallowedTraffic" in log, log
+          marker = "SCOUT_EGRESS_INTEGRATION_EVIDENCE "
+          records = [line.split(marker, 1)[1] for line in log.splitlines() if marker in line]
+          assert len(records) == 1, f"expected one destination-oracle report, found {len(records)}"
+          report = json.loads(records[0])
+          assert report["verified"] is True
+          expected = {
+              "allowed_websocket": 1,
+              "service_worker_http": 0,
+              "redirect": 0,
+              "subresource": 0,
+              "iframe": 0,
+              "new_tab": 0,
+              "websocket": 0,
+          }
+          assert report["destination_hits"] == expected, report["destination_hits"]
+          decisions = report["decisions"]
+          assert decisions, "proxy decision evidence is empty"
+          assert all(d.get("type") == "scout_egress_decision" and d.get("decision_id") for d in decisions)
+          assert any(d.get("event") == "connect" and d.get("allowed") is True for d in decisions)
+          assert any(d.get("event") == "connect" and d.get("allowed") is False for d in decisions)
+          pathlib.Path(sys.argv[2]).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Retain browser egress report after later failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-egress-${{ matrix.os }}
+          path: ${{ runner.temp }}/scout-egress-proxy-evidence.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stateless MCP HTTP integration
+        # This browser-backed test name predates the TestIntegration* suite
+        # selector above, so run the stateless transport contract explicitly.
+        run: go test -tags integration -race -timeout 180s ./cmd/scout -run '^TestMCPStatelessHTTPPrincipalHandleSurvivesStaleTransportHeader$'
+
+      - name: AG-UI session manager browser lifecycle
+        # The test is integration-tagged but lives in internal/agui and is
+        # excluded by the broad TestIntegration* selector because its name
+        # predates that convention.
+        run: go test -tags integration -race -timeout 180s ./internal/agui -run '^TestIntegrationSessionManagerBrowserLifecycle$'
+
+      - name: Stateless MCP official SDK compatibility
+        run: ./examples/benchmark/stateless_mcp_clients/run.sh
+
+      - name: Verify recovery receipt interface parity
+        # This deterministic capture audits exported shapes across Go, CLI,
+        # and MCP with both strict decoders; live task behavior is covered by
+        # the separate process-loss integration matrices.
+        run: go run ./examples/benchmark/recovery_receipt_parity -manifest examples/benchmark/recovery_receipt_parity/manifest.live.json
+
+      - name: Verify first-success diagnostic matrix
+        run: |
+          python3 examples/benchmark/run_doctor_readiness.py --output "$RUNNER_TEMP/scout-doctor-readiness.json"
+          python3 - "$RUNNER_TEMP/scout-doctor-readiness.json" <<'PY'
+          import json
+          import sys
+
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert report["all_cases_match_expected"] is True
+          cases = {case["case"]: case for case in report["cases"]}
+          assert set(cases) == {
+              "configuration_only",
+              "live_browser",
+              "application_probe_pass",
+              "application_probe_missing_marker",
+          }
+          assert cases["configuration_only"]["exit_code"] == 0
+          assert cases["configuration_only"]["checks"]["browser_live"] == "not_checked"
+          assert cases["live_browser"]["exit_code"] == 0
+          assert cases["live_browser"]["checks"]["browser_live"] == "ok"
+          assert cases["application_probe_pass"]["exit_code"] == 0
+          assert cases["application_probe_pass"]["checks"]["app_probe"] == "ok"
+          assert cases["application_probe_missing_marker"]["exit_code"] == 1
+          assert cases["application_probe_missing_marker"]["checks"]["app_probe"] == "error"
+          reads = {case["case"]: case for case in report["first_reads"]}
+          assert set(reads) == {"first_read_verified", "first_read_missing_marker"}
+          assert reads["first_read_verified"]["exit_code"] == 0
+          assert reads["first_read_verified"]["classification"] == "verified"
+          assert reads["first_read_missing_marker"]["exit_code"] == 1
+          assert reads["first_read_missing_marker"]["classification"] == "postcondition_failed"
+          for case in reads.values():
+              assert case["phase_timing_complete"] is True
+              assert case["execution_timing"]["browser_startup_ms"] >= 0
+              assert case["execution_timing"]["page_navigation_verification_ms"] >= 0
+              assert case["execution_timing"]["browser_cleanup_ms"] >= 0
+          faults = {case["case"]: case for case in report["fault_tests"]}
+          assert set(faults) == {
+              "TestDoctorReportsMissingBrowserAndSkipsLiveCheck",
+              "TestDoctorLiveAttachFailureHasStableCodeAndNoSecrets",
+              "TestDoctorLiveReadFailureIsNotGreenAndClosesSession",
+              "TestDoctorTimeoutDuringFirstReadStillClosesSession",
+              "TestDoctorProbeCleanupFailureHasStableRecoveryGuidance",
+          }
+          assert all(case["status"] == "passed" and case["matches_expected"] for case in faults.values())
+          assert all(case["expected_check_assertions"] > 0 and case["expected_checks"] for case in faults.values())
+          expected_fault_checks = {
+              "TestDoctorReportsMissingBrowserAndSkipsLiveCheck": {
+                  "local_browser": ("error", "SCOUT_DOCTOR_LOCAL_BROWSER_ERROR", "install_chrome_or_chromium_or_set_remote_cdp"),
+                  "browser_live": ("not_checked", "SCOUT_DOCTOR_BROWSER_LIVE_NOT_CHECKED", "repair_configuration_before_live_check"),
+              },
+              "TestDoctorLiveAttachFailureHasStableCodeAndNoSecrets": {
+                  "browser_live": ("error", "SCOUT_DOCTOR_BROWSER_LIVE_ERROR", "check_browser_endpoint_and_connection"),
+                  "browser_cleanup": ("not_checked", "SCOUT_DOCTOR_BROWSER_CLEANUP_NOT_CHECKED", "none"),
+              },
+              "TestDoctorLiveReadFailureIsNotGreenAndClosesSession": {
+                  "browser_live": ("error", "SCOUT_DOCTOR_BROWSER_LIVE_PAGE_READ_FAILED", "check_browser_endpoint_and_connection"),
+                  "browser_cleanup": ("ok", "SCOUT_DOCTOR_BROWSER_CLEANUP_OK", "none"),
+              },
+              "TestDoctorTimeoutDuringFirstReadStillClosesSession": {
+                  "browser_first_read": ("error", "SCOUT_DOCTOR_BROWSER_FIRST_READ_ERROR", "inspect_unresponsive_target"),
+                  "browser_cleanup": ("ok", "SCOUT_DOCTOR_BROWSER_CLEANUP_OK", "none"),
+              },
+              "TestDoctorProbeCleanupFailureHasStableRecoveryGuidance": {
+                  "app_probe": ("error", "SCOUT_DOCTOR_APP_PROBE_CLEANUP_FAILED", "inspect_browser_tabs_and_restore_original_session"),
+              },
+          }
+          for test_name, checks in expected_fault_checks.items():
+              actual = faults[test_name]["expected_checks"]
+              assert set(actual) == set(checks), (test_name, actual)
+              for check_name, expected in checks.items():
+                  assert (actual[check_name]["status"], actual[check_name]["code"], actual[check_name]["remediation"]) == expected, (test_name, check_name, actual[check_name])
+          assert report["environment"]["os"]
+          assert report["environment"]["go"].startswith("go version ")
+          assert report["tool_version"]
+          PY
+
+      - name: Retain browser readiness and egress reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-readiness-and-egress-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/scout-doctor-readiness.json
+            ${{ runner.temp }}/scout-egress-proxy-evidence.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Verify first-success fingerprint captures configured GOFLAGS
+        run: |
+          GOFLAGS=-mod=readonly PYTHONPATH=examples/benchmark python3 - <<'PY'
+          import hashlib
+          import run_doctor_readiness
+
+          fingerprint = run_doctor_readiness.source_fingerprint()
+          assert fingerprint["goflags_configured"] is True, fingerprint
+          assert fingerprint["goflags_sha256"] != hashlib.sha256(b"").hexdigest(), fingerprint
+          PY
+
+      - name: Run the Go CI example
+        run: go run ./examples/ci > "$RUNNER_TEMP/scout-ci-example.json"
+
+      - name: Check first-success evidence contract
+        run: |
+          python3 - "$RUNNER_TEMP/scout-ci-example.json" <<'PY'
+          import json
+          import sys
+
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert report["success"] is True
+          assert report["action"]["verified"] is True
+          assert report["action"]["outcome"] == "postcondition_verified"
+          policy = report["action"]["action_receipt"]["policy"]
+          assert policy["allow_private_ips"] is True
+          assert report["replay"]["success"] is True
+          assert report["replay"]["steps_run"] == 1
+          receipts = report["replay"]["step_receipts"]
+          assert receipts, "replay must expose its action evidence"
+          replay_action = receipts[-1]["action_receipt"]
+          original_action = report["action"]["action_receipt"]
+          assert replay_action["outcome"] == "postcondition_verified"
+          assert replay_action["verification_state"] == "verified"
+          assert replay_action["run_id"] == original_action["run_id"]
+          assert replay_action["policy_id"] == original_action["policy_id"]
+          replay_targets = {
+              step["action_receipt"]["target_id"]
+              for step in receipts
+              if step.get("action_receipt", {}).get("target_id")
+          }
+          assert len(replay_targets) == 1, "replay evidence must stay on one target"
+          PY
+
+      - name: Run the profile roundtrip example
+        run: go run ./examples/profile -profile "$RUNNER_TEMP/scout-profile.json"
+
+      - name: Run the bounded worker pool example
+        run: go run ./examples/worker_pool -workers 2 -jobs 4
+
+      - name: Run the Scout reliability benchmark
+        run: go run ./examples/benchmark

@@ -1,0 +1,116 @@
+{
+  "protocol": "scout-runtime-conformance/v1",
+  "protocol_version": 1,
+  "status": "protocol_only_no_results_claimed",
+  "purpose": "Compare browser runtime contracts while holding fixture, browser, and deterministic task constant. This is not an agent capability benchmark.",
+  "principles": [
+    "Keep outcomes, safety failures, latency, output size, and resource use as separate dimensions.",
+    "Record unavailable evidence as unavailable; never convert missing telemetry into a zero or a pass.",
+    "Use an application-side oracle independent of the runtime under test.",
+    "Keep adapter safeguards separate from native runtime capabilities.",
+    "Pin product, browser, fixture, operating system, and protocol versions for every run."
+  ],
+  "minimum_repetitions": 30,
+  "required_run_metadata": [
+    "run_id",
+    "started_at_utc",
+    "git_revision",
+    "product",
+    "product_version",
+    "adapter_revision",
+    "cdp_connection_mode",
+    "browser_product",
+    "browser_version",
+    "os_architecture",
+    "fixture_version",
+    "scenario_id",
+    "repetition",
+    "task_id",
+    "owner_id",
+    "session_id",
+    "browser_generation",
+    "target_id",
+    "policy_digest"
+  ],
+  "dimensions": [
+    {"id": "task_outcome", "unit": "categorical", "values": ["verified", "rejected", "unknown", "unverified"]},
+    {"id": "false_success", "unit": "boolean", "oracle": "application_state"},
+    {"id": "duplicate_effects", "unit": "integer", "oracle": "application_effect_ledger"},
+    {"id": "wrong_target_actions", "unit": "integer", "oracle": "target_specific_fixture_marker"},
+    {"id": "evidence_completeness", "unit": "categorical", "values": ["complete", "partial", "unavailable"]},
+    {"id": "deadline_overshoot_ms", "unit": "milliseconds", "source": "monotonic_client_clock"},
+    {"id": "recovery_steps", "unit": "integer", "source": "recorded_operator_actions"},
+    {"id": "resource_cleanup", "unit": "categorical", "values": ["clean", "leaked", "unavailable"], "source": "os_process_tree_and_browser_targets"}
+  ],
+  "scenarios": [
+    {
+      "id": "uncertain_mutation_process_loss",
+      "priority": 1,
+      "fault": "Commit a non-idempotent server mutation, hold its response, then terminate the tool process.",
+      "oracle": "Read the fixture's append-only effect ledger before any retry.",
+      "pass_conditions": ["No retry occurs before authoritative reconciliation.", "Effect count is exact and independently observed.", "Result remains unknown when the oracle cannot resolve it."],
+      "required_dimensions": ["task_outcome", "false_success", "duplicate_effects", "recovery_steps"],
+      "existing_evidence": "examples/benchmark/reports/matched-recovery-no-replay-2026-11-06.json",
+      "evidence_limit": "Current peer no-replay and Scout native-guard protocols are distinct; report them as separate arms, not a randomized head-to-head rate."
+    },
+    {
+      "id": "wrong_target_under_tab_churn",
+      "priority": 2,
+      "fault": "Switch, close, and create tabs while a delayed action is in flight; add a second client with a distinct owner.",
+      "oracle": "Target-specific fixture marker and per-target server-side effect ledger.",
+      "pass_conditions": ["No mutation is applied to an unintended target.", "Ambiguous target selection fails closed.", "Owner A cannot inspect or mutate owner B's session."],
+      "required_dimensions": ["wrong_target_actions", "false_success", "task_outcome"],
+      "existing_evidence": "examples/benchmark/OPPORTUNITY_MATRIX.md rank 2",
+      "evidence_limit": "Existing background-tab runs do not cover two authenticated owners or a tab switch racing a dispatched mutation."
+    },
+    {
+      "id": "evidence_source_loss",
+      "priority": 3,
+      "fault": "Run known-event capture through both target-attached CDP and direct-page CDP connections where events may omit sessionId; restart the browser during capture and separately disable each event source before an otherwise successful task.",
+      "oracle": "Fixture emits known request, response, console, and mutation event IDs and records each event's target and emission time independently of the runtime.",
+      "pass_conditions": ["Missing telemetry is marked unavailable or partial.", "Zero observed events is distinguishable from capture not running.", "Every reported event identifies its target and observation interval.", "Sessionless events on direct-page connections are either captured or explicitly reported unavailable."],
+      "required_dimensions": ["evidence_completeness", "task_outcome", "false_success"],
+      "existing_evidence": "none",
+      "evidence_limit": "Scout's built-in RemoteCDP path currently attaches through a browser endpoint with Target.attachToTarget; direct-page mode is unsupported and must be recorded unavailable, not inferred from the target-attached arm. No cross-runtime independent event-provenance grader exists."
+    },
+    {
+      "id": "deadline_and_late_completion",
+      "priority": 4,
+      "fault": "Dispatch an action that completes after the caller deadline, then verify on the original and a replacement target.",
+      "oracle": "Fixture completion signal and target-specific state.",
+      "pass_conditions": ["Caller returns within the configured bound plus declared tolerance.", "Late completion is not reported as failure-to-execute.", "Reconciliation never redispatches and refuses a different target."],
+      "required_dimensions": ["task_outcome", "deadline_overshoot_ms", "duplicate_effects", "wrong_target_actions"],
+      "existing_evidence": "examples/benchmark/results/late-action-caller-timeout-matrix-2026-11-06.json",
+      "evidence_limit": "Existing comparison matches final outcome but uses different measurement scopes; timing is not comparable."
+    },
+    {
+      "id": "inflight_idle_cleanup_and_disconnect",
+      "priority": 5,
+      "fault": "Run a call longer than idle timeout, leave a client transport open without calls, then disconnect without explicit close.",
+      "oracle": "Client response, server process tree, browser process tree, and target list.",
+      "pass_conditions": ["In-flight work is not expired by idle cleanup.", "Idle resources eventually follow documented ownership cleanup.", "Closing a caller-owned browser connection does not terminate the external browser."],
+      "required_dimensions": ["task_outcome", "deadline_overshoot_ms", "resource_cleanup"],
+      "existing_evidence": "examples/benchmark/OPPORTUNITY_MATRIX.md and examples/benchmark/COMPARISON.md",
+      "evidence_limit": "Current measurements cover selected Scout and Playwright MCP idle cases, not the full ownership/disconnect matrix."
+    },
+    {
+      "id": "clean_install_first_verified_result",
+      "priority": 6,
+      "fault": "Fresh OS user profile and pinned release; integrate a deterministic local task without a model provider.",
+      "oracle": "Independent fixture postcondition and timed developer task log.",
+      "pass_conditions": ["First result is verified by the fixture oracle.", "Setup and recovery steps are recorded.", "Installation, configuration, and browser launch failures are diagnosed accurately."],
+      "required_dimensions": ["task_outcome", "recovery_steps", "deadline_overshoot_ms"],
+      "existing_evidence": "docs/adoption-study.md",
+      "evidence_limit": "No participant study has been conducted; no time-to-first-result advantage is established."
+    }
+  ],
+  "report_rules": {
+    "never_aggregate_dimensions_into_one_score": true,
+    "publish_raw_runs_and_adapter_source": true,
+    "report_pass_count_and_wilson_95_interval": true,
+    "mark_timing_comparable_only_when_clock_start_stop_boundaries_match": true,
+    "mark_output_comparable_only_when_serialization_boundaries_match": true,
+    "separate_native_features_from_adapter_composition": true,
+    "separate_open_issue_reproductions_from_release_behavior": true
+  }
+}

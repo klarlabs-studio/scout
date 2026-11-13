@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-06",
+  "classification": "single-run interface smoke; not comparative reliability evidence",
+  "agent_browser_version": "0.41.2",
+  "playwright_mcp_version": "0.0.84",
+  "chrome_version": "157.0.8103.38",
+  "fixture": "http://127.0.0.1:41891/action",
+  "task": "invoke complete_task and verify #status text",
+  "default_managed_launch": {
+    "feature_flag": "WebMCPTesting",
+    "document_model_context_available": false,
+    "registered_tools": 0,
+    "outcome": "blocked: page API unavailable"
+  },
+  "corrected_managed_launch": {
+    "additional_feature_flag": "WebMCP",
+    "document_model_context_available": true,
+    "registered_tools": 1,
+    "listed_tool": "complete_task",
+    "metadata_marked_untrusted": true,
+    "provenance_surface": "JSON untrusted=true plus nonce-delimited page-content output",
+    "discovery_surface": "compact proactive summary followed by targeted schema lookup",
+    "invocation_return": "completed",
+    "independent_postcondition": "#status text equals Task complete",
+    "outcome": "passed"
+  },
+  "playwright_mcp_managed_launch": {
+    "additional_feature_flag": "WebMCP",
+    "mcp_surface": "dynamic tool webmcp_complete_task appeared in tools/list after browser_snapshot",
+    "tool_schema": "empty object; additionalProperties false",
+    "provenance_surface": "untrusted-content text in dynamic tool description and invocation result",
+    "tool_annotations": ["readOnlyHint=false", "destructiveHint=true", "openWorldHint=true"],
+    "discovery_surface": "dynamic MCP tool is added after browser_snapshot",
+    "invocation_return": "Task complete",
+    "metadata_marked_untrusted": true,
+    "independent_postcondition": "#status text equals Task complete",
+    "outcome": "passed"
+  },
+  "limitations": [
+    "The tool was injected by the harness rather than supplied by the fixture site.",
+    "Only one invocation was run per competitor.",
+    "No Scout bridge, UI fallback, malicious metadata, delayed result, or agent-level comparison was run.",
+    "The API and launch flag are experimental and browser-version-sensitive."
+  ]
+}

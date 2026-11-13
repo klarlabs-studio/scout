@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klarlabs.de/scout/schemas/scout-network-manifest-v1.schema.json",
+  "title": "Scout Network Capture Manifest v1",
+  "description": "Coverage and export-state metadata for the bounded session network capture window in a Scout trace archive. It does not claim browser-wide network completeness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "coverage_scope",
+    "coverage",
+    "capture_mode",
+    "capture_state_at_export",
+    "capture_enabled",
+    "capture_ever_enabled",
+    "capture_interrupted",
+    "url_pattern_filter_active",
+    "retained_requests",
+    "pending_requests",
+    "dropped_requests",
+    "history_limit"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "content_trust": {"const": "untrusted_page_content"},
+    "coverage_scope": {"const": "session_network_capture_window"},
+    "coverage": {
+      "enum": ["unavailable", "not_enabled", "diagnostics_only", "known_gaps", "disabled_at_read", "active_no_known_loss"],
+      "description": "Shared with the live network_summary coverage vocabulary. active_no_known_loss means Scout observed no known loss, not that all browser traffic was visible."
+    },
+    "capture_mode": {"enum": ["not_started", "diagnostics_only", "full_capture", "unavailable", "disabled"]},
+    "capture_state_at_export": {"enum": ["capture_never_enabled", "diagnostics_only", "known_gaps", "observer_unavailable", "no_known_loss_at_export", "capture_disabled_at_export"]},
+    "capture_enabled": {"type": "boolean"},
+    "capture_ever_enabled": {"type": "boolean"},
+    "capture_interrupted": {"type": "boolean"},
+    "url_pattern_filter_active": {"type": "boolean"},
+    "retained_requests": {"type": "integer", "minimum": 0},
+    "pending_requests": {"type": "integer", "minimum": 0},
+    "dropped_requests": {"type": "integer", "minimum": 0},
+    "history_limit": {"type": "integer", "minimum": 0}
+  }
+}

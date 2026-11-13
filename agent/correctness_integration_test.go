@@ -65,18 +65,21 @@ func TestClickText_SingleMatchClicks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}
-	ts := correctnessTestServer(`<button id="only">Checkout</button>`)
+	ts := correctnessTestServer(`<button id="only" onclick="document.getElementById('out').textContent='complete'">Checkout</button><span id="out"></span>`)
 	defer ts.Close()
 
 	s := newCorrectnessSession(t)
 	s.Navigate(ts.URL)
 
-	res, err := s.ClickText("Checkout", "")
+	res, err := s.ClickTextWithPostcondition("Checkout", "", agent.Postcondition{Text: "complete"})
 	if err != nil {
 		t.Fatalf("ClickText on a single unique match: %v", err)
 	}
 	if res.MatchType != "button_text" {
 		t.Errorf("expected button_text match, got %q", res.MatchType)
+	}
+	if !res.Verified || res.Outcome != "postcondition_verified" || !strings.Contains(res.Evidence, "complete") {
+		t.Errorf("expected visible text postcondition evidence, got %+v", res)
 	}
 }
 
@@ -138,6 +141,31 @@ func TestFillFormSemantic_RadioMatchSucceeds(t *testing.T) {
 	radio := radioFieldResult(t, res)
 	if !radio.Success {
 		t.Errorf("radio fill for a real option should succeed, got error=%q", radio.Error)
+	}
+}
+
+func TestFillFormSemantic_MismatchIsNotSuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping in short mode")
+	}
+	ts := correctnessTestServer(`<form><label>Name <input id="name" name="name" maxlength="3"></label></form>`)
+	defer ts.Close()
+	s := newCorrectnessSession(t)
+	s.Navigate(ts.URL)
+
+	res, err := s.FillFormSemantic(map[string]string{"Name": "long"})
+	if err != nil {
+		t.Fatalf("FillFormSemantic: %v", err)
+	}
+	if res.Success {
+		t.Fatalf("aggregate semantic fill must fail when browser readback differs: %+v", res)
+	}
+	if len(res.Fields) != 1 {
+		t.Fatalf("expected one field result, got %+v", res.Fields)
+	}
+	field := res.Fields[0]
+	if field.Success || field.Outcome != "value_mismatch" || field.ValueObserved != "lon" || field.Error == "" || field.RecoveryHint == "" {
+		t.Fatalf("mismatch must be explicit and actionable: %+v", field)
 	}
 }
 

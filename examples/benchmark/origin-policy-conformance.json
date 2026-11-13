@@ -1,0 +1,56 @@
+{
+  "protocol_version": "scout-origin-policy-conformance-v1",
+  "status": "matched-local-probe-repeated",
+  "scenario": "matched-explicit-origin-request-blocking",
+  "shared_predicates": {
+    "unrestricted_positive_control": "the allowed page reaches its ready state and its ordinary fetch increments the denied-origin counter exactly once",
+    "denied_origin_has_no_source_effect": "with each product policy enabled, the same page reaches its ready state and the independent denied-origin listener records zero /hit requests"
+  },
+  "scout": {
+    "interface": "persistent session CLI with --allowed-origins",
+    "runner": "run_origin_policy_comparison.mjs",
+    "current_capture": "reports/origin-policy-matched-20261112T062042Z.json",
+    "limitations": [
+      "Five restricted repetitions and one unrestricted positive control passed on local Chrome.",
+      "The shared predicate covers an ordinary fetch only; redirects, service workers, WebSockets, EventSource, WebRTC, DNS rebinding, and remote-host egress are not covered.",
+      "Malformed or empty policy configuration is currently probed only on Scout."
+    ]
+  },
+  "competitors": [
+    {
+      "name": "agent-browser",
+      "version": "0.42.0",
+      "status": "probed 5/5 plus positive control",
+      "setting": "AGENT_BROWSER_ALLOWED_DOMAINS=localhost",
+      "semantics": "host-level browser containment with documented WebRTC and worker restrictions",
+      "capture": "reports/origin-policy-matched-20261112T062042Z.json"
+    },
+    {
+      "name": "playwright-mcp",
+      "version": "0.0.85",
+      "status": "probed 5/5 plus positive control",
+      "setting": "--blocked-origins http://127.0.0.1:41746",
+      "semantics": "exact-origin request block; docs exclude redirects and describe it as not a security boundary",
+      "capture": "reports/origin-policy-matched-20261112T062042Z.json"
+    }
+  ],
+  "empty_allowlist_edge_case": {
+    "name": "playwright-mcp",
+    "version": "0.0.85",
+    "capture": "reports/origin-policy-matched-20261112T090236Z.json",
+    "cases": [
+      { "setting": "--allowed-origins=", "behavior": "denied_request_allowed", "denied_origin_hits": 1 },
+      { "setting": "PLAYWRIGHT_MCP_ALLOWED_ORIGINS=''", "behavior": "denied_request_allowed", "denied_origin_hits": 1 },
+      { "setting": "PLAYWRIGHT_MCP_ALLOWED_ORIGINS=';'", "behavior": "configured_policy_blocked_allowed_fixture", "denied_origin_hits": 0 },
+      { "setting": "PLAYWRIGHT_MCP_ALLOWED_ORIGINS='   '", "behavior": "configured_policy_blocked_allowed_fixture", "denied_origin_hits": 0 }
+    ],
+    "interpretation": "Empty CLI and environment values permitted the denied fetch. Separator-only and whitespace environment values prevented even the allowlisted fixture page from loading. Playwright documentation says requests are allowed by default; the empty values do not establish a documented contract violation or security-boundary failure.",
+    "limitations": [
+      "One run on local Chrome for each setting, against one ordinary fetch.",
+      "Configuration-file behavior is untested.",
+      "A blocked initial page is not proof that all denied origins are blocked in every browser path.",
+      "No claim is made about redirects, other resource types, or remote egress."
+    ]
+  },
+  "interpretation": "Each tool reached the fixture and passed the shared ordinary-fetch source-effect predicate in 5/5 restricted runs; each unrestricted positive control produced exactly one request. Native policy scopes differ, so this is not feature equivalence or a broad security-boundary claim."
+}

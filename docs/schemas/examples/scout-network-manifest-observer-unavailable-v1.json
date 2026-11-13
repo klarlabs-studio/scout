@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "content_trust": "untrusted_page_content",
+  "coverage_scope": "session_network_capture_window",
+  "coverage": "unavailable",
+  "capture_mode": "unavailable",
+  "capture_state_at_export": "observer_unavailable",
+  "capture_enabled": true,
+  "capture_ever_enabled": false,
+  "capture_interrupted": false,
+  "url_pattern_filter_active": false,
+  "retained_requests": 0,
+  "pending_requests": 0,
+  "dropped_requests": 0,
+  "history_limit": 200
+}

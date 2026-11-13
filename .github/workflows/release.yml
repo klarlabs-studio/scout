@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: "1.27.4"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -52,9 +52,17 @@ jobs:
           jq --arg v "$VERSION" '.version = $v' server.json > server.tmp && mv server.tmp server.json
           jq --arg id "ghcr.io/klarlabs-studio/scout:${VERSION}" '.packages[0].identifier = $id' server.json > server.tmp && mv server.tmp server.json
 
-      - name: Install mcp-publisher
+      - name: Install pinned mcp-publisher
+        env:
+          MCP_PUBLISHER_VERSION: v1.8.9
+          MCP_PUBLISHER_SHA256: 4d527ca8f1ced0394c962dc925c2a4a4addef441cbefd62501c875e9481823a8
         run: |
-          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/${archive}"
+          curl --fail --location --retry 3 --retry-all-errors "$url" --output "$archive"
+          printf '%s  %s\n' "$MCP_PUBLISHER_SHA256" "$archive" | sha256sum --check --status -
+          tar -xzf "$archive" mcp-publisher
+          chmod 0755 mcp-publisher
 
       - name: Publish to MCP Registry
         run: |

@@ -1,0 +1,28 @@
+{
+  "decisions": [
+    {
+      "timestamp_ms": 1794484800000,
+      "target_id": "target-7",
+      "url": "https://shop.example/checkout",
+      "method": "POST",
+      "resource_type": "Document",
+      "allowed": true,
+      "policy_id": "origins-v1",
+      "resolution": "resolved"
+    },
+    {
+      "timestamp_ms": 1794484800100,
+      "target_id": "target-7",
+      "url": "https://untrusted.example/collect",
+      "method": "POST",
+      "resource_type": "XHR",
+      "allowed": false,
+      "reason_code": "origin_not_allowed",
+      "policy_id": "origins-v1",
+      "reason": "origin is not allowed",
+      "resolution": "failed",
+      "resolution_error": "Fetch.failRequest returned a CDP error"
+    }
+  ],
+  "dropped": 0
+}

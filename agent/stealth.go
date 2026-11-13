@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"context"
+	"fmt"
+
 	browse "go.klarlabs.de/scout"
 	"go.klarlabs.de/scout/middleware"
 )
@@ -9,14 +12,27 @@ import (
 // It registers the stealth JS via addScriptToEvaluateOnNewDocument for future
 // navigations and also evaluates it immediately for the current page context.
 // Must be called with the session mutex held.
-func (s *Session) applyStealthPatches(page *browse.Page) {
-	_, _ = page.Call("Page.addScriptToEvaluateOnNewDocument", map[string]any{
+func (s *Session) applyStealthPatches(ctx context.Context, page *browse.Page) error {
+	if _, err := page.CallContext(ctx, "Page.addScriptToEvaluateOnNewDocument", map[string]any{
 		"source": stealthAgentJS,
-	})
-	_, _ = page.Evaluate(stealthAgentJS)
+	}); err != nil {
+		if mutationOutcomeMayBeUnknown(err) {
+			return s.actionOutcomeAfterDispatch("apply_stealth", page.TargetID(), "stealth script registration may have been dispatched", err)
+		}
+		return fmt.Errorf("failed to register stealth script: %w", err)
+	}
+	if _, err := page.EvaluateContext(ctx, stealthAgentJS); err != nil {
+		return s.actionOutcomeAfterDispatch("apply_stealth", page.TargetID(), "new-document stealth script was registered but current-page patches could not be confirmed", err)
+	}
 
 	ua := middleware.RandomUserAgent()
-	_ = page.SetUserAgent(ua)
+	if _, err := page.CallContext(ctx, "Network.enable", nil); err != nil {
+		return s.actionOutcomeAfterDispatch("apply_stealth", page.TargetID(), "stealth scripts were applied but network setup for user-agent override failed", err)
+	}
+	if _, err := page.CallContext(ctx, "Network.setUserAgentOverride", map[string]any{"userAgent": ua}); err != nil {
+		return s.actionOutcomeAfterDispatch("apply_stealth", page.TargetID(), "stealth scripts were applied but user-agent override could not be confirmed", err)
+	}
+	return nil
 }
 
 // stealthAgentJS is the same stealth script used by middleware.Stealth(),

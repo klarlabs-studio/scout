@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "benchmark": "fresh-late-recovery-evidence-probe",
+  "scenario": "late click completes after caller deadline",
+  "fixture": "shared late-action route with hidden privacy sentinel",
+  "products": [
+    {
+      "name": "Scout MCP",
+      "version": "worktree snapshot 2026-11-12",
+      "repetitions": 10,
+      "successful_repetitions": 10,
+      "serialized_response_bytes": 96479,
+      "serialized_response_kind": "normalized_go_mcp_client_tool_result_objects_excluding_jsonrpc_framing",
+      "privacy_sentinel_leaks": 0
+    },
+    {
+      "name": "Playwright MCP",
+      "version": "0.0.85",
+      "repetitions": 10,
+      "successful_repetitions": 10,
+      "serialized_response_bytes": 7850,
+      "serialized_response_kind": "raw MCP JSON-RPC tool result objects",
+      "privacy_sentinel_leaks": 0,
+      "native_recovery_receipt": false
+    }
+  ],
+  "interpretation": {
+    "outcome_parity": "both adapters reached the final page predicate in all ten runs",
+    "receipt_comparison": "Scout returns a typed unknown outcome and later links a read-only reconciliation receipt; the Playwright adapter retains its in-flight call and inspects the page after completion.",
+    "privacy_probe": "The hidden fixture sentinel was absent from retained serialized tool results in both adapters; this checks only these result objects and this fixture.",
+    "bytes_comparable": false,
+    "bytes_limit": "Both totals cover three serialized tool results per repetition and exclude JSON-RPC framing. Scout serializes Go MCP client ToolResult values; Playwright records raw MCP result objects. The payload structures and recovery evidence differ, so byte totals are descriptive, not a size ranking.",
+    "timing_comparable": false,
+    "limitations": [
+      "one local fixture",
+      "ten repetitions",
+      "does not measure diagnosis time, trace overhead, or production reliability",
+      "Scout normalized client result serialization is not raw wire capture"
+    ]
+  }
+}

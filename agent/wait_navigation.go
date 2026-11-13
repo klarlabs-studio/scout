@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -8,6 +9,7 @@ import (
 
 // NavigationOutcome reports the result of a WaitForNavigation call.
 type NavigationOutcome struct {
+	ContentTrust    string `json:"content_trust,omitempty"`
 	Mode            string `json:"mode"`              // "full" | "spa" | "any"
 	URL             string `json:"url"`               // final URL
 	Title           string `json:"title"`             // final title
@@ -34,9 +36,18 @@ type NavigationOutcome struct {
 // (button outside scout's control, JS-triggered route change) is
 // what moves the page.
 func (s *Session) WaitForNavigation(mode string, timeoutMs int) (*NavigationOutcome, error) {
-	s.mu.Lock()
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+	return s.WaitForNavigationContext(ctx, mode, timeoutMs)
+}
+
+// WaitForNavigationContext waits for navigation within the caller's deadline.
+func (s *Session) WaitForNavigationContext(ctx context.Context, mode string, timeoutMs int) (*NavigationOutcome, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -118,7 +129,7 @@ func (s *Session) WaitForNavigation(mode string, timeoutMs int) (*NavigationOutc
 	start := time.Now()
 	// Evaluate awaits the returned Promise on the CDP side, so the
 	// in-page setTimeout is what enforces the budget.
-	result, err := s.page.Evaluate(js)
+	result, err := s.page.EvaluateContext(ctx, js)
 	elapsed := time.Since(start).Milliseconds()
 	if err != nil {
 		return nil, fmt.Errorf("wait_for_navigation: %w", err)
@@ -131,6 +142,7 @@ func (s *Session) WaitForNavigation(mode string, timeoutMs int) (*NavigationOutc
 	reason, _ := m["reason"].(string)
 	url, _ := m["url"].(string)
 	out := &NavigationOutcome{
+		ContentTrust:  ContentTrustUntrustedPage,
 		Mode:          mode,
 		URL:           url,
 		URLChanged:    url != "",
@@ -147,14 +159,14 @@ func (s *Session) WaitForNavigation(mode string, timeoutMs int) (*NavigationOutc
 	} else {
 		// Pull the latest title via a quick eval — saves the caller a
 		// second hop and confirms the new page has actually rendered.
-		if titleResult, err := s.page.Evaluate(`document.title`); err == nil {
+		if titleResult, err := s.page.EvaluateContext(ctx, `document.title`); err == nil {
 			if t, ok := titleResult.(string); ok {
 				out.Title = t
 			}
 		}
 		// Best-effort idle wait so a follow-up observe doesn't race
 		// the framework's mount path. Caller-visible via IdleAfterChange.
-		if err := s.page.WaitStable(400 * time.Millisecond); err == nil {
+		if err := s.page.WaitStableContext(ctx, 400*time.Millisecond); err == nil {
 			out.IdleAfterChange = true
 		}
 	}

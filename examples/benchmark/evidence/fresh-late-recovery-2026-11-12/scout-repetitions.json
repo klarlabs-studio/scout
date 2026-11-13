@@ -1,0 +1,86 @@
+{
+  "repetitions": 10,
+  "passed": 10,
+  "runs": [
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 305543
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 304017
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 302688
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 303614
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 302499
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 310634
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 302065
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 302062
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 302840
+    },
+    {
+      "success": true,
+      "verified": true,
+      "outcome": "postcondition_verified",
+      "action_calls": 3,
+      "false_success": false,
+      "duration_us": 301995
+    }
+  ]
+}

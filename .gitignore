@@ -5,6 +5,11 @@
 *.so
 *.dylib
 /scout
+/benchmark
+/durable_task_recovery
+/fixtureserver
+/loopback_proxy
+/report
 
 # Test artifacts
 *.test
@@ -43,8 +48,18 @@ findings.json
 .vite/
 ui/dist/
 ui/node_modules/
+examples/benchmark/stateless_mcp_clients/node_modules/
 ui/tsconfig.tsbuildinfo
+examples/benchmark/results/*
+!examples/benchmark/results/.gitkeep
+__pycache__/
+.playwright-mcp/
+examples/benchmark/reports/
+examples/benchmark/stateless_mcp_clients/.venv/
+examples/benchmark/*/profiles/
+examples/benchmark/*/report/
+examples/benchmark/*/reports/
+examples/*/reports/
 
 # nox scan artifacts — generated, not source
 ai.inventory.json
-findings.json

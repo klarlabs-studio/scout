@@ -2,8 +2,21 @@ package agent
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+	"unicode/utf8"
 )
+
+func TestDiagnosticsResponseSnippetTruncatesAtUTF8Boundary(t *testing.T) {
+	body := strings.Repeat("a", 499) + "€tail"
+	snippet, truncated := networkFailureSnippet(body)
+	if len(snippet) > 500 || !utf8.ValidString(snippet) {
+		t.Fatalf("snippet is not valid UTF-8 within byte cap: bytes=%d text=%q", len(snippet), snippet)
+	}
+	if !truncated || len(snippet) != 499 {
+		t.Fatalf("truncation metadata or boundary incorrect: bytes=%d truncated=%t", len(snippet), truncated)
+	}
+}
 
 func TestConsoleMessage_JSON(t *testing.T) {
 	cm := ConsoleMessage{

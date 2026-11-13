@@ -1,0 +1,78 @@
+{
+  "protocol_version": "scout-browser-comparison-v1",
+  "status": "partial-comparison",
+  "reason": "Status remains partial-comparison. Agent-browser has repeated CLI coverage for verified actions, scoped output, forms, caller-orchestrated recovery, background-tab actions, and named-session isolation (10/10). Playwright MCP has repeated MCP coverage for verified action, scoped observation, forms, open shadow root, same-origin iframe, and caller-orchestrated recovery; its headless hidden-to-visible condition remains unsupported by the pinned environment. Scout local regressions are recorded separately: v20 passed 32/32 scenarios with zero false successes, including process-local same-name session isolation. That Scout result is not a matched competitor row because Scout uses the active session per MCP process and agent-browser accepts a per-call session override. A pinned agent-browser 0.41.2 MCP two-server probe reproduced open issue #2422 once; proposed PR #2430 was open when checked. Keep this narrow issue reproduction distinct from repeated rates and continue broader adversarial cases.",
+  "comparison_targets": [
+    {
+      "name": "agent-browser",
+      "repository": "https://github.com/vercel-labs/agent-browser",
+      "interface": "CLI",
+      "install_reference": "npm install -g agent-browser",
+      "version_command": "agent-browser --version",
+      "run_reference": "examples/benchmark/COMPARISON.md#agent-browser"
+    },
+    {
+      "name": "playwright-mcp",
+      "repository": "https://github.com/microsoft/playwright-mcp",
+      "interface": "MCP",
+      "install_reference": "npx @playwright/mcp@0.0.84 --version",
+      "version_command": "npx @playwright/mcp@0.0.84 --version",
+      "run_reference": "examples/benchmark/COMPARISON.md#playwright-mcp",
+      "tested_version": "0.0.84"
+    }
+  ],
+  "required_result_fields": [
+    "benchmark_version",
+    "tool_name",
+    "tool_version",
+    "browser_version",
+    "scenario_id",
+    "fixture_url",
+    "operation",
+    "verification_predicate",
+    "success",
+    "false_success",
+    "workflow_duration_ms",
+    "action_calls",
+    "tool_calls",
+    "output_bytes",
+    "output_bytes_definition",
+    "raw_evidence_files"
+  ],
+  "rules": [
+    "Run each tool against the same local fixture server and scenario.",
+    "Pin tool and browser versions; never use an unpinned latest build in a published result.",
+    "Use each product's documented interface and disclose any adapter code.",
+    "Apply the same externally observable success predicate; distinguish native postcondition support from caller-side verification.",
+    "Save raw output and report exact output byte counting rules.",
+    "Repeat timing scenarios at least 10 times; report median and p95 separately from completion and false-success rates.",
+    "Mark unsupported scenarios unsupported rather than assigning a failure or success."
+  ],
+  "field_contract": {
+    "scenario": "One report row or nested scenario object represents one comparable scenario; disclose whether counts and bytes are per repetition or aggregated.",
+    "duration": "Report median and p95 for timing claims, plus samples where practical; state what startup, cleanup, and metadata work is included.",
+    "verification": "State the externally observable condition and report subpredicates when the overall scenario is incomplete.",
+    "false_success": "Count only cases where the tool reports success while the external predicate is false; a UI signal that is explicitly treated as ambiguous evidence is not itself a tool false success.",
+    "calls": "Use the aliases above and state whether values are per repetition or aggregate totals.",
+    "raw_evidence": "Use the aliases above for captured output/transcripts and structured per-repetition evidence; preserve exact byte-counting boundaries.",
+    "recovery": "For uncertain-mutation scenarios, report native_recovery_record and recovery_method. Separate built-in target-bound reconciliation from adapter-authored process interruption, client deadlines, polling, and inspection; do not equate final-state parity with equivalent recovery support."
+  },
+  "field_aliases": {
+    "verification_predicate": [
+      "verification_predicate",
+      "success_predicate"
+    ],
+    "action_calls": [
+      "action_calls",
+      "action_calls_per_repetition"
+    ],
+    "tool_calls": [
+      "tool_calls",
+      "tool_calls_per_repetition"
+    ],
+    "raw_evidence_files": [
+      "raw_output_file",
+      "raw_results_file"
+    ]
+  }
+}

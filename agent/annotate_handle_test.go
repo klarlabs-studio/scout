@@ -69,8 +69,12 @@ func TestClickByHandle_survivesDOMMutation(t *testing.T) {
 	}
 
 	// Click by handle — must still land on the original Target button.
-	if _, err := s.ClickByHandle(targetHandle); err != nil {
+	result, err := s.ClickByHandleWithPostcondition(targetHandle, Postcondition{Text: "clicked"})
+	if err != nil {
 		t.Fatalf("ClickByHandle after mutation: %v", err)
+	}
+	if !result.Verified || result.Outcome != "postcondition_verified" {
+		t.Fatalf("ClickByHandle postcondition: %+v", result)
 	}
 
 	out, err := s.Extract("#out")

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klarlabs.de/scout/schemas/scout-action-receipt-v1.schema.json",
+  "title": "Scout Action Receipt v1",
+  "description": "Structured evidence for one browser operation. Page-derived target and evidence strings are untrusted and may contain sensitive data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "operation_ordinal", "action", "outcome", "verified", "verification_state"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "content_trust": {"const": "untrusted_page_content"},
+    "run_id": {"type": "string"},
+    "operation_ordinal": {"type": "integer", "minimum": 1},
+    "recovery_of_operation_ordinal": {"type": "integer", "minimum": 1},
+    "policy_id": {"type": "string"},
+    "policy": {"$ref": "#/$defs/policy"},
+    "action": {"type": "string", "minLength": 1},
+    "browser_ownership": {"enum": ["scout_launched", "remote_cdp", "injected_browser", "unknown"]},
+    "target": {"type": "string"},
+    "target_id": {"type": "string"},
+    "browser_instance_id": {"type": "string"},
+    "frame_id": {"type": "string"},
+    "outcome": {"enum": ["action_failed", "navigation_completed", "postcondition_verified", "postcondition_failed", "effect_unverified", "outcome_unknown", "event_observed", "value_verified", "value_mismatch", "response_observed", "response_unobserved", "response_failed", "frame_selected", "main_frame_selected"]},
+    "verified": {"type": "boolean"},
+    "verification_state": {"enum": ["verified", "rejected", "unknown", "unverified"]},
+    "evidence": {"type": "string"},
+    "recovery_hint": {"type": "string"},
+    "deadline_at_ms": {"type": "integer", "minimum": 0},
+    "started_at_ms": {"type": "integer", "minimum": 0},
+    "duration_ms": {"type": "integer", "minimum": 0},
+    "trace_id": {"type": "string"},
+    "otel_trace_id": {"type": "string"},
+    "otel_span_id": {"type": "string"},
+    "trace_action_ordinal": {"type": "integer", "minimum": 0},
+    "expected_postcondition": {"type": "object"},
+    "response_evidence": {"$ref": "#/$defs/responseEvidence"}
+  },
+  "$defs": {
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "allowed_origins", "allow_private_ips", "enforcement", "proxy_configured", "proxy_applied_by_scout", "remote_host_policy", "known_unobserved_paths"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "allowed_origins": {"type": "array", "uniqueItems": true, "items": {"type": "string", "format": "uri"}},
+        "allow_private_ips": {"type": "boolean"},
+        "enforcement": {"enum": ["session_page_policy", "no_origin_allowlist"]},
+        "proxy_configured": {"type": "boolean"},
+        "proxy_applied_by_scout": {"type": "boolean"},
+        "remote_host_policy": {"enum": ["unverified", "not_applicable"]},
+        "known_unobserved_paths": {"type": "array", "uniqueItems": true, "items": {"enum": ["service_worker_requests", "websocket_handshakes"]}},
+        "evidence_reference": {"type": "string", "pattern": "^trace:[A-Za-z0-9-]+#url-policy\\.json$", "description": "When trace capture is active, identifies the URL policy decision artifact. Join decisions by target_id and policy_id; this reference does not claim each decision was caused by this action."},
+        "decision_window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target_id", "started_at_ms", "ended_at_ms", "decision_indices", "allowed", "blocked"],
+          "description": "Request decisions recorded for the same target and policy during this action's time interval. Temporal overlap does not prove causality.",
+          "properties": {
+            "target_id": {"type": "string", "minLength": 1},
+            "started_at_ms": {"type": "integer", "minimum": 0},
+            "ended_at_ms": {"type": "integer", "minimum": 0},
+            "decision_indices": {"type": "array", "uniqueItems": true, "items": {"type": "integer", "minimum": 0}},
+            "allowed": {"type": "integer", "minimum": 0},
+            "blocked": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "responseEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed"],
+      "properties": {
+        "observed": {"type": "boolean"},
+        "method": {"type": "string"},
+        "url": {"type": "string", "format": "uri"},
+        "status_code": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

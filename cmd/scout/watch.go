@@ -2,30 +2,48 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
+	browse "go.klarlabs.de/scout"
 	"go.klarlabs.de/scout/agent"
 )
 
 // runWatch re-runs observe on a URL at intervals and prints diffs.
 func runWatch(url string, flags cliFlags) {
-	interval := flags.getDuration("interval", 5*time.Second)
-	headless := flags.getBool("headless", false)
+	interval, err := flags.getDuration("interval", 5*time.Second)
+	if err != nil {
+		writeCLIError(err, "")
+		os.Exit(1)
+	}
+	headless, err := flags.getBool("headless", false)
+	if err != nil {
+		writeCLIError(err, "")
+		os.Exit(1)
+	}
+	allowPrivateIPs, err := flags.getBool("allow-private-ips", false)
+	if err != nil {
+		writeCLIError(err, "")
+		os.Exit(1)
+	}
 
 	session, err := agent.NewSession(agent.SessionConfig{
 		Headless:        headless,
-		AllowPrivateIPs: true,
+		AllowPrivateIPs: allowPrivateIPs,
+		ProxyServer:     configuredProxyServer(),
 	})
 	exitOnErr(err)
 	defer func() { _ = session.Close() }()
 
-	_, err = session.Navigate(url)
+	ctx := agent.WithExpectedTargetID(context.Background(), flags.get("target-id", ""))
+	_, err = session.NavigateWithPostconditionContext(ctx, url, agent.Postcondition{})
 	exitOnErr(err)
 
 	// Set up Ctrl+C handler
@@ -48,7 +66,7 @@ func runWatch(url string, flags cliFlags) {
 		case <-tick.C:
 			obs, diff, err := session.ObserveDiff()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				writeCLIError(err, url)
 				continue
 			}
 
@@ -84,9 +102,18 @@ func runPipe(args []string) {
 	}
 
 	command := args[0]
+	flags := parseFlags(args[1:])
+	allowPrivateIPs, err := flags.getBool("allow-private-ips", false)
+	if err != nil {
+		writeCLIError(err, "")
+		os.Exit(1)
+	}
 	selector := ""
-	if len(args) > 1 {
-		selector = args[1]
+	for _, arg := range args[1:] {
+		if !strings.HasPrefix(arg, "--") {
+			selector = arg
+			break
+		}
 	}
 
 	// Validate the command (and its arguments) up front, before launching a
@@ -104,7 +131,8 @@ func runPipe(args []string) {
 
 	session, err := agent.NewSession(agent.SessionConfig{
 		Headless:        true,
-		AllowPrivateIPs: true,
+		AllowPrivateIPs: allowPrivateIPs,
+		ProxyServer:     configuredProxyServer(),
 	})
 	exitOnErr(err)
 	defer func() { _ = session.Close() }()
@@ -118,7 +146,7 @@ func runPipe(args []string) {
 
 		_, err := session.Navigate(url)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error navigating %s: %v\n", url, err)
+			writeCLIError(err, url)
 			continue
 		}
 
@@ -126,14 +154,14 @@ func runPipe(args []string) {
 		case "extract":
 			result, err := session.Extract(selector)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", url, err)
+				writeCLIError(err, url)
 			} else {
 				fmt.Printf("%s\t%s\n", url, result.Text)
 			}
 		case "observe":
 			obs, err := session.Observe()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", url, err)
+				writeCLIError(err, url)
 			} else {
 				data, _ := json.Marshal(obs)
 				fmt.Println(string(data))
@@ -141,23 +169,26 @@ func runPipe(args []string) {
 		case "markdown":
 			md, err := session.Markdown()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", url, err)
+				writeCLIError(err, url)
 			} else {
 				fmt.Printf("--- %s ---\n%s\n\n", url, md)
 			}
 		case "screenshot":
 			data, err := session.Screenshot()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", url, err)
+				writeCLIError(err, url)
 			} else {
-				filename := sanitizeFilename(url) + ".png"
-				_ = os.WriteFile(filename, data, 0o600)
+				filename, err := savePipeScreenshot(".", url, data)
+				if err != nil {
+					writeCLIError(err, url)
+					continue
+				}
 				fmt.Printf("%s → %s (%d bytes)\n", url, filename, len(data))
 			}
 		case "frameworks":
 			fw, err := session.DetectedFrameworks()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", url, err)
+				writeCLIError(err, url)
 			} else {
 				fmt.Printf("%s\t%s\n", url, strings.Join(fw, ","))
 			}
@@ -168,10 +199,16 @@ func runPipe(args []string) {
 // runRecord opens a visible browser for interactive recording.
 func runRecord(url string, flags cliFlags) {
 	output := flags.get("output", "playbook.json")
+	allowPrivateIPs, err := flags.getBool("allow-private-ips", false)
+	if err != nil {
+		writeCLIError(err, "")
+		os.Exit(1)
+	}
 
 	session, err := agent.NewSession(agent.SessionConfig{
 		Headless:        false, // always visible for recording
-		AllowPrivateIPs: true,
+		AllowPrivateIPs: allowPrivateIPs,
+		ProxyServer:     configuredProxyServer(),
 	})
 	exitOnErr(err)
 	defer func() { _ = session.Close() }()
@@ -213,4 +250,12 @@ func sanitizeFilename(url string) string {
 		s = s[:50]
 	}
 	return s
+}
+
+func savePipeScreenshot(dir, pageURL string, data []byte) (string, error) {
+	filename := sanitizeFilename(pageURL) + ".png"
+	if err := browse.WritePrivateFile(filepath.Join(dir, filename), data); err != nil {
+		return "", err
+	}
+	return filename, nil
 }

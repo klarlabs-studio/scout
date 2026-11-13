@@ -80,6 +80,9 @@ func TestNavigate(t *testing.T) {
 	if result.Title != "Agent Test" {
 		t.Errorf("title: expected 'Agent Test', got %q", result.Title)
 	}
+	if !result.Verified || result.Outcome != "navigation_completed" {
+		t.Fatalf("navigation completion was not verified: %+v", result)
+	}
 }
 
 func TestObserve(t *testing.T) {
@@ -186,6 +189,32 @@ func TestClick(t *testing.T) {
 	}
 }
 
+func TestClickExpectReportsPostcondition(t *testing.T) {
+	ts := testServer()
+	defer ts.Close()
+
+	s := newSession(t)
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
+
+	result, err := s.ClickExpect("#action", "Updated!")
+	if err != nil {
+		t.Fatalf("ClickExpect: %v", err)
+	}
+	if !result.Verified || result.Action != "clicked" || result.Target != "#action" {
+		t.Fatalf("expected verified click result, got %+v", result)
+	}
+
+	result, err = s.ClickExpect("#action", "text that will not appear")
+	if err != nil {
+		t.Fatalf("ClickExpect with failed postcondition: %v", err)
+	}
+	if result.Verified || result.Evidence == "" {
+		t.Fatalf("expected an unverified result with failure evidence, got %+v", result)
+	}
+}
+
 func TestType(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping agent test in short mode")
@@ -252,6 +281,24 @@ func TestExtractTable(t *testing.T) {
 	}
 	if len(table.Rows) > 0 && table.Rows[0][0] != "Alice" {
 		t.Errorf("first cell: expected 'Alice', got %q", table.Rows[0][0])
+	}
+}
+
+func TestExtractTableReportsAndBoundsRows(t *testing.T) {
+	ts := testServer()
+	defer ts.Close()
+	s := newSession(t)
+	s.SetContentOptions(agent.ContentOptions{MaxRows: 1})
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
+
+	table, err := s.ExtractTable("#data")
+	if err != nil {
+		t.Fatalf("ExtractTable: %v", err)
+	}
+	if table.RowCount != 1 || table.TotalRows != 2 || !table.Truncated || len(table.Rows) != 1 {
+		t.Fatalf("expected one of two rows with truncation metadata, got %+v", table)
 	}
 }
 

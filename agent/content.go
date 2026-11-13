@@ -1,6 +1,81 @@
 package agent
 
-import "fmt"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"unicode/utf8"
+)
+
+func contentLimit(options ContentOptions, fallback int) int {
+	if options.MaxLength <= 0 {
+		return fallback
+	}
+	return options.MaxLength
+}
+
+func elementLimit(options ContentOptions) int {
+	if options.MaxElements <= 0 {
+		return 100
+	}
+	return options.MaxElements
+}
+
+func boundedContentResult(content string, totalLength, maxLength int) *ContentResult {
+	if maxLength < 0 {
+		maxLength = 0
+	}
+	length := 0
+	cut := len(content)
+	for offset := 0; offset < len(content); {
+		_, size := utf8.DecodeRuneInString(content[offset:])
+		if length == maxLength {
+			cut = offset
+			break
+		}
+		length++
+		offset += size
+	}
+	if cut < len(content) {
+		content = content[:cut]
+	}
+	return &ContentResult{Content: content, ContentTrust: ContentTrustUntrustedPage, Length: length, MaxLength: maxLength, TotalLength: totalLength, Truncated: totalLength > length}
+}
+
+const maxSnapshotChars = 2_000_000
+
+func requestedContentLimit(requested, configured, fallback int) int {
+	limit := contentLimit(ContentOptions{MaxLength: configured}, fallback)
+	if requested > 0 {
+		limit = requested
+	}
+	if limit > maxSnapshotChars {
+		limit = maxSnapshotChars
+	}
+	if limit < 1 {
+		return fallback
+	}
+	return limit
+}
+
+type boundedContentPayload struct {
+	Content     string `json:"content"`
+	TotalLength int    `json:"totalLength"`
+}
+
+func decodeBoundedContent(raw any, maxLength int, targetID, frameID string) (*ContentResult, error) {
+	encoded, ok := raw.(string)
+	if !ok {
+		return nil, fmt.Errorf("browser returned unexpected content result %T", raw)
+	}
+	var payload boundedContentPayload
+	if err := json.Unmarshal([]byte(encoded), &payload); err != nil {
+		return nil, fmt.Errorf("decode content result: %w", err)
+	}
+	result := boundedContentResult(payload.Content, payload.TotalLength, maxLength)
+	result.TargetID, result.FrameID = targetID, frameID
+	return result, nil
+}
 
 // ContentOptions controls how page content is extracted and truncated.
 type ContentOptions struct {
@@ -16,6 +91,8 @@ type ContentOptions struct {
 	MaxItems int
 	// MaxRows caps table rows. Default 100.
 	MaxRows int
+	// MaxElements caps structured interactive-element results. Default 100.
+	MaxElements int
 	// MaxScreenshotBytes is the maximum screenshot size in bytes. Default 5MB.
 	// Screenshots exceeding this are auto-compressed (JPEG + downscale).
 	MaxScreenshotBytes int
@@ -30,6 +107,7 @@ func DefaultContentOptions() ContentOptions {
 		MaxButtons:         15,
 		MaxItems:           50,
 		MaxRows:            100,
+		MaxElements:        100,
 		MaxScreenshotBytes: 5 * 1024 * 1024, // 5MB
 	}
 }
@@ -42,18 +120,57 @@ func (s *Session) SetContentOptions(opts ContentOptions) {
 // Markdown returns a compact markdown representation of the page content.
 // This is much smaller than raw HTML and easier for LLMs to process.
 func (s *Session) Markdown() (string, error) {
+	result, err := s.MarkdownResult()
+	if err != nil {
+		return "", err
+	}
+	return result.Content, nil
+}
+
+// MarkdownResult returns compact markdown with explicit truncation metadata.
+func (s *Session) MarkdownResult() (*ContentResult, error) {
+	return s.MarkdownResultWithLimit(0)
+}
+
+// MarkdownResultWithLimit returns a bounded Markdown snapshot. Limits above
+// two million characters are capped to keep browser-side serialization finite.
+func (s *Session) MarkdownResultWithLimit(requested int) (*ContentResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ensurePage(); err != nil {
-		return "", err
+		return nil, err
 	}
+	return s.markdownResultWithEvaluator(requested, s.evaluateInFrame)
+}
 
-	maxLen := s.contentOpts.MaxLength
-	if maxLen == 0 {
-		maxLen = 4000
+func (s *Session) MarkdownResultWithLimitContext(ctx context.Context, requested int) (*ContentResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
 	}
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := s.ensurePageContext(ctx); err != nil {
+		return nil, err
+	}
+	return s.markdownResultWithEvaluator(requested, func(js string) (any, error) { return s.evaluateCurrentContext(ctx, js) })
+}
+
+func (s *Session) markdownResultWithEvaluator(requested int, evaluate func(string) (any, error)) (*ContentResult, error) {
+
+	maxLen := requestedContentLimit(requested, s.contentOpts.MaxLength, 4000)
 
 	js := fmt.Sprintf(`(function() {
+		function boundedText(text, limit) {
+			let totalLength = 0;
+			const prefix = [];
+			for (const char of text) {
+				if (totalLength < limit) prefix.push(char);
+				totalLength++;
+			}
+			return {content: prefix.join(''), totalLength};
+		}
 		function toMd(el, depth) {
 			if (!el) return '';
 			const tag = el.tagName ? el.tagName.toLowerCase() : '';
@@ -98,7 +215,8 @@ func (s *Session) Markdown() (string, error) {
 				case 'input':
 					const t = el.type || 'text';
 					const n = el.name || el.id || '';
-					const v = el.value || '';
+					// Do not serialize secrets or local file paths into snapshots.
+					const v = t === 'password' || t === 'file' ? '' : (el.value || '');
 					const ph = el.placeholder || '';
 					md = '[input:' + t + ' name=' + n;
 					if (v) md += ' value="' + v + '"';
@@ -128,32 +246,69 @@ func (s *Session) Markdown() (string, error) {
 		let result = toMd(document.body, 0);
 		// Collapse whitespace
 		result = result.replace(/\n{3,}/g, '\n\n').trim();
-		return result.slice(0, %d);
+		return JSON.stringify(boundedText(result, %d));
 	})()`, maxLen)
 
-	result, err := s.page.Evaluate(js)
+	result, err := evaluate(js)
 	if err != nil {
-		return "", fmt.Errorf("markdown conversion failed: %w", err)
+		return nil, fmt.Errorf("markdown conversion failed: %w", err)
 	}
-	md, _ := result.(string)
-	return md, nil
+	return decodeBoundedContent(result, maxLen, s.page.TargetID(), s.frameID)
 }
 
 // ReadableText extracts just the main readable text content, stripping navigation,
 // sidebars, and boilerplate. Uses a heuristic based on text density.
 func (s *Session) ReadableText() (string, error) {
+	result, err := s.ReadableTextResult()
+	if err != nil {
+		return "", err
+	}
+	return result.Content, nil
+}
+
+// ReadableTextResult returns main page text with explicit truncation metadata.
+func (s *Session) ReadableTextResult() (*ContentResult, error) {
+	return s.ReadableTextResultWithLimit(0)
+}
+
+// ReadableTextResultWithLimit returns bounded readable page text.
+func (s *Session) ReadableTextResultWithLimit(requested int) (*ContentResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ensurePage(); err != nil {
-		return "", err
+		return nil, err
 	}
+	return s.readableTextResultWithEvaluator(requested, s.evaluateInFrame)
+}
 
-	maxLen := s.contentOpts.MaxLength
-	if maxLen == 0 {
-		maxLen = 4000
+func (s *Session) ReadableTextResultWithLimitContext(ctx context.Context, requested int) (*ContentResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
 	}
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := s.ensurePageContext(ctx); err != nil {
+		return nil, err
+	}
+	return s.readableTextResultWithEvaluator(requested, func(js string) (any, error) { return s.evaluateCurrentContext(ctx, js) })
+}
+
+func (s *Session) readableTextResultWithEvaluator(requested int, evaluate func(string) (any, error)) (*ContentResult, error) {
+
+	maxLen := requestedContentLimit(requested, s.contentOpts.MaxLength, 4000)
 
 	js := fmt.Sprintf(`(function() {
+		function boundedText(text, limit) {
+			let totalLength = 0;
+			const prefix = [];
+			for (const char of text) {
+				if (totalLength < limit) prefix.push(char);
+				totalLength++;
+			}
+			return {content: prefix.join(''), totalLength};
+		}
 		// Simple readability: find the element with the most text content
 		// that isn't a container of the entire page
 		const candidates = document.querySelectorAll('article, main, [role="main"], .content, .post, .article, .entry, #content, #main');
@@ -174,43 +329,78 @@ func (s *Session) ReadableText() (string, error) {
 			for (const tag of ['nav', 'header', 'footer', 'aside', 'script', 'style', 'noscript']) {
 				for (const el of clone.querySelectorAll(tag)) el.remove();
 			}
-			return clone.innerText.replace(/\n{3,}/g, '\n\n').trim().slice(0, %d);
+			const text = clone.innerText.replace(/\n{3,}/g, '\n\n').trim();
+			return JSON.stringify(boundedText(text, %d));
 		}
 
-		return best.innerText.replace(/\n{3,}/g, '\n\n').trim().slice(0, %d);
+		const text = best.innerText.replace(/\n{3,}/g, '\n\n').trim();
+		return JSON.stringify(boundedText(text, %d));
 	})()`, maxLen, maxLen)
 
-	result, err := s.page.Evaluate(js)
+	result, err := evaluate(js)
 	if err != nil {
-		return "", fmt.Errorf("readability extraction failed: %w", err)
+		return nil, fmt.Errorf("readability extraction failed: %w", err)
 	}
-	text, _ := result.(string)
-	return text, nil
+	return decodeBoundedContent(result, maxLen, s.page.TargetID(), s.frameID)
 }
 
 // AccessibilityTree returns a compact tree representation of the page's
 // accessible elements. This is much smaller than HTML and captures the
 // semantic structure that matters for interaction.
 func (s *Session) AccessibilityTree() (string, error) {
+	result, err := s.AccessibilityTreeResult()
+	if err != nil {
+		return "", err
+	}
+	return result.Content, nil
+}
+
+// AccessibilityTreeResult returns the accessibility tree with truncation metadata.
+func (s *Session) AccessibilityTreeResult() (*ContentResult, error) {
+	return s.AccessibilityTreeResultWithLimit(0)
+}
+
+// AccessibilityTreeResultWithLimit returns a bounded accessibility snapshot.
+func (s *Session) AccessibilityTreeResultWithLimit(requested int) (*ContentResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ensurePage(); err != nil {
-		return "", err
+		return nil, err
 	}
-
-	maxLen := s.contentOpts.MaxLength
-	if maxLen == 0 {
-		maxLen = 8000
-	}
-
-	return s.accessibilityTreeJS(maxLen)
+	return s.accessibilityTreeResultWithEvaluator(requested, s.evaluateInFrame)
 }
 
-func (s *Session) accessibilityTreeJS(maxLen int) (string, error) {
+func (s *Session) AccessibilityTreeResultWithLimitContext(ctx context.Context, requested int) (*ContentResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := s.ensurePageContext(ctx); err != nil {
+		return nil, err
+	}
+	return s.accessibilityTreeResultWithEvaluator(requested, func(js string) (any, error) { return s.evaluateCurrentContext(ctx, js) })
+}
+
+func (s *Session) accessibilityTreeResultWithEvaluator(requested int, evaluate func(string) (any, error)) (*ContentResult, error) {
+
+	maxLen := requestedContentLimit(requested, s.contentOpts.MaxLength, 8000)
+
+	tree, err := s.accessibilityTreeJSWithEvaluator(maxLen, evaluate)
+	if err != nil {
+		return nil, err
+	}
+	return decodeBoundedContent(tree, maxLen, s.page.TargetID(), s.frameID)
+}
+
+func (s *Session) accessibilityTreeJSWithEvaluator(maxLen int, evaluate func(string) (any, error)) (string, error) {
 	js := fmt.Sprintf(`(function() {
 		const lines = [];
+		let content = '';
+		let totalLength = 0;
 		function walk(el, depth) {
-			if (lines.join('\\n').length > %d) return;
 			if (!el || !el.tagName) return;
 			const tag = el.tagName.toLowerCase();
 			const skip = ['script','style','noscript','svg','path','br','hr'];
@@ -236,7 +426,8 @@ func (s *Session) accessibilityTreeJS(maxLen int) (string, error) {
 				case 'input':
 					const t = el.type || 'text';
 					const ph = el.placeholder ? ' placeholder="' + el.placeholder + '"' : '';
-					const val = el.value ? ' value="' + el.value + '"' : '';
+					// Keep accessibility snapshots from exposing passwords or file paths.
+					const val = t === 'password' || t === 'file' || !el.value ? '' : ' value="' + el.value + '"';
 					line = indent + 'input[' + t + ']' + id + name + ph + val;
 					break;
 				case 'textarea':
@@ -275,20 +466,30 @@ func (s *Session) accessibilityTreeJS(maxLen int) (string, error) {
 					break;
 			}
 
-			if (line) lines.push(line);
+			if (line) {
+				const nextLength = line.length + (totalLength ? 1 : 0);
+				if (totalLength + nextLength <= %d) {
+					lines.push(line);
+					content += (content ? '\\n' : '') + line;
+				}
+				totalLength += nextLength;
+			}
 
 			for (const child of el.children) {
 				walk(child, line ? depth + 1 : depth);
 			}
 		}
 		walk(document.body, 0);
-		return lines.join('\\n');
+		return JSON.stringify({content: content, totalLength: totalLength});
 	})()`, maxLen)
 
-	result, err := s.page.Evaluate(js)
+	result, err := evaluate(js)
 	if err != nil {
 		return "", err
 	}
-	tree, _ := result.(string)
-	return tree, nil
+	content, ok := result.(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected content result type %T", result)
+	}
+	return content, nil
 }

@@ -92,8 +92,10 @@ function icon(name: string): string {
             :class="{
               'bg-emerald-500': action.status === 'done',
               'bg-red-500': action.status === 'error',
+              'bg-amber-400': action.status === 'unknown',
               'bg-blue-500 animate-pulse': action.status === 'running',
             }"
+            :title="action.status === 'unknown' ? 'Outcome unknown · inspect state before retrying' : action.status"
           />
           <span class="text-[10px] text-zinc-700 tabular-nums shrink-0">
             {{ formatTime(action.timestamp) }}

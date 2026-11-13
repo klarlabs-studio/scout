@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -8,12 +9,14 @@ import (
 
 // AssertResult is returned from text/visibility assertions.
 type AssertResult struct {
-	OK       bool   `json:"ok"`
-	Selector string `json:"selector,omitempty"`
-	Expected string `json:"expected,omitempty"`
-	Found    string `json:"found,omitempty"`
-	Snippet  string `json:"snippet,omitempty"`
-	Reason   string `json:"reason,omitempty"`
+	ContentTrust string `json:"content_trust,omitempty"`
+	OK           bool   `json:"ok"`
+	TargetID     string `json:"target_id,omitempty"`
+	Selector     string `json:"selector,omitempty"`
+	Expected     string `json:"expected,omitempty"`
+	Found        string `json:"found,omitempty"`
+	Snippet      string `json:"snippet,omitempty"`
+	Reason       string `json:"reason,omitempty"`
 }
 
 // AssertTextContains checks that the given text appears on the page.
@@ -24,12 +27,27 @@ type AssertResult struct {
 //
 // One round-trip instead of extract → string-match in caller code.
 func (s *Session) AssertTextContains(text, selector string, caseInsensitive bool) (*AssertResult, error) {
-	s.mu.Lock()
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+	return s.AssertTextContainsContext(ctx, text, selector, caseInsensitive)
+}
+
+// AssertTextContainsContext checks the current frame under the caller's deadline.
+func (s *Session) AssertTextContainsContext(ctx context.Context, text, selector string, caseInsensitive bool) (*AssertResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
+	return s.assertTextContainsLockedContext(ctx, text, selector, caseInsensitive)
+}
+
+// assertTextContainsLocked performs the assertion while the caller holds s.mu.
+
+func (s *Session) assertTextContainsLockedContext(ctx context.Context, text, selector string, caseInsensitive bool) (*AssertResult, error) {
 	if text == "" {
 		return nil, fmt.Errorf("assert_text_contains: text is required")
 	}
@@ -56,7 +74,10 @@ func (s *Session) AssertTextContains(text, selector string, caseInsensitive bool
 		return JSON.stringify({ok:true, snippet: txt.slice(start, end), found: txt.slice(idx, idx+want.length)});
 	})()`, string(selJSON), string(wantJSON), caseInsensitive)
 
-	raw, err := s.page.Evaluate(js)
+	// Assertions follow the active execution context just like clicks and
+	// reads. Otherwise a verified click inside an iframe is checked against
+	// the parent document and is incorrectly reported as a failure.
+	raw, err := s.evaluateInFrameContext(ctx, s.frameContextID, js)
 	if err != nil {
 		return nil, err
 	}
@@ -70,15 +91,24 @@ func (s *Session) AssertTextContains(text, selector string, caseInsensitive bool
 	_ = json.Unmarshal([]byte(str), &parsed)
 
 	out := &AssertResult{
-		OK:       parsed.OK,
-		Selector: selector,
-		Expected: text,
-		Snippet:  strings.TrimSpace(parsed.Snippet),
-		Found:    parsed.Found,
-		Reason:   parsed.Reason,
+		ContentTrust: ContentTrustUntrustedPage,
+		OK:           parsed.OK,
+		TargetID:     s.page.TargetID(),
+		Selector:     selector,
+		Expected:     text,
+		Snippet:      strings.TrimSpace(parsed.Snippet),
+		Found:        parsed.Found,
+		Reason:       parsed.Reason,
 	}
 	if !out.OK && out.Reason == "" {
 		out.Reason = "not_found"
 	}
 	return out, nil
+}
+
+// assertTextContainsLocked performs the assertion while the caller holds s.mu.
+//
+//nolint:unused // Kept for existing tests; golangci-lint excludes test files.
+func (s *Session) assertTextContainsLocked(text, selector string, caseInsensitive bool) (*AssertResult, error) {
+	return s.assertTextContainsLockedContext(context.Background(), text, selector, caseInsensitive)
 }

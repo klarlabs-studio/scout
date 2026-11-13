@@ -31,10 +31,17 @@ type RunAgentInput struct {
 
 // InputMessage is a message from the AG-UI request.
 type InputMessage struct {
-	ID         string `json:"id"`
-	Role       string `json:"role"`
-	Content    string `json:"content"`
-	ToolCallID string `json:"toolCallId,omitempty"`
+	ID         string          `json:"id"`
+	Role       string          `json:"role"`
+	Content    string          `json:"content"`
+	ToolCallID string          `json:"toolCallId,omitempty"`
+	ToolCalls  []InputToolCall `json:"toolCalls,omitempty"`
+}
+
+type InputToolCall struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 // Handler orchestrates the agentic loop: LLM ↔ tool execution ↔ SSE emission.
@@ -62,7 +69,7 @@ func (h *Handler) HandleRun(ctx context.Context, sse *SSEWriter, input RunAgentI
 	}
 
 	// Emit initial state snapshot
-	state := captureBrowserState(session)
+	state := captureBrowserState(ctx, session)
 	if err := sse.WriteEvent(StateSnapshot{
 		Type:  EventStateSnapshot,
 		State: state,
@@ -181,6 +188,9 @@ func (h *Handler) HandleRun(ctx context.Context, sse *SSEWriter, input RunAgentI
 			if textStarted {
 				_ = sse.WriteEvent(TextMessageEnd{Type: EventTextMessageEnd, MessageID: msgID})
 			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			return h.emitError(sse, fmt.Sprintf("LLM error: %v", err))
 		}
 
@@ -208,6 +218,9 @@ func (h *Handler) HandleRun(ctx context.Context, sse *SSEWriter, input RunAgentI
 		var repeatedTool string
 		var repeatedCount int
 		for _, pt := range pendingTools {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			sig := pt.Name + "\x00" + pt.Args
 			repeatCount[sig]++
 			if repeatCount[sig] >= repeatLimit && repeatedCount == 0 {
@@ -215,7 +228,12 @@ func (h *Handler) HandleRun(ctx context.Context, sse *SSEWriter, input RunAgentI
 				repeatedCount = repeatCount[sig]
 			}
 
-			result, execErr := ExecuteTool(session, pt.Name, json.RawMessage(pt.Args))
+			result, execErr := ExecuteToolContext(ctx, session, pt.Name, json.RawMessage(pt.Args))
+			if ctx.Err() != nil {
+				// No result reached the client. The caller must inspect page state
+				// before retrying because the browser may have received a mutation.
+				return ctx.Err()
+			}
 
 			resultContent := string(result)
 			if execErr != nil {
@@ -241,7 +259,7 @@ func (h *Handler) HandleRun(ctx context.Context, sse *SSEWriter, input RunAgentI
 
 		// Emit state delta after tool execution
 		h.Sessions.Touch(input.ThreadID)
-		newState := captureBrowserState(session)
+		newState := captureBrowserState(ctx, session)
 		ops := Diff(state, newState)
 		if len(ops) > 0 {
 			_ = sse.WriteEvent(StateDelta{
@@ -298,33 +316,37 @@ func (h *Handler) emitError(sse *SSEWriter, msg string) error {
 func convertMessages(msgs []InputMessage) []ChatMessage {
 	var out []ChatMessage
 	for _, m := range msgs {
-		out = append(out, ChatMessage{
+		message := ChatMessage{
 			Role:       m.Role,
 			Content:    m.Content,
 			ToolCallID: m.ToolCallID,
-		})
+		}
+		for _, call := range m.ToolCalls {
+			message.ToolCalls = append(message.ToolCalls, ToolCall{ID: call.ID, Name: call.Name, Args: call.Arguments})
+		}
+		out = append(out, message)
 	}
 	return out
 }
 
-func captureBrowserState(s *agent.Session) *BrowserState {
+func captureBrowserState(ctx context.Context, s *agent.Session) *BrowserState {
 	state := &BrowserState{}
 
 	// Try to get page info
-	snap, err := s.Snapshot()
+	snap, err := s.SnapshotContext(ctx)
 	if err == nil && snap != nil {
 		state.URL = snap.URL
 		state.Title = snap.Title
 	}
 
 	// Capture compressed screenshot for state streaming
-	data, err := s.Screenshot()
+	data, err := s.ScreenshotContext(ctx)
 	if err == nil && len(data) > 0 {
 		state.Screenshot = base64.StdEncoding.EncodeToString(data)
 	}
 
 	// Get tab count
-	tabs, err := s.ListTabs()
+	tabs, err := s.ListTabsContext(ctx)
 	if err == nil {
 		state.TabCount = len(tabs)
 	}

@@ -28,12 +28,13 @@ type ScreenRecordingOptions struct {
 
 // ScreenRecordingResult is returned by StopScreenRecording.
 type ScreenRecordingResult struct {
-	Path       string `json:"path"`        // path to encoded video, or frames directory
-	Format     string `json:"format"`      // "webm" | "mp4" | "frames"
-	Encoder    string `json:"encoder"`     // "ffmpeg" | "none"
-	FrameCount int    `json:"frame_count"` // number of frames captured
-	DurationMs int64  `json:"duration_ms"` // wall-clock recording duration
-	FramesDir  string `json:"frames_dir"`  // raw JPEG frame directory (preserved)
+	Path       string             `json:"path"`        // path to encoded video, or frames directory
+	Format     string             `json:"format"`      // "webm" | "mp4" | "frames"
+	Encoder    string             `json:"encoder"`     // "ffmpeg" | "none"
+	FrameCount int                `json:"frame_count"` // number of frames captured
+	DurationMs int64              `json:"duration_ms"` // wall-clock recording duration
+	FramesDir  string             `json:"frames_dir"`  // raw JPEG frame directory (preserved)
+	Artifact   *ArtifactReference `json:"artifact,omitempty"`
 }
 
 // screenRecording is the internal in-flight recording state.
@@ -64,9 +65,11 @@ type screenRecording struct {
 	frames   []frameMeta
 	framesMu sync.Mutex
 
-	stop   chan struct{} // closed by StopScreenRecording to signal capture loop
-	done   chan struct{} // closed by capture goroutine after it exits
-	closed atomic.Bool
+	stop          chan struct{} // closed by StopScreenRecording to signal capture loop
+	done          chan struct{} // closed by capture goroutine after it exits
+	captureCtx    context.Context
+	captureCancel context.CancelFunc
+	closed        atomic.Bool
 }
 
 type frameMeta struct {
@@ -78,10 +81,17 @@ type frameMeta struct {
 // Page.captureScreenshot on a ticker. Returns an error if a recording is
 // already in progress on this session.
 func (s *Session) StartScreenRecording(opts ScreenRecordingOptions) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+	return s.StartScreenRecordingContext(ctx, opts)
+}
 
-	if err := s.ensurePage(); err != nil {
+func (s *Session) StartScreenRecordingContext(ctx context.Context, opts ScreenRecordingOptions) error {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return err
+	}
+	defer s.mu.Unlock()
+	if err := s.ensurePageContext(ctx); err != nil {
 		return err
 	}
 	if s.screenRec != nil {
@@ -125,18 +135,21 @@ func (s *Session) StartScreenRecording(opts ScreenRecordingOptions) error {
 		return fmt.Errorf("create frames dir: %w", err)
 	}
 
+	captureCtx, captureCancel := context.WithCancel(context.Background())
 	rec := &screenRecording{
-		id:        filepath.Base(framesDir),
-		startedAt: time.Now(),
-		framesDir: framesDir,
-		format:    opts.Format,
-		fps:       opts.FPS,
-		width:     opts.Width,
-		height:    opts.Height,
-		quality:   opts.Quality,
-		session:   s,
-		stop:      make(chan struct{}),
-		done:      make(chan struct{}),
+		id:            filepath.Base(framesDir),
+		startedAt:     time.Now(),
+		framesDir:     framesDir,
+		format:        opts.Format,
+		fps:           opts.FPS,
+		width:         opts.Width,
+		height:        opts.Height,
+		quality:       opts.Quality,
+		session:       s,
+		stop:          make(chan struct{}),
+		done:          make(chan struct{}),
+		captureCtx:    captureCtx,
+		captureCancel: captureCancel,
 	}
 
 	if debugScreencast {
@@ -188,7 +201,7 @@ func (rec *screenRecording) captureOne() {
 		return
 	}
 
-	result, err := page.Call("Page.captureScreenshot", map[string]any{
+	result, err := page.CallContext(rec.captureCtx, "Page.captureScreenshot", map[string]any{
 		"format":  "jpeg",
 		"quality": rec.quality,
 	})
@@ -224,7 +237,17 @@ func (rec *screenRecording) captureOne() {
 // StopScreenRecording signals the capture loop to stop, waits for it,
 // and (optionally) encodes the captured frames into a video.
 func (s *Session) StopScreenRecording() (*ScreenRecordingResult, error) {
-	s.mu.Lock()
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout+120*time.Second)
+	defer cancel()
+	return s.StopScreenRecordingContext(ctx)
+}
+
+// StopScreenRecordingContext stops frame capture and finalizes the artifact
+// within ctx. If finalization is interrupted, the raw frames remain available.
+func (s *Session) StopScreenRecordingContext(ctx context.Context) (*ScreenRecordingResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 
 	rec := s.screenRec
 	if rec == nil {
@@ -234,11 +257,16 @@ func (s *Session) StopScreenRecording() (*ScreenRecordingResult, error) {
 	s.screenRec = nil
 	if rec.closed.CompareAndSwap(false, true) {
 		close(rec.stop)
+		rec.captureCancel()
 	}
 	s.mu.Unlock()
 
 	// Wait for the capture goroutine to finish (drains in-flight CDP call).
-	<-rec.done
+	select {
+	case <-rec.done:
+	case <-ctx.Done():
+		return nil, s.actionOutcomeAfterDispatch("stop_screen_recording", rec.framesDir, "capture stopped but in-flight frame collection did not finish before the deadline; raw frames remain at the supplied path", ctx.Err())
+	}
 
 	duration := time.Since(rec.startedAt)
 	rec.framesMu.Lock()
@@ -261,6 +289,7 @@ func (s *Session) StopScreenRecording() (*ScreenRecordingResult, error) {
 		result.Path = rec.framesDir
 		result.Format = "frames"
 		result.Encoder = "none"
+		result.Artifact = &ArtifactReference{Path: result.Path, Kind: "screen_recording_frames", MIMEType: "image/jpeg-sequence"}
 		return result, nil
 	}
 
@@ -273,16 +302,29 @@ func (s *Session) StopScreenRecording() (*ScreenRecordingResult, error) {
 		result.Path = rec.framesDir
 		result.Format = "frames"
 		result.Encoder = "none"
+		result.Artifact = &ArtifactReference{Path: result.Path, Kind: "screen_recording_frames", MIMEType: "image/jpeg-sequence"}
 		return result, nil
 	}
 
 	outPath := filepath.Join(filepath.Dir(rec.framesDir), rec.id+"."+rec.format)
-	if err := encodeFFmpeg(listPath, outPath, rec.format); err != nil {
+	if err := encodeFFmpegContext(ctx, listPath, outPath, rec.format); err != nil {
+		if ctx.Err() != nil {
+			return nil, s.actionOutcomeAfterDispatch("stop_screen_recording", rec.framesDir, "raw frames are preserved but video finalization was interrupted", err)
+		}
 		return nil, err
 	}
 	result.Path = outPath
 	result.Format = rec.format
 	result.Encoder = "ffmpeg"
+	info, err := os.Stat(outPath)
+	if err != nil {
+		return nil, fmt.Errorf("stat encoded recording: %w", err)
+	}
+	mime := "video/webm"
+	if rec.format == "mp4" {
+		mime = "video/mp4"
+	}
+	result.Artifact = &ArtifactReference{Path: outPath, Kind: "screen_recording", MIMEType: mime, SizeBytes: info.Size(), SHA256: fileSHA256(outPath)}
 	return result, nil
 }
 
@@ -293,14 +335,20 @@ func (s *Session) IsScreenRecording() bool {
 	return s.screenRec != nil
 }
 
-func (rec *screenRecording) cleanup() {
+func (rec *screenRecording) cleanupContext(ctx context.Context) error {
 	if rec == nil {
-		return
+		return nil
 	}
 	if rec.closed.CompareAndSwap(false, true) {
 		close(rec.stop)
+		rec.captureCancel()
 	}
-	<-rec.done
+	select {
+	case <-rec.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // writeConcatList writes an ffmpeg concat-demuxer list with real per-frame
@@ -341,7 +389,7 @@ func hasFFmpeg() bool {
 	return err == nil
 }
 
-func encodeFFmpeg(listPath, outPath, format string) error {
+func encodeFFmpegContext(parent context.Context, listPath, outPath, format string) error {
 	args := []string{"-y", "-f", "concat", "-safe", "0", "-i", listPath}
 	switch format {
 	case "webm":
@@ -355,7 +403,7 @@ func encodeFFmpeg(listPath, outPath, format string) error {
 	}
 	args = append(args, outPath)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 120*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...) //nolint:gosec // G204: ffmpeg invocation with internal frame paths is intentional
 	out, err := cmd.CombinedOutput()

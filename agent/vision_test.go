@@ -79,6 +79,37 @@ func TestHybridObserve(t *testing.T) {
 	}
 }
 
+func TestVisualObservationBoundsElementLists(t *testing.T) {
+	ts := visionTestServer()
+	defer ts.Close()
+
+	s, err := agent.NewSession(agent.SessionConfig{Headless: true, AllowPrivateIPs: true})
+	if err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	defer s.Close()
+	s.SetContentOptions(agent.ContentOptions{MaxElements: 1})
+	if _, err := s.Navigate(ts.URL); err != nil {
+		t.Fatalf("Navigate: %v", err)
+	}
+
+	annotated, err := s.AnnotatedScreenshot()
+	if err != nil {
+		t.Fatalf("AnnotatedScreenshot: %v", err)
+	}
+	if annotated.Count != 1 || annotated.Total < 3 || !annotated.Truncated {
+		t.Fatalf("annotated element cap not reported: count=%d total=%d truncated=%t", annotated.Count, annotated.Total, annotated.Truncated)
+	}
+
+	hybrid, err := s.HybridObserve()
+	if err != nil {
+		t.Fatalf("HybridObserve: %v", err)
+	}
+	if hybrid.Count != 1 || hybrid.Total < 3 || !hybrid.Truncated {
+		t.Fatalf("hybrid element cap not reported: count=%d total=%d truncated=%t", hybrid.Count, hybrid.Total, hybrid.Truncated)
+	}
+}
+
 func TestFindByCoordinates(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")

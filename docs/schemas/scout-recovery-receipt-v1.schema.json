@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klarlabs.de/scout/schemas/recovery-receipt-v1.schema.json",
+  "title": "Scout Recovery Receipt v1",
+  "description": "Portable, read-only evidence for reconciling an interrupted browser operation. Import never authorizes replay.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "task", "runtime", "browser", "target", "operation", "evidence", "recovery"],
+  "properties": {
+    "schema": {"const": "scout.recovery-receipt/v1"},
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "plan_fingerprint", "state"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "plan_fingerprint": {"type": "string", "minLength": 1},
+        "state": {"enum": ["completed", "interrupted", "rejected", "needs_reconciliation"]}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "receipt_schema"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string"},
+        "receipt_schema": {"type": "integer", "minimum": 1}
+      }
+    },
+    "browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instance_id", "ownership"],
+      "properties": {
+        "instance_id": {"type": "string", "minLength": 1},
+        "generation": {"type": "string", "minLength": 1, "description": "Optional host-issued browser lifecycle token. Must be independently sourced and authenticated; Scout's vendor-local instance fingerprint is not a generation."},
+        "ownership": {"enum": ["owned", "shared", "attached", "unknown"]}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "frame_id": {"type": "string"}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origins", "allow_private_ips", "inputs_complete", "enforcement"],
+      "properties": {
+        "id": {"type": "string"},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "origins": {"type": "array", "uniqueItems": true, "items": {"type": "string", "format": "uri"}},
+        "allow_private_ips": {"type": "boolean"},
+        "inputs_complete": {"type": "boolean"},
+        "enforcement": {"enum": ["session_page_policy", "proxy", "combined", "none", "unknown"]}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ordinal", "name", "dispatch", "outcome", "verification"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^scout-op-v1\\.[A-Za-z0-9_-]+\\.[1-9][0-9]*$", "description": "Canonical ID: scout-op-v1.<unpadded-base64url-UTF8-task-id>.<one-based-step>. Receivers decode and match the task ID and ordinal."},
+        "ordinal": {"type": "integer", "minimum": 1},
+        "name": {"type": "string", "minLength": 1},
+        "dispatch": {"enum": ["not_started", "may_have_dispatched", "dispatched", "unknown"]},
+        "outcome": {"enum": ["verified", "rejected", "unknown", "unverified"]},
+        "verification": {"enum": ["verified", "rejected", "unknown", "unverified"]},
+        "deadline_at_ms": {"type": "integer", "minimum": 0, "description": "Absolute Unix deadline in milliseconds captured for this operation, when known."}
+      }
+    },
+    "postcondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "captured"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "captured": {"type": "boolean"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_at", "trust", "references"],
+      "properties": {
+        "created_at": {"type": "string", "format": "date-time"},
+        "observed_at": {"type": ["string", "null"], "format": "date-time"},
+        "trust": {"const": "runtime_metadata", "description": "Receipt v1 carries Scout runtime observations only. Host attestations use the separately signed recovery handoff; page content is not promoted to trusted evidence."},
+        "references": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["replay_authorized", "next_step"],
+      "properties": {
+        "replay_authorized": {"const": false},
+        "next_step": {"const": "reconcile_with_authoritative_application_state"}
+      }
+    }
+  }
+}

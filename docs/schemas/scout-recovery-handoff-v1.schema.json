@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klarlabs.de/scout/schemas/scout-recovery-handoff-v1.schema.json",
+  "title": "Scout Recovery Handoff v1",
+  "description": "Host-authenticated owner and browser-generation claims bound to a portable recovery receipt. The signature does not establish live browser identity or application outcome.",
+  "$comment": "The Go verifier and independent Node receiver enforce that expires_at is later than issued_at and no more than 15 minutes later. Receivers must also authenticate the owner and compare the signed claims with a fresh trusted broker observation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "receipt",
+    "owner_scope",
+    "browser_generation",
+    "key_id",
+    "issued_at",
+    "expires_at",
+    "signature"
+  ],
+  "properties": {
+    "schema": {"const": "scout.recovery-handoff/v1"},
+    "receipt": {"$ref": "./scout-recovery-receipt-v1.schema.json"},
+    "owner_scope": {"type": "string", "minLength": 1},
+    "browser_generation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Host-issued generation token mapped to the actual browser context by a trusted broker."
+    },
+    "key_id": {"type": "string", "minLength": 1},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "description": "Unpadded base64url HMAC-SHA256 over the canonical Go JSON envelope with signature set to an empty string."
+    }
+  }
+}

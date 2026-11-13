@@ -1,0 +1,29 @@
+services:
+  browser:
+    image: chromedp/headless-shell:stable@sha256:7bee201478b2f6266aae01243740ee85c16281e32f42d3aed9fdf04f4eace7a1
+    entrypoint: ["/headless-shell/headless-shell"]
+    command:
+      - --no-sandbox
+      - --headless
+      - --remote-debugging-address=0.0.0.0
+      - --remote-debugging-port=9222
+      - --disable-dev-shm-usage
+      - about:blank
+    healthcheck:
+      test: ["CMD-SHELL", "socat -T 1 - TCP:127.0.0.1:9222,connect-timeout=1 </dev/null >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  worker:
+    image: golang:1.27.4
+    working_dir: /src
+    volumes:
+      - ../..:/src:ro
+    environment:
+      SCOUT_REMOTE_CDP: http://127.0.0.1:9222
+    network_mode: service:browser
+    command: ["go", "run", "./examples/worker_pool", "-workers", "2", "-jobs", "4", "-isolate-remote-contexts"]
+    depends_on:
+      browser:
+        condition: service_healthy

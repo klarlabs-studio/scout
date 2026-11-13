@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -1416,6 +1417,209 @@ func TestIntegrationEngineNewPageAndNewPageAt(t *testing.T) {
 	}
 	if !strings.HasPrefix(url, "http://127.0.0.1") {
 		t.Errorf("NewPageAt URL: expected http://127.0.0.1:*, got %q", url)
+	}
+}
+
+func TestIntegrationEngineNewPageAtBlocksDisallowedRedirect(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+	var disallowedHit atomic.Bool
+	disallowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		disallowedHit.Store(true)
+		fmt.Fprint(w, "should not load")
+	}))
+	defer disallowed.Close()
+	allowed := httptest.NewServer(http.RedirectHandler(disallowed.URL, http.StatusFound))
+	defer allowed.Close()
+
+	engine := New(WithHeadless(true), WithAllowPrivateIPs(true), WithAllowedOrigins(allowed.URL))
+	if err := engine.Launch(); err != nil {
+		t.Fatalf("Launch: %v", err)
+	}
+	defer engine.Close()
+
+	page, err := engine.NewPageAt(allowed.URL)
+	if err == nil {
+		defer page.Close()
+		current, urlErr := page.URL()
+		if urlErr != nil {
+			t.Fatalf("read final URL: %v", urlErr)
+		}
+		if strings.HasPrefix(current, disallowed.URL) {
+			t.Fatalf("redirect escaped origin allowlist: %s", current)
+		}
+	}
+	if disallowedHit.Load() {
+		t.Fatal("browser fetched the disallowed redirect target")
+	}
+}
+
+func TestIntegrationEngineBlocksDisallowedFetch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+	var disallowedHits atomic.Int32
+	disallowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		disallowedHits.Add(1)
+		fmt.Fprint(w, "unexpected request")
+	}))
+	defer disallowed.Close()
+	allowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<!doctype html><script>fetch(%q).catch(()=>{})</script>`, disallowed.URL+"/private-data")
+	}))
+	defer allowed.Close()
+
+	engine := New(WithHeadless(true), WithAllowPrivateIPs(true), WithAllowedOrigins(allowed.URL))
+	if err := engine.Launch(); err != nil {
+		t.Fatalf("Launch: %v", err)
+	}
+	defer engine.Close()
+	page, err := engine.NewPageAt(allowed.URL)
+	if err != nil {
+		t.Fatalf("NewPageAt: %v", err)
+	}
+	defer page.Close()
+	time.Sleep(200 * time.Millisecond)
+	if hits := disallowedHits.Load(); hits != 0 {
+		t.Fatalf("disallowed fetch reached its server %d times", hits)
+	}
+}
+
+func TestIntegrationEngineAllowedOriginsDoNotBlockWebSocketHandshake(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+	var disallowedHits atomic.Int32
+	disallowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		disallowedHits.Add(1)
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer disallowed.Close()
+	wsURL := "ws" + strings.TrimPrefix(disallowed.URL, "http") + "/socket"
+	allowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<!doctype html><script>new WebSocket(%q)</script>`, wsURL)
+	}))
+	defer allowed.Close()
+
+	engine := New(WithHeadless(true), WithAllowPrivateIPs(true), WithAllowedOrigins(allowed.URL))
+	if err := engine.Launch(); err != nil {
+		t.Fatalf("Launch: %v", err)
+	}
+	defer engine.Close()
+	page, err := engine.NewPageAt(allowed.URL)
+	if err != nil {
+		t.Fatalf("NewPageAt: %v", err)
+	}
+	defer page.Close()
+	time.Sleep(200 * time.Millisecond)
+	// Page-target Fetch interception does not observe this handshake. Keep the
+	// server hit as a characterization until enforcement moves below Chrome.
+	if hits := disallowedHits.Load(); hits != 1 {
+		t.Fatalf("expected the unfiltered WebSocket handshake to reach its server once, got %d", hits)
+	}
+}
+
+func TestIntegrationEngineAllowsConfiguredWebSocketOrigin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+	var allowedHits atomic.Int32
+	allowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/socket" {
+			allowedHits.Add(1)
+			http.Error(w, "not a websocket", http.StatusBadRequest)
+			return
+		}
+		fmt.Fprint(w, "<!doctype html>")
+	}))
+	defer allowed.Close()
+	pageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `<!doctype html><script>new WebSocket(%q)</script>`, "ws"+strings.TrimPrefix(allowed.URL, "http")+"/socket")
+	}))
+	defer pageServer.Close()
+
+	engine := New(WithHeadless(true), WithAllowPrivateIPs(true), WithAllowedOrigins(allowed.URL, pageServer.URL))
+	if err := engine.Launch(); err != nil {
+		t.Fatalf("Launch: %v", err)
+	}
+	defer engine.Close()
+	page, err := engine.NewPageAt(pageServer.URL)
+	if err != nil {
+		t.Fatalf("NewPageAt: %v", err)
+	}
+	defer page.Close()
+	deadline := time.Now().Add(3 * time.Second)
+	for allowedHits.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
+	}
+	if hits := allowedHits.Load(); hits != 1 {
+		t.Fatalf("configured WebSocket origin should reach its server once, got %d", hits)
+	}
+}
+
+func TestIntegrationEngineBlocksDisallowedServiceWorkerFetch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires Chrome")
+	}
+	var disallowedHits atomic.Int32
+	var serviceWorkerHits atomic.Int32
+	disallowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		disallowedHits.Add(1)
+		fmt.Fprint(w, "unexpected request")
+	}))
+	defer disallowed.Close()
+	allowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sw.js":
+			w.Header().Set("Content-Type", "application/javascript")
+			fmt.Fprintf(w, `self.addEventListener('install',e=>e.waitUntil(self.skipWaiting()));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(new URL(e.request.url).pathname==='/trigger')e.respondWith((async()=>{await fetch('/sw-ran');try{return await fetch(%q)}catch(_){return new Response('blocked')}})())})`, disallowed.URL+"/private-data")
+		case "/sw-ran":
+			serviceWorkerHits.Add(1)
+			w.WriteHeader(http.StatusNoContent)
+		case "/trigger":
+			fmt.Fprint(w, "uncontrolled response")
+		default:
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprint(w, `<!doctype html><script>
+if (new URL(location.href).searchParams.has('controlled')) {
+  fetch('/trigger').catch(()=>{});
+} else {
+  navigator.serviceWorker.register('/sw.js').then(async registration => {
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      const controllerReady = new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, {once:true}));
+      await controllerReady;
+    }
+    location.replace('/?controlled=1');
+  });
+}
+</script>`)
+		}
+	}))
+	defer allowed.Close()
+
+	engine := New(WithHeadless(true), WithAllowPrivateIPs(true), WithAllowedOrigins(allowed.URL))
+	if err := engine.Launch(); err != nil {
+		t.Fatalf("Launch: %v", err)
+	}
+	defer engine.Close()
+	page, err := engine.NewPageAt(allowed.URL)
+	if err != nil {
+		t.Fatalf("NewPageAt: %v", err)
+	}
+	defer page.Close()
+	deadline := time.Now().Add(5 * time.Second)
+	for serviceWorkerHits.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
+	}
+	if hits := serviceWorkerHits.Load(); hits == 0 {
+		t.Fatal("service worker did not intercept the trigger request; egress assertion would be inconclusive")
+	}
+	if hits := disallowedHits.Load(); hits != 1 {
+		t.Fatalf("expected page-target interception to miss the service-worker fetch once, got %d", hits)
 	}
 }
 

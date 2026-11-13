@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var textSelectorRe = regexp.MustCompile(`:text\(['"](.+?)['"]\)`)
@@ -14,6 +16,11 @@ var hasTextSelectorRe = regexp.MustCompile(`:has-text\(['"](.+?)['"]\)`)
 // when standard CSS selectors won't work. Falls back to the original selector if
 // it looks like valid CSS.
 func (s *Session) resolveSelector(selector string) (int64, error) {
+	if s.frameContextID != 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+		defer cancel()
+		return s.resolveSelectorContext(ctx, selector)
+	}
 	// Try standard CSS first
 	nodeID, err := s.page.QuerySelector(selector)
 	if err == nil {
@@ -77,6 +84,82 @@ func (s *Session) resolveSelector(selector string) (int64, error) {
 	}
 
 	return 0, err
+}
+
+// resolveSelectorContext resolves CSS, open-shadow-root, Playwright text, and
+// natural-language selectors while honoring the caller's deadline.
+func (s *Session) resolveSelectorContext(ctx context.Context, selector string) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if s.frameContextID != 0 {
+		if matches := textSelectorRe.FindStringSubmatch(selector); len(matches) > 1 {
+			tag := strings.TrimSuffix(selector[:textSelectorRe.FindStringIndex(selector)[0]], " ")
+			if tag == "" {
+				tag = "*"
+			}
+			return s.findByTextInFrameContext(ctx, tag, matches[1])
+		}
+		if matches := hasTextSelectorRe.FindStringSubmatch(selector); len(matches) > 1 {
+			tag := strings.TrimSuffix(selector[:hasTextSelectorRe.FindStringIndex(selector)[0]], " ")
+			if tag == "" {
+				tag = "*"
+			}
+			return s.findByTextInFrameContext(ctx, tag, matches[1])
+		}
+		return s.querySelectorInFrameContext(ctx, selector)
+	}
+	nodeID, cssErr := s.page.QuerySelectorContext(ctx, selector)
+	if cssErr == nil {
+		return nodeID, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if nodeID, err := s.page.QuerySelectorPiercingContext(ctx, selector); err == nil && nodeID != 0 {
+		return nodeID, nil
+	}
+	if matches := textSelectorRe.FindStringSubmatch(selector); len(matches) > 1 {
+		tag := strings.TrimSuffix(selector[:textSelectorRe.FindStringIndex(selector)[0]], " ")
+		if tag == "" {
+			tag = "*"
+		}
+		return s.findByTextContext(ctx, tag, matches[1])
+	}
+	if matches := hasTextSelectorRe.FindStringSubmatch(selector); len(matches) > 1 {
+		tag := strings.TrimSuffix(selector[:hasTextSelectorRe.FindStringIndex(selector)[0]], " ")
+		if tag == "" {
+			tag = "*"
+		}
+		return s.findByTextContext(ctx, tag, matches[1])
+	}
+	if looksLikeNaturalLanguage(selector) {
+		selected, err := s.selectByPromptInternalContext(ctx, selector)
+		if err != nil {
+			return 0, err
+		}
+		if selected.Confidence < 0.4 {
+			return 0, fmt.Errorf("no confident element match for %q", selector)
+		}
+		return s.page.QuerySelectorContext(ctx, selected.Selector)
+	}
+	return 0, cssErr
+}
+
+func (s *Session) findByTextInFrameContext(ctx context.Context, tag, text string) (int64, error) {
+	tagJSON, _ := json.Marshal(tag)
+	textJSON, _ := json.Marshal(text)
+	mark := fmt.Sprintf("frame-text-%d", time.Now().UnixNano())
+	markJSON, _ := json.Marshal(mark)
+	js := fmt.Sprintf(`(function(){const tag=%s,text=%s;const es=document.querySelectorAll(tag==='*'?'a,button,span,div,p,li,h1,h2,h3,h4,label,input,td,th':tag);for(const el of es){if((el.textContent||'').trim()===text||(el.textContent||'').trim().includes(text)){el.setAttribute('data-scout-frame-node',%s);return true}}return false})()`, tagJSON, textJSON, markJSON)
+	found, err := s.evaluateInFrameContext(ctx, s.frameContextID, js)
+	if err != nil {
+		return 0, err
+	}
+	if found != true {
+		return 0, fmt.Errorf("no element found with text %q", text)
+	}
+	return s.querySelectorInFrameContext(ctx, `[data-scout-frame-node="`+mark+`"]`)
 }
 
 // suggestSelectorsInternal is the non-locking version of SuggestSelectors.
@@ -155,5 +238,24 @@ func (s *Session) findByText(tag, text string) (int64, error) {
 	// Clean up the marker
 	_, _ = s.page.Evaluate(`document.querySelector('[data-scout-found]')?.removeAttribute('data-scout-found')`)
 
+	return nodeID, nil
+}
+
+func (s *Session) findByTextContext(ctx context.Context, tag, text string) (int64, error) {
+	tagJSON, _ := json.Marshal(tag)
+	textJSON, _ := json.Marshal(text)
+	js := fmt.Sprintf(`(function() { const tag=%s,text=%s; const es=document.querySelectorAll(tag==='*'?'a,button,span,div,p,li,h1,h2,h3,h4,label,input,td,th':tag); for(const el of es){if(el.textContent.trim()===text||el.textContent.trim().includes(text)){el.setAttribute('data-scout-found','true');return true}} return false })()`, tagJSON, textJSON)
+	result, err := s.page.EvaluateContext(ctx, js)
+	if err != nil {
+		return 0, err
+	}
+	if found, _ := result.(bool); !found {
+		return 0, fmt.Errorf("no element found with text %q", text)
+	}
+	nodeID, err := s.page.QuerySelectorContext(ctx, "[data-scout-found]")
+	if err != nil {
+		return 0, err
+	}
+	_, _ = s.page.EvaluateContext(ctx, `document.querySelector('[data-scout-found]')?.removeAttribute('data-scout-found')`)
 	return nodeID, nil
 }

@@ -1,25 +1,23 @@
 ---
-title: "How I Replaced Playwright MCP with a Single Go Binary"
+title: "Building a Go Browser Engine for AI Agents and Services"
 published: false
-description: "Scout is a 66-tool MCP server that gives AI agents a real browser — pure CDP, zero runtime dependencies, built for token efficiency."
+description: "Scout is a local-first Go browser engine with a CLI, MCP server, chat UI, and Go library for verified browser actions and deterministic workflows."
 tags: go, ai, mcp, automation
 cover_image: https://klarlabs-studio.github.io/scout/logo.svg
 ---
 
-# How I Replaced Playwright MCP with a Single Go Binary
+# Building a Go Browser Engine for AI Agents and Services
 
-Every MCP server that gives AI agents a browser has the same problem: it ships an entire runtime. Playwright MCP needs Node.js. Python-based alternatives need a Python interpreter, virtualenv, and pip packages. By the time you have a working setup, you have pulled in hundreds of megabytes of dependencies for what is conceptually a simple job -- let the LLM see and interact with a web page.
+Browser automation from a Go service or agent worker creates a different set of constraints than browser testing from a TypeScript application. The engine needs to fit an existing Go process, expose useful actions to an MCP client, and make it possible to inspect what happened when a browser mutation returns an uncertain result.
 
-Then there is the token problem. Most browser MCP tools return raw HTML or massive accessibility snapshots. A single `observe` call can blow through 10,000 tokens of context window before the agent has done anything useful. Multiply that by every step in a multi-page workflow and you are burning money on DOM noise.
-
-I built **Scout** to fix both problems.
+**Scout** is an experiment in that workflow: a Go browser engine with a library, CLI, MCP server, and chat UI over a shared session model. Its product direction is still being evaluated with users; this article describes the implementation and the tradeoffs it makes.
 
 ## What Scout Is
 
-Scout is a single Go binary that implements the Chrome DevTools Protocol directly over WebSocket. No rod, no chromedp, no Node.js, no Python. You install it with Homebrew and register it as an MCP server in one line:
+Scout is a Go browser execution engine that connects to Chrome through the DevTools Protocol. Install the CLI with Homebrew and register it as an MCP server:
 
 ```bash
-brew install klarlabs-studio/tap/scout
+brew install --cask klarlabs-studio/tap/scout-mcp
 claude mcp add scout -- scout mcp serve
 ```
 
@@ -36,52 +34,47 @@ Or drop the JSON config into any MCP-compatible client:
 }
 ```
 
-That is the entire setup. The binary is around 15MB. Chrome is the only external dependency, and you already have it.
+Local sessions need Chrome or Chromium installed separately; Scout can also attach to a browser managed elsewhere over CDP. The CLI is distributed as a binary, while the Go library can be embedded directly in a Go application.
 
-## 66 Tools, Organized by What Agents Actually Need
+## MCP workflows
 
-Scout exposes 66 MCP tools grouped into categories that match real agent workflows:
+The MCP server exposes actions for common browser workflows, including:
 
-- **Navigation**: `navigate`, `observe`, `observe_diff`, `observe_with_budget`
-- **Interaction**: `click`, `click_label`, `type`, `hover`, `drag_drop`, `select_option`, `scroll_to`, and more
-- **Forms**: `fill_form`, `fill_form_semantic`, `discover_form`
-- **Extraction**: `extract`, `extract_table`, `auto_extract`, `markdown`, `readable_text`, `accessibility_tree`
-- **Capture**: `screenshot`, `annotated_screenshot`, `pdf`
-- **Network**: `enable_network_capture`, `network_requests`
-- **Tabs**: `open_tab`, `switch_tab`, `close_tab`, `list_tabs`
-- **Frameworks**: `detect_frameworks` (19 frameworks), `component_state`, `app_state`, `wait_spa`
-- **Playback**: `start_recording`, `stop_recording`, `save_playbook`, `replay_playbook`
-- **Diagnostics**: `detect_dialog`, `detect_auth_wall`, `console_errors`, `compare_tabs`
+- **Navigate and inspect**: `navigate`, `observe`, `observe_diff`
+- **Interact with pages**: `click`, `type`, and `fill_form_semantic`
+- **Extract content**: `extract`, `markdown`, and `accessibility_tree`
+- **Record and replay**: save and replay deterministic playbooks
+- **Recover interrupted work**: inspect and resolve durable task runs
 
-All tools carry MCP annotations like `ReadOnly` and `Idempotent` so clients can auto-approve safe operations without prompting.
+The available catalog depends on the selected MCP profile. For new client setups, use `--profile=core`; run `scout mcp serve --help` to see configuration options. Profiles shape discovery and workflow access, not authorization.
 
-## The Token Problem, Solved
+## Task-shaped observations
 
-This is where Scout diverges most from existing browser MCP servers. Every feature is designed around one question: how do we give the agent maximum information in minimum tokens?
+Agents often need a small, relevant view of a page rather than a full document. Scout provides several representations so callers can choose based on the task.
 
 ### DOM Diffing
 
 After the initial `observe`, subsequent calls to `observe_diff` return only what changed. Scout installs a MutationObserver on the page and classifies mutations into categories like `modal_appeared`, `form_error`, `notification`, or `loading_complete`. Instead of re-sending the entire page state after a click, the agent sees a structured summary of the delta.
 
-In practice, this saves 50-80% of tokens per step.
+The diff is a different representation of the page state, not a guaranteed token reduction. Its size depends on the page and the changes being observed.
 
 ### Five Levels of Content Distillation
 
 Not every task needs the same level of detail. Scout offers a spectrum:
 
-| Method | Output size | Best for |
-|--------|------------|----------|
-| `observe()` | ~2-5 KB | Deciding what to click or fill |
-| `observe_diff()` | ~0.5-2 KB | Seeing only what changed |
-| `markdown()` | ~2-8 KB | Reading page content compactly |
-| `readable_text()` | ~1-4 KB | Main article text only |
-| `accessibility_tree()` | ~1-4 KB | Semantic element tree |
+| Method | Best for |
+|--------|----------|
+| `observe()` | Deciding what to click or fill |
+| `observe_diff()` | Inspecting changes after an action |
+| `markdown()` | Reading page content compactly |
+| `readable_text()` | Focusing on the main article or body text |
+| `accessibility_tree()` | Inspecting semantic elements |
 
 The agent picks the right level for the task. A summarization job uses `readable_text`. A form-filling job uses `observe`. A status check uses `observe_with_budget(200)`.
 
 ### Screenshot Auto-Compression
 
-Screenshots default to a 5MB ceiling. When the raw capture exceeds that, Scout progressively re-captures as JPEG with lower quality (80, 60, 40, 20) and smaller viewport scale (1.0, 0.75, 0.5, 0.25) until it fits. No manual tuning required.
+The Go session API defaults to a 5MB screenshot ceiling. MCP screenshots use a tighter 80KB inline limit and a 1024px default width so the image fits comfortably in tool context; Scout progressively lowers JPEG quality and resolution to meet it. Use `save_to_disk` or `output_path` for a full-resolution image intended for a person to view.
 
 ## Semantic Form Filling
 
@@ -125,7 +118,7 @@ engine.Run("scrape")
 
 **The `agent` package** wraps everything into a `Session` type with structured JSON output, mutex-protected concurrency safety, and auto-wait. This is what the MCP server uses internally, and it is what you use if you are building your own AI agent orchestrator in Go.
 
-The middleware stack includes Retry, Timeout, CircuitBreaker, RateLimit, Bulkhead, and a Stealth module that applies 10 anti-detection patches (webdriver flag, plugin enumeration, WebGL fingerprint, and more).
+The middleware stack includes Retry, Timeout, CircuitBreaker, RateLimit, Bulkhead, and a Stealth module that applies 10 anti-detection patches (webdriver flag, plugin enumeration, WebGL fingerprint, and more). Retry does not repeat a browser operation after an unknown outcome by default, because the page may have accepted it before its acknowledgment was lost; inspect application state before replaying.
 
 ## Playbook Recording
 
@@ -149,11 +142,11 @@ Scout does not pull in massive framework dependencies. The resilience middleware
 ## Try It
 
 ```bash
-brew install klarlabs-studio/tap/scout
+brew install --cask klarlabs-studio/tap/scout-mcp
 scout observe https://news.ycombinator.com
 ```
 
-That one command launches Chrome, navigates to Hacker News, extracts a structured snapshot of every link, button, and input on the page, and prints it as JSON. No config files, no setup, no runtime.
+That command launches an installed Chrome-compatible browser, navigates to Hacker News, and prints a structured observation. Use `scout doctor --live` to check browser readiness first.
 
 To use it as an MCP server with Claude Code:
 
@@ -163,4 +156,4 @@ claude mcp add scout -- scout mcp serve
 
 The source is at [go.klarlabs.de/scout](https://github.com/klarlabs-studio/scout). MIT licensed. Stars and contributions are welcome -- especially around additional framework detectors, new extraction strategies, and real-world playbook examples.
 
-If you have been frustrated by the weight and token cost of existing browser MCP tools, give Scout a try. It is one binary, and it just works.
+If your application or agent worker is written in Go and you need browser actions with inspectable outcomes, try Scout and share where the workflow does or does not fit.

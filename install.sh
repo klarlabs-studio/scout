@@ -27,10 +27,34 @@ echo "Installing ${BINARY} v${VERSION} (${OS}/${ARCH})..."
 
 # Download and extract
 URL="https://github.com/${REPO}/releases/download/v${VERSION}/${BINARY}_${VERSION}_${OS}_${ARCH}.tar.gz"
+ARCHIVE="${BINARY}_${VERSION}_${OS}_${ARCH}.tar.gz"
+CHECKSUMS_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${BINARY}_${VERSION}_checksums.txt"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-curl -fsSL "$URL" | tar xz -C "$TMP"
+curl -fsSL "$URL" -o "$TMP/$ARCHIVE"
+curl -fsSL "$CHECKSUMS_URL" -o "$TMP/checksums.txt"
+
+EXPECTED_CHECKSUM=$(awk -v asset="$ARCHIVE" '$2 == asset { print $1; exit }' "$TMP/checksums.txt")
+if [ -z "$EXPECTED_CHECKSUM" ]; then
+    echo "No checksum found for ${ARCHIVE} in the release checksums" >&2
+    exit 1
+fi
+
+if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s  %s\n' "$EXPECTED_CHECKSUM" "$TMP/$ARCHIVE" | sha256sum --check --status -
+elif command -v shasum >/dev/null 2>&1; then
+    printf '%s  %s\n' "$EXPECTED_CHECKSUM" "$TMP/$ARCHIVE" | shasum -a 256 --check - >/dev/null
+else
+    echo "Cannot verify release archive: sha256sum or shasum is required" >&2
+    exit 1
+fi
+
+echo "Verified SHA-256 checksum for ${ARCHIVE}."
+tar xz -f "$TMP/$ARCHIVE" -C "$TMP"
+
+# Set permissions before moving into a potentially root-owned install directory.
+chmod +x "$TMP/$BINARY"
 
 # Install
 if [ -w "$INSTALL_DIR" ]; then
@@ -39,12 +63,11 @@ else
     sudo mv "$TMP/$BINARY" "$INSTALL_DIR/$BINARY"
 fi
 
-chmod +x "$INSTALL_DIR/$BINARY"
 echo "Installed $BINARY to $INSTALL_DIR/$BINARY"
 echo ""
 echo "Configure in your MCP client:"
 echo ""
-echo "  Claude Code:   claude mcp add browse -- $INSTALL_DIR/$BINARY"
+echo "  Claude Code:   claude mcp add scout -- $INSTALL_DIR/$BINARY mcp serve --profile=core"
 echo "  Claude Desktop: Add to claude_desktop_config.json:"
-echo "    {\"mcpServers\": {\"browse\": {\"command\": \"$INSTALL_DIR/$BINARY\"}}}"
+echo "    {\"mcpServers\": {\"scout\": {\"command\": \"$INSTALL_DIR/$BINARY\", \"args\": [\"mcp\", \"serve\", \"--profile=core\"]}}}"
 echo ""

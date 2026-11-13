@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -28,7 +29,7 @@ func (s *Session) ObserveDiff() (*Observation, *DOMDiff, error) {
 	// Harvest mutations
 	diff, err := s.harvestMutations()
 	if err != nil {
-		diff = &DOMDiff{}
+		diff = &DOMDiff{ContentTrust: ContentTrustUntrustedPage}
 	}
 
 	// Get current observation (call internal version without lock)
@@ -40,7 +41,41 @@ func (s *Session) ObserveDiff() (*Observation, *DOMDiff, error) {
 	return obs, diff, nil
 }
 
+// ObserveDiffContext returns the current observation and changes under ctx.
+func (s *Session) ObserveDiffContext(ctx context.Context) (*Observation, *DOMDiff, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, nil, err
+	}
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	if err := s.ensurePageContext(ctx); err != nil {
+		return nil, nil, err
+	}
+	evaluate := func(js string) (any, error) { return s.evaluateCurrentContext(ctx, js) }
+	if !s.diffInstalled {
+		if err := s.installMutationObserverWithEvaluator(evaluate); err != nil {
+			return nil, nil, fmt.Errorf("failed to install mutation observer: %w", err)
+		}
+		s.diffInstalled = true
+	}
+	diff, err := s.harvestMutationsWithEvaluator(evaluate)
+	if err != nil {
+		diff = &DOMDiff{ContentTrust: ContentTrustUntrustedPage}
+	}
+	obs, err := s.observeInternalWithEvaluator(evaluate)
+	if err != nil {
+		return nil, nil, err
+	}
+	return obs, diff, nil
+}
+
 func (s *Session) installMutationObserver() error {
+	return s.installMutationObserverWithEvaluator(s.evaluateInFrame)
+}
+
+func (s *Session) installMutationObserverWithEvaluator(evaluate func(string) (any, error)) error {
 	js := `(function() {
 		if (window.__browseMutations) return true;
 		window.__browseMutations = [];
@@ -48,28 +83,31 @@ func (s *Session) installMutationObserver() error {
 			for (const m of mutations) {
 				const record = { type: m.type };
 				if (m.type === 'childList') {
-					record.added = Array.from(m.addedNodes)
-						.filter(n => n.nodeType === 1)
+					const added = Array.from(m.addedNodes).filter(n => n.nodeType === 1);
+					record.added_total = added.length;
+					record.added = added.slice(0, 20)
 						.map(n => ({
 							tag: n.tagName.toLowerCase(),
-							id: n.id || '',
-							classes: n.className || '',
+							id: (n.id || '').slice(0, 200),
+							classes: String(n.className || '').slice(0, 200),
 							text: (n.textContent || '').slice(0, 200)
 						}));
-					record.removed = Array.from(m.removedNodes)
-						.filter(n => n.nodeType === 1)
+					const removed = Array.from(m.removedNodes).filter(n => n.nodeType === 1);
+					record.removed_total = removed.length;
+					record.removed = removed.slice(0, 20)
 						.map(n => ({
 							tag: n.tagName.toLowerCase(),
-							id: n.id || '',
-							classes: n.className || '',
+							id: (n.id || '').slice(0, 200),
+							classes: String(n.className || '').slice(0, 200),
 							text: (n.textContent || '').slice(0, 200)
 						}));
 				} else if (m.type === 'attributes') {
 					record.tag = m.target.tagName ? m.target.tagName.toLowerCase() : '';
 					record.id = m.target.id || '';
-					record.attribute = m.attributeName;
-					record.oldValue = m.oldValue || '';
-					record.newValue = m.target.getAttribute(m.attributeName) || '';
+					record.id = String(record.id).slice(0, 200);
+					record.attribute = (m.attributeName || '').slice(0, 100);
+					record.oldValue = (m.oldValue || '').slice(0, 200);
+					record.newValue = (m.target.getAttribute(m.attributeName) || '').slice(0, 200);
 				} else if (m.type === 'characterData') {
 					record.tag = 'text';
 					record.oldValue = (m.oldValue || '').slice(0, 200);
@@ -77,6 +115,8 @@ func (s *Session) installMutationObserver() error {
 				}
 				if (window.__browseMutations.length < 500) {
 					window.__browseMutations.push(record);
+				} else {
+					window.__browseMutationsOverflow = true;
 				}
 			}
 		});
@@ -87,53 +127,85 @@ func (s *Session) installMutationObserver() error {
 		return true;
 	})()`
 
-	_, err := s.page.Evaluate(js)
+	_, err := evaluate(js)
 	return err
 }
 
 func (s *Session) harvestMutations() (*DOMDiff, error) {
+	return s.harvestMutationsWithEvaluator(s.evaluateInFrame)
+}
+
+func (s *Session) harvestMutationsWithEvaluator(evaluate func(string) (any, error)) (*DOMDiff, error) {
 	js := `(function() {
 		const mutations = window.__browseMutations || [];
 		window.__browseMutations = [];
-		return JSON.stringify(mutations);
+		const overflow = !!window.__browseMutationsOverflow;
+		window.__browseMutationsOverflow = false;
+		return JSON.stringify({mutations, overflow});
 	})()`
 
-	result, err := s.page.Evaluate(js)
+	result, err := evaluate(js)
 	if err != nil {
 		return nil, err
 	}
 
 	str, ok := result.(string)
-	if !ok || str == "" || str == "[]" {
-		return &DOMDiff{HasDiff: false}, nil
+	if !ok || str == "" || str == `{"mutations":[],"overflow":false}` {
+		return &DOMDiff{ContentTrust: ContentTrustUntrustedPage, HasDiff: false}, nil
 	}
 
-	var rawMutations []map[string]any
-	if err := json.Unmarshal([]byte(str), &rawMutations); err != nil {
-		return &DOMDiff{HasDiff: false}, nil //nolint:nilerr // malformed mutation JSON is expected, return empty diff
+	var payload struct {
+		Mutations []map[string]any `json:"mutations"`
+		Overflow  bool             `json:"overflow"`
 	}
+	if err := json.Unmarshal([]byte(str), &payload); err != nil {
+		return &DOMDiff{ContentTrust: ContentTrustUntrustedPage, HasDiff: false}, nil //nolint:nilerr // malformed mutation JSON is expected, return empty diff
+	}
+	rawMutations := payload.Mutations
 
-	diff := &DOMDiff{}
+	diff := &DOMDiff{ContentTrust: ContentTrustUntrustedPage}
+	diff.Truncated = payload.Overflow || len(rawMutations) == 500
+	const maxPerKind = 100
 
 	for _, m := range rawMutations {
 		typ, _ := m["type"].(string)
 		switch typ {
 		case "childList":
+			addedTotal := observationInt(m["added_total"])
+			removedTotal := observationInt(m["removed_total"])
+			diff.AddedTotal += addedTotal
+			diff.RemovedTotal += removedTotal
+			if addedTotal > 20 || removedTotal > 20 {
+				diff.Truncated = true
+			}
 			if added, ok := m["added"].([]any); ok {
 				for _, a := range added {
 					if el, ok := a.(map[string]any); ok {
-						diff.Added = append(diff.Added, parseDOMElement(el))
+						if len(diff.Added) < maxPerKind {
+							diff.Added = append(diff.Added, parseDOMElement(el))
+						} else {
+							diff.Truncated = true
+						}
 					}
 				}
 			}
 			if removed, ok := m["removed"].([]any); ok {
 				for _, r := range removed {
 					if el, ok := r.(map[string]any); ok {
-						diff.Removed = append(diff.Removed, parseDOMElement(el))
+						if len(diff.Removed) < maxPerKind {
+							diff.Removed = append(diff.Removed, parseDOMElement(el))
+						} else {
+							diff.Truncated = true
+						}
 					}
 				}
 			}
 		case "attributes":
+			diff.ModifiedTotal++
+			if len(diff.Modified) >= maxPerKind {
+				diff.Truncated = true
+				break
+			}
 			diff.Modified = append(diff.Modified, DOMChange{
 				Tag:        strVal(m, "tag"),
 				ID:         strVal(m, "id"),
@@ -143,6 +215,11 @@ func (s *Session) harvestMutations() (*DOMDiff, error) {
 				ChangeType: "attribute",
 			})
 		case "characterData":
+			diff.ModifiedTotal++
+			if len(diff.Modified) >= maxPerKind {
+				diff.Truncated = true
+				break
+			}
 			diff.Modified = append(diff.Modified, DOMChange{
 				Tag:        "text",
 				OldValue:   strVal(m, "oldValue"),
@@ -152,7 +229,7 @@ func (s *Session) harvestMutations() (*DOMDiff, error) {
 		}
 	}
 
-	diff.HasDiff = len(diff.Added) > 0 || len(diff.Removed) > 0 || len(diff.Modified) > 0
+	diff.HasDiff = diff.AddedTotal > 0 || diff.RemovedTotal > 0 || diff.ModifiedTotal > 0 || len(rawMutations) > 0
 	if diff.HasDiff {
 		diff.Classification, diff.Summary = classifyDiff(diff)
 	}

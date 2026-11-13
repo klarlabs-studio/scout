@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://klarlabs.de/scout/schemas/task-run-guidance-v1.schema.json",
+  "title": "Scout Task Run Guidance v1",
+  "description": "Bounded, non-authorizing operator guidance derived from a retained task-run record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["recommendation", "rationale", "prerequisites", "replay_authorized"],
+  "properties": {
+    "recommendation": {
+      "enum": [
+        "verify_task_store_scope",
+        "inspect_saved_task_result",
+        "review_host_resolution_then_use_new_task_id",
+        "confirm_worker_stopped_then_start_new_task",
+        "reconcile_with_authoritative_application_state"
+      ]
+    },
+    "rationale": {"type": "string", "minLength": 1},
+    "prerequisites": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "replay_authorized": {"const": false}
+  }
+}

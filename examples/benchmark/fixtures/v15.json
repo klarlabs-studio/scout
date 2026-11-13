@@ -1,0 +1,203 @@
+{
+  "version": "scout-browser-reliability-v15",
+  "scenarios": [
+    {
+      "id": "scope-root-control",
+      "purpose": "Include a directly scoped form control while excluding its associated label and controls outside the requested boundary.",
+      "required_scope": "#task-input",
+      "starting_path": "/scope-root-control",
+      "expected_input_id": "task-input",
+      "forbidden_label": "Outside scope label"
+    },
+    {
+      "id": "scoped-large-page",
+      "purpose": "Measure scope containment and bounded observation on a noisy page.",
+      "required_scope": "main",
+      "expected_text": "Target record 042",
+      "forbidden_text": "Decoy record 042",
+      "max_output_bytes": 12000
+    },
+    {
+      "id": "scope-excludes-decoy",
+      "purpose": "Ensure a target visible only outside the requested scope is not treated as found.",
+      "required_scope": "main",
+      "expected_text": "Decoy-only target",
+      "expected_miss": true
+    },
+    {
+      "id": "verified-action",
+      "purpose": "Measure whether a click is only dispatched or its requested outcome is verified.",
+      "selector": "#complete",
+      "expected_text": "Task complete"
+    },
+    {
+      "id": "verified-type",
+      "purpose": "Verify typed field state by re-reading the committed DOM value.",
+      "starting_path": "/type",
+      "selector": "#task",
+      "expected_value": "benchmark task"
+    },
+    {
+      "id": "form-acceptance",
+      "purpose": "Distinguish successful transport from an observed application acceptance state.",
+      "form_selector": "#checkout",
+      "match_url": "/submit",
+      "expected_text": "Order accepted"
+    },
+    {
+      "id": "form-rejection",
+      "purpose": "Ensure an HTTP error response does not count as form acceptance.",
+      "form_selector": "#checkout",
+      "match_url": "/reject",
+      "expected_status": 422,
+      "expected_failure_outcome": "response_failed"
+    },
+    {
+      "id": "playbook-replay",
+      "purpose": "Measure deterministic replay success and first-failure evidence after a controlled page change.",
+      "starting_path": "/replay",
+      "action_selector": "#advance",
+      "expected_text": "Step complete",
+      "changed_expected_text": "Different expected result"
+    },
+    {
+      "id": "playbook-change-detection",
+      "purpose": "Ensure a changed page expectation fails with evidence and recovery guidance.",
+      "starting_path": "/replay",
+      "action_selector": "#advance",
+      "expected_text": "Step complete",
+      "changed_expected_text": "Different expected result"
+    },
+    {
+      "id": "playbook-resume-after-repair",
+      "purpose": "Ensure replay can resume at the failed step after a caller repairs the page.",
+      "starting_path": "/replay",
+      "action_selector": "#advance",
+      "repair_selector": "#repair",
+      "expected_text": "Step complete"
+    },
+    {
+      "id": "shadow-root-action",
+      "purpose": "Find and verify an action inside an open shadow root while excluding outside decoys.",
+      "starting_path": "/shadow",
+      "action_selector": "#shadow-action",
+      "expected_text": "Shadow task complete"
+    },
+    {
+      "id": "iframe-action",
+      "purpose": "Switch to a named iframe and verify its action result without matching parent-frame decoys.",
+      "starting_path": "/iframe",
+      "frame_selector": "#task-frame",
+      "action_selector": "#frame-action",
+      "expected_text": "Frame task complete"
+    },
+    {
+      "id": "background-tab-action",
+      "purpose": "Activate a previously backgrounded tab and verify its target ID, URL, visibility-sensitive action, and the other tab's state.",
+      "starting_path": "/background-tab",
+      "action_selector": "#background-action",
+      "expected_text": "Background task complete"
+    },
+    {
+      "id": "stable-handle-after-reorder",
+      "purpose": "Ensure a stable element handle still targets its original node after DOM insertion changes its order.",
+      "starting_path": "/stale-handle",
+      "selector": "#target",
+      "expected_text": "Target clicked"
+    },
+    {
+      "id": "stale-handle-after-removal",
+      "purpose": "Ensure a handle for a detached target fails explicitly instead of clicking a replacement node.",
+      "starting_path": "/stale-handle",
+      "selector": "#target",
+      "expected_failure_outcome": "stale_handle"
+    },
+    {
+      "id": "cli-verified-action-parity",
+      "purpose": "Compare the one-shot CLI verified-click result with the Go API result on the same local fixture.",
+      "selector": "#complete",
+      "expected_text": "Task complete"
+    },
+    {
+      "id": "cli-verified-type-parity",
+      "purpose": "Compare committed-value verification between the one-shot CLI and Go API on the same local fixture.",
+      "starting_path": "/type",
+      "selector": "#task",
+      "expected_value": "benchmark task"
+    },
+    {
+      "id": "cli-rejected-form-parity",
+      "purpose": "Compare CLI and Go form rejection results when the page shows optimistic acceptance text despite an HTTP 422 response.",
+      "starting_path": "/reject-form",
+      "form_selector": "#checkout",
+      "match_url": "/reject",
+      "expected_text": "Order accepted",
+      "expected_status": 422,
+      "expected_failure_outcome": "response_failed"
+    },
+    {
+      "id": "cli-accepted-form-parity",
+      "purpose": "Compare CLI and Go form acceptance results when both the response and page condition indicate success.",
+      "starting_path": "/form",
+      "form_selector": "#checkout",
+      "match_url": "/submit",
+      "expected_text": "Order accepted"
+    },
+    {
+      "id": "mcp-verified-action-parity",
+      "purpose": "Compare MCP and Go verified-click result fields on the same local fixture.",
+      "selector": "#complete",
+      "expected_text": "Task complete"
+    },
+    {
+      "id": "mcp-verified-type-parity",
+      "purpose": "Compare MCP and Go committed-value verification on the same local fixture.",
+      "starting_path": "/type",
+      "selector": "#task",
+      "expected_value": "benchmark task"
+    },
+    {
+      "id": "mcp-rejected-form-parity",
+      "purpose": "Compare MCP and Go rejection results despite misleading page acceptance text.",
+      "starting_path": "/reject-form",
+      "form_selector": "#checkout",
+      "match_url": "/reject",
+      "expected_text": "Order accepted",
+      "expected_status": 422,
+      "expected_failure_outcome": "response_failed"
+    },
+    {
+      "id": "mcp-accepted-form-parity",
+      "purpose": "Compare MCP and Go accepted-form results when response and page evidence agree.",
+      "starting_path": "/form",
+      "form_selector": "#checkout",
+      "match_url": "/submit",
+      "expected_text": "Order accepted"
+    },
+    {
+      "id": "invalid-selector-fast-fail",
+      "purpose": "Reject malformed CSS immediately instead of spending the page wait timeout polling it.",
+      "selector": "["
+    },
+    {
+      "id": "wait-context-cancellation",
+      "purpose": "Honor an already-canceled caller context before session-lock acquisition through the Go API.",
+      "selector": "#target"
+    },
+    {
+      "id": "optimistic-ui-false-success",
+      "purpose": "Compare text-only success classification with response-backed application acceptance when an optimistic UI shows success despite HTTP 422.",
+      "starting_path": "/reject-form",
+      "form_selector": "#checkout",
+      "match_url": "/reject",
+      "expected_text": "Order accepted",
+      "expected_status": 422,
+      "expected_failure_outcome": "response_failed"
+    },
+    {
+      "id": "tab-lifecycle-parity",
+      "purpose": "Compare Go and MCP stdio open, switch, and close outcomes, target identity, active-tab state, and closure evidence.",
+      "starting_path": "/action"
+    }
+  ]
+}

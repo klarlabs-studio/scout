@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "name": "interrupted-step",
+      "scenario": "interrupted",
+      "receipts": {
+        "go": "captures/interrupted.go.json",
+        "cli": "captures/interrupted.cli.json",
+        "mcp": "captures/interrupted.mcp.json"
+      },
+      "namespaces": {
+        "go": "sdk task store / worker-a",
+        "cli": "stateful CLI task store / operator",
+        "mcp": "principal-a / session-a task store"
+      }
+    },
+    {
+      "name": "completed-task",
+      "scenario": "completed",
+      "receipts": {
+        "go": "captures/completed.go.json",
+        "cli": "captures/completed.cli.json",
+        "mcp": "captures/completed.mcp.json"
+      },
+      "namespaces": {
+        "go": "sdk task store / worker-a",
+        "cli": "stateful CLI task store / operator",
+        "mcp": "principal-a / session-a task store"
+      }
+    },
+    {
+      "name": "completed-non-first-step",
+      "scenario": "non_first_step",
+      "receipts": {
+        "go": "captures/non-first-step.go.json",
+        "cli": "captures/non-first-step.cli.json",
+        "mcp": "captures/non-first-step.mcp.json"
+      },
+      "namespaces": {
+        "go": "sdk task store / worker-a",
+        "cli": "stateful CLI task store / operator",
+        "mcp": "principal-a / session-a task store"
+      }
+    }
+  ]
+}

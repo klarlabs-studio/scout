@@ -1,0 +1,23 @@
+[
+  {
+    "name": "unrestricted-block-private",
+    "origins": [],
+    "allow_private_ips": false,
+    "canonical_origins": [],
+    "policy_id": "scout-origin-v1:e40b288ff0dc289fc18ac3da6b83f289831f3b2b77e2df256a3bdf3e160c187f"
+  },
+  {
+    "name": "deduplicated-casefolded-explicit-ports",
+    "origins": ["HTTPS://Example.COM", "https://example.com:443", "http://API.example.com:80"],
+    "allow_private_ips": false,
+    "canonical_origins": ["http://api.example.com:80", "https://example.com:443"],
+    "policy_id": "scout-origin-v1:51721d40f34c58d6d50f0a8a510a24cb9cd6736102df9687b2fffe1f0da10812"
+  },
+  {
+    "name": "ipv6-and-private-ip-allowed",
+    "origins": ["https://[2001:db8::1]", "http://127.0.0.1:8080"],
+    "allow_private_ips": true,
+    "canonical_origins": ["http://127.0.0.1:8080", "https://[2001:db8::1]:443"],
+    "policy_id": "scout-origin-v1:1f382b9ea8a7914621d34be61092e9c8d12e27adf92d5c44270e9bb116c942fc"
+  }
+]

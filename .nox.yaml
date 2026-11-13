@@ -25,8 +25,4 @@ scan:
     - "nox-out/"
     - "release-artifacts/"
 
-# Activate nox code-level taint SAST (source-to-sink: SSRF, injection,
-# path traversal). nox scan auto-installs (cosign-verified) + runs it.
-plugins:
-  required:
-    - nox/taint-analysis
+# Code-level taint analysis is part of Nox core; no separate plugin is needed.

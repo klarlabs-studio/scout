@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -29,10 +30,18 @@ func overallRating(ratings ...string) string {
 }
 
 func (s *Session) WebVitals() (*WebVitalsResult, error) {
-	s.mu.Lock()
+	return s.WebVitalsContext(context.Background())
+}
+
+// WebVitalsContext extracts performance metrics while honoring ctx for
+// session queueing and browser evaluation.
+func (s *Session) WebVitalsContext(ctx context.Context) (*WebVitalsResult, error) {
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
 
-	if err := s.ensurePage(); err != nil {
+	if err := s.ensurePageContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -95,7 +104,7 @@ func (s *Session) WebVitals() (*WebVitalsResult, error) {
 		return JSON.stringify(r);
 	})()`
 
-	result, err := s.page.Evaluate(js)
+	result, err := s.page.EvaluateContext(ctx, js)
 	if err != nil {
 		return nil, fmt.Errorf("web vitals extraction failed: %w", err)
 	}
@@ -122,6 +131,7 @@ func (s *Session) WebVitals() (*WebVitalsResult, error) {
 	inpRating := rateMetric(raw.INP, 200, 500)
 
 	return &WebVitalsResult{
+		ContentTrust:     ContentTrustUntrustedPage,
 		LCP:              raw.LCP,
 		CLS:              raw.CLS,
 		INP:              raw.INP,

@@ -37,10 +37,30 @@ jobs:
       pull-requests: write
     secrets: inherit
     with:
-      # No coverage threshold defined yet (audit gap). Keep the gate off
-      # until a baseline is set, then flip to true.
-      # TODO(coverage): add a coverctl threshold and set coverage: true.
-      coverage: false
+      # Enforce the checked-in .coverctl.yaml domain baselines.
+      coverage: true
       # Scout has OS-specific browser/launcher behavior — validate the unit
       # suite on macOS + Windows on push-to-main.
       cross-platform: true
+
+  ui:
+    name: UI build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Build UI
+        working-directory: ui
+        run: npm run build
