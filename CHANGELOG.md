@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- feat: add reliable browser recovery and verification
+- chore(security): nox remediation (deps + actions) (#97)
+- chore(security): nox remediation (deps + actions) (#96)
+- fix(security): build with a patched Go toolchain (#88)
+- chore(security): nox remediation (deps + actions) (#87)
+- ci(warden): let lint run alongside another repository's lint (#86)
+- chore: untrack the generated nox inventory
+- feat(mcp): screenshots can go to disk instead of into the model's context
+- chore(deps): statekit v1.8.0 -> v1.13.2 (#81)
+- fix(security): patch 8 npm advisories in ui/, including two pins that became the vulnerability (#82)
+- chore(security): nox remediation (deps + actions) (#80)
+- chore(security): nox remediation (deps + actions) (#78)
+
+
 ## [Unreleased]
 
 ### Added
