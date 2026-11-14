@@ -951,6 +951,9 @@ func (s *Session) activeTargetGoneAfterFailure(ctx context.Context) bool {
 	if !ok {
 		return false
 	}
+	// The page operation often reaches this path because its own deadline has
+	// expired. Target inventory is a separate recovery probe and must still get
+	// a bounded chance to distinguish a closed tab from a slow page command.
 	parent := context.Background()
 	if ctx != nil && ctx.Err() == nil {
 		parent = ctx
@@ -1887,6 +1890,14 @@ func (s *Session) ClickWithPostconditionContext(ctx context.Context, selector st
 	}
 	defer s.mu.Unlock()
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	// A target may have been closed through another CDP client between actions.
+	// Probe before page/frame validation and selector polling: both can wait on a
+	// detached target until the caller deadline, preventing MCP from returning a
+	// structured target_gone response.
+	if s.activeTargetGoneAfterFailure(ctx) {
+		err := targetGoneOperationError("click", s.page, errors.New("browser target is no longer available"))
 		return nil, err
 	}
 	if err := s.ensurePageContext(ctx); err != nil {

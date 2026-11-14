@@ -14,7 +14,7 @@ require (
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
-	github.com/pb33f/go-yaml v0.1.0 // indirect
+	github.com/pb33f/go-yaml v0.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.2 // indirect
 	go.etcd.io/bbolt v1.5.0 // indirect
 	go.klarlabs.de/bolt v1.7.0 // indirect

@@ -2255,6 +2255,13 @@ func run() (retErr error) {
 	fixtureHandler, dispatchObserved := benchmarkfixture.HandlerWithDispatchSignal()
 	server := httptest.NewServer(fixtureHandler)
 	defer server.Close()
+	if os.Getenv("SCOUT_BENCHMARK_FOCUS") == "mcp-external-target-close" {
+		scenario, err := fixture("target-gone-mcp-external-close")
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(runMCPExternalTargetClose(server.URL, scenario))
+	}
 
 	mcpTransport, err := client.NewUnsafeStdioTransport("go", "run", "./cmd/scout", "mcp", "serve")
 	if err != nil {
