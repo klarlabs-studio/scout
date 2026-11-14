@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.2] - 2026-11-14
+
+### Fixed
+
+- Wait for Chromium to confirm that a tab target is gone before reporting a
+  successful close, so Scout does not leave orphaned browser tabs.
+- Flush held key release events through the renderer before closing a session.
+
+### Tests
+
+- Allow more capture time in the screen recording integration test for slower
+  hosted macOS runners.
+
+
 ## [1.16.1] - 2026-11-14
 
 ### Fixed
