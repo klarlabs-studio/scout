@@ -172,7 +172,7 @@ func runSubmitParity(id, url string, fixture fixtureScenario, baseline *agent.Su
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "go", "run", "./cmd/scout", "submit", url, fixture.FormSelector,
-		"--match-url="+fixture.MatchURL, "--acceptance-text="+fixture.ExpectedText, "--timeout-ms=3000", "--headless")
+		"--match-url="+fixture.MatchURL, "--acceptance-text="+fixture.ExpectedText, "--timeout-ms=3000", "--headless", "--allow-private-ips")
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	stdout, runErr := cmd.Output()
@@ -2643,7 +2643,7 @@ func run() (retErr error) {
 	} else {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "go", "run", "./cmd/scout", "click", server.URL+"/action", cliParity.Selector, "--expected-text="+cliParity.ExpectedText, "--headless")
+		cmd := exec.CommandContext(ctx, "go", "run", "./cmd/scout", "click", server.URL+"/action", cliParity.Selector, "--expected-text="+cliParity.ExpectedText, "--headless", "--allow-private-ips")
 		var stderr strings.Builder
 		cmd.Stderr = &stderr
 		stdout, runErr := cmd.Output()
@@ -2697,7 +2697,7 @@ func run() (retErr error) {
 	} else {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "go", "run", "./cmd/scout", "type", server.URL+typeParity.StartingPath, typeParity.Selector, typeParity.ExpectedValue, "--headless")
+		cmd := exec.CommandContext(ctx, "go", "run", "./cmd/scout", "type", server.URL+typeParity.StartingPath, typeParity.Selector, typeParity.ExpectedValue, "--headless", "--allow-private-ips")
 		var stderr strings.Builder
 		cmd.Stderr = &stderr
 		stdout, runErr := cmd.Output()

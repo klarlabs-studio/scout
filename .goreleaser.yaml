@@ -55,6 +55,33 @@ dockers_v2:
     platforms:
       - linux/amd64
       - linux/arm64
+    build_args:
+      SCOUT_VERSION: "{{ .Version }}"
+      SCOUT_COMMIT: "{{ .FullCommit }}"
+    extra_files:
+      - agent
+      - cmd
+      - internal
+      - middleware
+      - go.mod
+      - go.sum
+      - browse.go
+      - context.go
+      - engine.go
+      - errors.go
+      - group.go
+      - keypress.go
+      - lifecycle.go
+      - middleware.go
+      - options.go
+      - page.go
+      - page_fetch.go
+      - recorder.go
+      - selection.go
+      - selection_all.go
+      - table.go
+      - urlvalidator.go
+      - util.go
     labels:
       "org.opencontainers.image.source": "https://github.com/klarlabs-studio/scout"
       "org.opencontainers.image.version": "{{ .Version }}"
