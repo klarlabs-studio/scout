@@ -29,6 +29,7 @@ LABEL org.opencontainers.image.source="https://github.com/klarlabs-studio/scout"
 LABEL org.opencontainers.image.description="AI-powered browser automation MCP server"
 LABEL org.opencontainers.image.authors="Klarlabs Studio"
 LABEL org.opencontainers.image.licenses="MIT"
+LABEL maintainer="Klarlabs Studio"
 LABEL io.modelcontextprotocol.server.name="io.github.klarlabs-studio/scout"
 
 # The image runtime blocks Chromium's user-namespace sandbox. Keep Scout and
