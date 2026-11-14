@@ -37,6 +37,8 @@ jobs:
       pull-requests: write
     secrets: inherit
     with:
+      # Keep the linter compiler at or above the Go toolchain in go.mod.
+      golangci-version: v2.15.0
       # Enforce the checked-in .coverctl.yaml domain baselines.
       coverage: true
       # Scout has OS-specific browser/launcher behavior — validate the unit

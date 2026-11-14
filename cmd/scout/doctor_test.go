@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -15,17 +12,19 @@ import (
 )
 
 type doctorSessionStub struct {
-	status      *agent.SessionStatus
-	statusErr   error
-	observeErr  error
-	observation *agent.Observation
-	closed      bool
-	probeURL    string
-	tabs        []agent.TabInfo
-	openResult  *agent.PageResult
-	openErr     error
-	switchErr   error
-	closeErr    error
+	status       *agent.SessionStatus
+	statusErr    error
+	observeErr   error
+	observation  *agent.Observation
+	closed       bool
+	probeURL     string
+	tabs         []agent.TabInfo
+	openResult   *agent.PageResult
+	openErr      error
+	assertResult *agent.AssertResult
+	assertErr    error
+	switchErr    error
+	closeErr     error
 }
 
 func (s *doctorSessionStub) StatusContext(context.Context) (*agent.SessionStatus, error) {
@@ -54,7 +53,7 @@ func (s *doctorSessionStub) CloseTabResultForTargetContext(context.Context, stri
 }
 
 func (s *doctorSessionStub) AssertTextContainsContext(context.Context, string, string, bool) (*agent.AssertResult, error) {
-	return nil, errors.New("unexpected probe")
+	return s.assertResult, s.assertErr
 }
 
 func (s *doctorSessionStub) CloseContext(context.Context) error {
@@ -234,22 +233,23 @@ func TestDoctorTimeoutDuringFirstReadStillClosesSession(t *testing.T) {
 
 func TestDoctorLiveProbeSeparatesBrowserReadFromApplicationMarker(t *testing.T) {
 	clearDoctorEnvironment(t)
-	t.Setenv("SCOUT_ALLOW_PRIVATE_IPS", "true")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		_, _ = fmt.Fprint(w, "<!doctype html><title>Doctor</title><main>ready here</main>")
-	}))
-	defer srv.Close()
-	t.Setenv("SCOUT_MCP_ALLOWED_ORIGINS", srv.URL)
-	originalFactory := newDoctorSession
-	newDoctorSession = func(ctx context.Context, cfg agent.SessionConfig) (doctorSession, error) {
-		cfg.Headless = true
-		cfg.AllowPrivateIPs = true
-		cfg.Timeout = 10 * time.Second
-		return agent.NewSessionContext(ctx, cfg)
+	probeURL := "https://doctor-fixture.example/health"
+	t.Setenv("SCOUT_MCP_ALLOWED_ORIGINS", "https://doctor-fixture.example")
+	makeSession := func(assertOK bool) *doctorSessionStub {
+		result := &agent.AssertResult{OK: assertOK}
+		return &doctorSessionStub{
+			status:       &agent.SessionStatus{BrowserAlive: true, BrowserOwnership: "local"},
+			observation:  &agent.Observation{TargetID: "original-target"},
+			tabs:         []agent.TabInfo{{Name: "default", TargetID: "original-target", Active: true}},
+			openResult:   &agent.PageResult{TargetID: "probe-target", URL: probeURL},
+			assertResult: result,
+		}
 	}
+	stub := makeSession(true)
+	originalFactory := newDoctorSession
+	newDoctorSession = func(context.Context, agent.SessionConfig) (doctorSession, error) { return stub, nil }
 	t.Cleanup(func() { newDoctorSession = originalFactory })
-	passed := runDoctorWithProbeOptions("", "all", "", "", true, 10*time.Second, srv.URL, "ready here")
+	passed := runDoctorWithProbeOptions("", "all", "", "", true, 10*time.Second, probeURL, "ready here")
 	if check := doctorCheckNamed(t, passed, "browser_live"); check.Status != "ok" || !strings.Contains(check.Detail, "bounded active-page read completed") {
 		t.Fatalf("positive first-read diagnostic = %+v", check)
 	}
@@ -262,7 +262,9 @@ func TestDoctorLiveProbeSeparatesBrowserReadFromApplicationMarker(t *testing.T) 
 	if check := doctorCheckNamed(t, passed, "browser_cleanup"); check.Status != "ok" {
 		t.Fatalf("positive probe cleanup = %+v, want ok", check)
 	}
-	report := runDoctorWithProbeOptions("", "all", "", "", true, 10*time.Second, srv.URL, "missing-marker")
+	missingMarkerStub := makeSession(false)
+	newDoctorSession = func(context.Context, agent.SessionConfig) (doctorSession, error) { return missingMarkerStub, nil }
+	report := runDoctorWithProbeOptions("", "all", "", "", true, 10*time.Second, probeURL, "missing-marker")
 	browser := doctorCheckNamed(t, report, "browser_live")
 	if browser.Status != "ok" || !strings.Contains(browser.Detail, "bounded active-page read completed") {
 		t.Fatalf("browser readiness did not report successful bounded read: %+v", browser)

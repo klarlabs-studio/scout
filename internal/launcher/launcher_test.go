@@ -114,7 +114,7 @@ func TestFindChromeCandidatesList(t *testing.T) {
 }
 
 func TestFindChromeUsesConfiguredPath(t *testing.T) {
-	browser := filepath.Join(t.TempDir(), "browser")
+	browser := filepath.Join(t.TempDir(), executableFixtureName())
 	if err := os.WriteFile(browser, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestFindChromeUsesConfiguredPath(t *testing.T) {
 }
 
 func TestFindChromeExplicitPathOverridesEnvironment(t *testing.T) {
-	browser := filepath.Join(t.TempDir(), "browser")
+	browser := filepath.Join(t.TempDir(), executableFixtureName())
 	if err := os.WriteFile(browser, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -143,6 +143,13 @@ func TestFindChromeExplicitPathOverridesEnvironment(t *testing.T) {
 	if got != browser {
 		t.Fatalf("findChromeAt() = %q, want explicit path %q", got, browser)
 	}
+}
+
+func executableFixtureName() string {
+	if runtime.GOOS == "windows" {
+		return "browser.exe"
+	}
+	return "browser"
 }
 
 func TestFindChromeRejectsInvalidConfiguredPath(t *testing.T) {

@@ -106,20 +106,17 @@ jobs:
         run: go test -tags integration -race -timeout 180s ./cmd/scout -run '^(TestDoctorRejectsLiveCDPWithUnresponsivePage|TestDoctorReportsProbeTabWhenBrowserRejectsCleanup)$'
 
       - name: Retain browser egress destination-oracle evidence
+        env:
+          SCOUT_EGRESS_EVIDENCE_PATH: ${{ runner.temp }}/scout-egress-proxy-evidence.json
         run: |
-          go test -tags integration -race -timeout 180s . -run '^TestIntegrationEgressProxyBlocksUnallowedTraffic$' -v 2>&1 | tee "$RUNNER_TEMP/scout-egress-proxy-test.log"
-          python3 - "$RUNNER_TEMP/scout-egress-proxy-test.log" "$RUNNER_TEMP/scout-egress-proxy-evidence.json" <<'PY'
+          go test -tags integration -race -timeout 180s . -run '^TestIntegrationEgressProxyBlocksUnallowedTraffic$' -count=1
+          python3 - "$SCOUT_EGRESS_EVIDENCE_PATH" <<'PY'
           import json
           import pathlib
           import sys
 
-          log = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-          assert "--- SKIP: TestIntegrationEgressProxyBlocksUnallowedTraffic" not in log, log
-          assert "--- PASS: TestIntegrationEgressProxyBlocksUnallowedTraffic" in log, log
-          marker = "SCOUT_EGRESS_INTEGRATION_EVIDENCE "
-          records = [line.split(marker, 1)[1] for line in log.splitlines() if marker in line]
-          assert len(records) == 1, f"expected one destination-oracle report, found {len(records)}"
-          report = json.loads(records[0])
+          evidence_path = pathlib.Path(sys.argv[1])
+          report = json.loads(evidence_path.read_text(encoding="utf-8"))
           assert report["verified"] is True
           expected = {
               "allowed_websocket": 1,
@@ -136,7 +133,7 @@ jobs:
           assert all(d.get("type") == "scout_egress_decision" and d.get("decision_id") for d in decisions)
           assert any(d.get("event") == "connect" and d.get("allowed") is True for d in decisions)
           assert any(d.get("event") == "connect" and d.get("allowed") is False for d in decisions)
-          pathlib.Path(sys.argv[2]).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+          evidence_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
           PY
 
       - name: Retain browser egress report after later failure

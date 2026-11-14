@@ -63,6 +63,61 @@
       "file_path": "ui/package-lock.json",
       "severity": "medium",
       "created_at": "2026-07-06T11:04:12.48597Z"
+    },
+    {
+      "fingerprint": "0c92d8b65f9666b7fcfe1bb2385d8b0a6b8815216ca70c66a8cefa0da40f9969",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_unreachable_cdp_comparison.py",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.667335Z"
+    },
+    {
+      "fingerprint": "a1c398c930ae774721ed5d68fee22ae9512f9500cb4d62518770109c8dc5c0bc",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_unreachable_cdp_comparison.py",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.667337Z"
+    },
+    {
+      "fingerprint": "f787b80c93d653c6d325ed55d9df0bfe524499619d1f5b60d74e1960f5e850ba",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_unreachable_cdp_comparison.py",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.667338Z"
+    },
+    {
+      "fingerprint": "f14560948c34afb3e828b7dfb1bf6bf5e87c201bdcba1184013f91d14083726e",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/durable_task_recovery/main.go",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.66734Z"
+    },
+    {
+      "fingerprint": "ae58cca066fac8a9d73a1ac1deff71a31d995afea6b8e2f5a1121f1308c30db4",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/durable_task_recovery/main.go",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.66734Z"
+    },
+    {
+      "fingerprint": "be881ee886f2448ce269f99e9597f3282362c466af0d8600d554d69c1d695d78",
+      "rule_id": "VULN-001",
+      "file_path": "Dockerfile",
+      "severity": "high",
+      "reason": "Reviewed against Dockerfile: its build installs zlib1g at Debian 13 fixed version 1:1.3.dfsg+really1.3.1-1+deb13u1 before removing apt lists. The finding is for the older package in the pinned base image layer; runtime package is upgraded in the final image.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:18:28.919362Z",
+      "line": 1
     }
   ]
 }

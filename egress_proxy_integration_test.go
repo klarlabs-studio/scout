@@ -354,7 +354,11 @@ if (new URL(location.href).searchParams.has('controlled')) {
 	if err != nil {
 		t.Fatalf("encode egress evidence: %v", err)
 	}
-	t.Logf("SCOUT_EGRESS_INTEGRATION_EVIDENCE %s", encodedEvidence)
+	compactEvidence, err := json.Marshal(evidence)
+	if err != nil {
+		t.Fatalf("encode compact egress evidence: %v", err)
+	}
+	t.Logf("SCOUT_EGRESS_INTEGRATION_EVIDENCE %s", compactEvidence)
 	if evidencePath := os.Getenv("SCOUT_EGRESS_EVIDENCE_PATH"); evidencePath != "" {
 		if err := os.WriteFile(evidencePath, append(encodedEvidence, '\n'), 0o600); err != nil {
 			t.Fatalf("write egress evidence to %s: %v", evidencePath, err)

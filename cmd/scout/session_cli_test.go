@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -219,8 +220,10 @@ func TestBoundSessionResponseCanBeReadBackInBoundedChunks(t *testing.T) {
 	if !bounded.OutputOmitted || bounded.Artifact == nil {
 		t.Fatalf("bounded response = %+v, want retrievable artifact", bounded)
 	}
-	if info, err := os.Stat(filepath.Join(store.dir, bounded.Artifact.ID+".json")); err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("artifact permissions = %v, err=%v; want 0600", info, err)
+	if info, err := os.Stat(filepath.Join(store.dir, bounded.Artifact.ID+".json")); err != nil {
+		t.Fatalf("stat artifact: %v", err)
+	} else if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Fatalf("artifact permissions = %v; want 0600", info.Mode().Perm())
 	}
 	var assembled []byte
 	for offset := 0; ; {
