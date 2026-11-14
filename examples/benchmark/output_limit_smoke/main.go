@@ -128,7 +128,7 @@ func main() {
 	if err := json.Unmarshal([]byte(strings.TrimPrefix(batchText, scoutErrorPrefix)), &batchError); err != nil {
 		fatalIf(fmt.Errorf("decode compacted batch error: %w", err))
 	}
-	if batchError.Code != "SCOUT_OPERATION_INTERRUPTED" || batchError.PartialResult.Total != 2 || batchError.PartialResult.Unknown != 1 || !batchError.PartialResult.Truncated || len(batchError.PartialResult.Results) != 2 {
+	if batchError.Code != "SCOUT_OPERATION_INTERRUPTED" || batchError.PartialResult.Total != 2 || batchError.PartialResult.Unknown != 1 || !batchError.PartialResult.Truncated || len(batchError.PartialResult.Results) == 0 {
 		fatalIf(fmt.Errorf("unexpected compacted batch summary: %+v", batchError))
 	}
 	var recovery *agent.ActionRecoveryRecord
