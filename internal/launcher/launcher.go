@@ -196,7 +196,9 @@ func LaunchContext(ctx context.Context, opts Options) (*Browser, error) {
 		return nil, fmt.Errorf("browse: failed to start chrome: %w", err)
 	}
 
-	wsURL, err := waitForDevToolsContext(ctx, opts.Port, 10*time.Second)
+	// Hosted CI runners can take longer to initialize recent Chrome builds;
+	// keep startup bounded while allowing slower machines to publish DevTools.
+	wsURL, err := waitForDevToolsContext(ctx, opts.Port, 30*time.Second)
 	if err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()

@@ -22,6 +22,8 @@ type targetPresenceBrowser struct {
 	browse.Browser
 	present    bool
 	instanceID string
+	ctxErr     error
+	ctxDone    bool
 }
 
 func TestCleanupUninitializedRemotePageReportsDetachFailure(t *testing.T) {
@@ -210,8 +212,31 @@ func TestSiteIsolatedFrameTargetPreservesInventoryFailures(t *testing.T) {
 	}
 }
 
-func (b targetPresenceBrowser) HasTargetContext(context.Context, string) (bool, error) {
-	return b.present, nil
+func (b targetPresenceBrowser) HasTargetContext(ctx context.Context, _ string) (bool, error) {
+	if b.ctxDone {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+	}
+	return b.present, b.ctxErr
+}
+
+func TestActiveTargetGoneProbeOutlivesExpiredActionContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	s := &Session{browser: targetPresenceBrowser{present: false, ctxDone: true}, page: &browse.Page{}}
+	if !s.activeTargetGoneAfterFailure(ctx) {
+		t.Fatal("target absence was not confirmed with an expired action context")
+	}
+}
+
+func TestClickReportsTargetGoneBeforePageValidation(t *testing.T) {
+	s := &Session{browser: targetPresenceBrowser{present: false}, page: &browse.Page{}}
+	_, err := s.ClickWithPostconditionContext(context.Background(), "#submit", Postcondition{}, false)
+	var operationErr *OperationError
+	if !errors.As(err, &operationErr) || operationErr.Cause != "target_gone" {
+		t.Fatalf("click error = %T (%v), want structured target_gone", err, err)
+	}
 }
 
 func (b targetPresenceBrowser) BrowserInstanceID() string { return b.instanceID }

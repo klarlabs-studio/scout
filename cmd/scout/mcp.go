@@ -2850,6 +2850,14 @@ func runMCPWithCurated(httpAddr, profile, requiredTools, taskStorePath string, c
 		cleanupPending[key] = true
 		closingSessions[sessionOwnerForKey(key)]++
 	}
+	// Browser shutdown must have a deadline. Browser.close is best-effort; if
+	// Chrome fails to exit after that command, CloseContext force-kills the
+	// owned process and removes its temporary profile when the deadline expires.
+	closeBrowserSession := func(sess *agent.Session) error {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return sess.CloseContext(closeCtx)
+	}
 	finishSessionCloseLocked := func(key string, closeErr error) {
 		if closeErr != nil {
 			delete(cleanupPending, key)
@@ -2866,11 +2874,12 @@ func runMCPWithCurated(httpAddr, profile, requiredTools, taskStorePath string, c
 	}
 	finishSessionClose := func(key string, sess *agent.Session) {
 		go func() {
-			if err := sess.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "scout: session cleanup failed: %v\n", err)
+			closeErr := closeBrowserSession(sess)
+			if closeErr != nil {
+				fmt.Fprintf(os.Stderr, "scout: session cleanup failed: %v\n", closeErr)
 			}
 			sessionMu.Lock()
-			finishSessionCloseLocked(key, err)
+			finishSessionCloseLocked(key, closeErr)
 			sessionMu.Unlock()
 		}()
 	}
@@ -3012,7 +3021,7 @@ func runMCPWithCurated(httpAddr, profile, requiredTools, taskStorePath string, c
 			go func() {
 				done := make(chan struct{})
 				go func() {
-					closeErr := old.Close()
+					closeErr := closeBrowserSession(old)
 					if closeErr != nil {
 						fmt.Fprintf(os.Stderr, "scout: session cleanup failed: %v\n", closeErr)
 					}
@@ -3101,12 +3110,13 @@ func runMCPWithCurated(httpAddr, profile, requiredTools, taskStorePath string, c
 							session *agent.Session
 						}) {
 							defer idleClosing.Done()
-							if err := item.session.Close(); err != nil {
-								fmt.Fprintf(os.Stderr, "scout: idle session cleanup failed: %v\n", err)
+							closeErr := closeBrowserSession(item.session)
+							if closeErr != nil {
+								fmt.Fprintf(os.Stderr, "scout: idle session cleanup failed: %v\n", closeErr)
 							}
 							cleanupSessionArtifacts(item.key)
 							sessionMu.Lock()
-							finishSessionCloseLocked(item.key, err)
+							finishSessionCloseLocked(item.key, closeErr)
 							sessionMu.Unlock()
 						}(item)
 					}
@@ -3218,12 +3228,13 @@ func runMCPWithCurated(httpAddr, profile, requiredTools, taskStorePath string, c
 					}
 					sessionMu.Unlock()
 					for _, item := range closing {
-						if err := item.session.Close(); err != nil {
-							fmt.Fprintf(os.Stderr, "scout: HTTP session cleanup failed: %v\n", err)
+						closeErr := closeBrowserSession(item.session)
+						if closeErr != nil {
+							fmt.Fprintf(os.Stderr, "scout: HTTP session cleanup failed: %v\n", closeErr)
 						}
 						cleanupSessionArtifacts(item.key)
 						sessionMu.Lock()
-						finishSessionCloseLocked(item.key, err)
+						finishSessionCloseLocked(item.key, closeErr)
 						sessionMu.Unlock()
 					}
 					return
@@ -3258,8 +3269,9 @@ Browser tool calls can address an existing named session without changing the ac
 session by setting request metadata _meta.go.klarlabs.de/scout/session to its name.
 This selector is scoped to the caller's existing registry and is not an authorization token.
 Remote CDP endpoints still refer to shared external browser state. Profile save/load tools persist cookies
-and localStorage in a private JSON file. Set SCOUT_SESSION_IDLE_TIMEOUT (for example,
-'30m') to opt into per-session idle cleanup; list_sessions reports last_activity and
+and localStorage in a private JSON file. Inactive MCP sessions expire after one hour
+by default. Set SCOUT_SESSION_IDLE_TIMEOUT (for example, '30m') to change the timeout,
+or set it to 'off' to disable automatic expiration; list_sessions reports last_activity and
 idle_deadline. Launched browsers close when their idle session expires. Remote CDP
 sessions disconnect without closing the caller-owned browser.
 
@@ -4252,7 +4264,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 				}
 			}
 			sessionMu.Unlock()
-			closeErr := closing.Close()
+			closeErr := closeBrowserSession(closing)
 			// The process-local handle index is only a diagnostic aid: durable
 			// recovery records can outlive a server restart. Always enumerate the
 			// authenticated owner's default-session records on close.
@@ -4293,7 +4305,7 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 
 	srv.Tool("clone_session").
 		ClosedWorld().
-		Description("Clone the active page URL, cookies, and localStorage into a new isolated local browser session and activate it. This copies authentication state, not open tabs or sessionStorage. Use a trusted destination session name.").
+		Description("Clone the active page URL, cookies, and localStorage into a new isolated local browser session and activate it. This starts a separate Chrome process; close it with close_session when finished. Abandoned sessions expire after SCOUT_SESSION_IDLE_TIMEOUT (one hour by default). This copies authentication state, not open tabs or sessionStorage. Use a trusted destination session name.").
 		Handler(func(ctx context.Context, input SessionNameInput) (string, error) {
 			name, err := validateSessionName(input.Name)
 			if err != nil {
@@ -4345,8 +4357,15 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			if err == nil {
 				_, err = cloned.ReloadContext(ctx, false)
 			}
+			// A canceled request can race with the last CDP operation returning
+			// successfully. Do not publish a browser the caller was told did not
+			// finish creating; the error path below closes its Chrome process and
+			// removes its temporary profile.
+			if err == nil {
+				err = ctx.Err()
+			}
 			if err != nil {
-				closeErr := cloned.Close()
+				closeErr := closeBrowserSession(cloned)
 				sessionMu.Lock()
 				startingSessions[clientIDForContext(ctx)]--
 				delete(startingByName, key)
@@ -4358,6 +4377,12 @@ WORKFLOW: navigate first, then use other tools. Use 'dismiss_cookies' after navi
 			startingSessions[clientIDForContext(ctx)]--
 			delete(startingByName, key)
 			close(pending)
+			if err := ctx.Err(); err != nil {
+				beginSessionCloseLocked(key)
+				sessionMu.Unlock()
+				finishSessionClose(key, cloned)
+				return "", err
+			}
 			if configRevisionForContextLocked(ctx) != revision {
 				beginSessionCloseLocked(key)
 				sessionMu.Unlock()

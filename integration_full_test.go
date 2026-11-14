@@ -1618,8 +1618,15 @@ if (new URL(location.href).searchParams.has('controlled')) {
 	if hits := serviceWorkerHits.Load(); hits == 0 {
 		t.Fatal("service worker did not intercept the trigger request; egress assertion would be inconclusive")
 	}
-	if hits := disallowedHits.Load(); hits != 1 {
-		t.Fatalf("expected page-target interception to miss the service-worker fetch once, got %d", hits)
+	// Browser Fetch interception behavior for service workers varies across
+	// Chrome versions. Zero means the request was blocked; one records the
+	// characterized page-target interception gap. More than one is unexpected.
+	if hits := disallowedHits.Load(); hits > 1 {
+		t.Fatalf("expected at most one service-worker fetch to reach the disallowed origin, got %d", hits)
+	} else if hits == 0 {
+		t.Log("service-worker fetch was blocked by browser interception")
+	} else {
+		t.Log("characterized service-worker Fetch interception gap: one request reached the disallowed origin")
 	}
 }
 
@@ -2258,9 +2265,9 @@ func TestIntegrationOnSession(t *testing.T) {
 	engine.Task("on-session", func(c *Context) {
 		c.MustNavigate(ts.URL)
 
-		var received bool
+		var received atomic.Bool
 		unsub := c.Page().OnSession("DOM.documentUpdated", func(params map[string]any) {
-			received = true
+			received.Store(true)
 		})
 		defer unsub()
 
@@ -2270,7 +2277,7 @@ func TestIntegrationOnSession(t *testing.T) {
 
 		// The event may or may not fire depending on timing,
 		// but the handler should not panic
-		t.Logf("DOM.documentUpdated received: %v", received)
+		t.Logf("DOM.documentUpdated received: %v", received.Load())
 	})
 
 	if err := engine.Run("on-session"); err != nil {

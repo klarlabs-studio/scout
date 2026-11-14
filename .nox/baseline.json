@@ -63,6 +63,843 @@
       "file_path": "ui/package-lock.json",
       "severity": "medium",
       "created_at": "2026-07-06T11:04:12.48597Z"
+    },
+    {
+      "fingerprint": "0c92d8b65f9666b7fcfe1bb2385d8b0a6b8815216ca70c66a8cefa0da40f9969",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_unreachable_cdp_comparison.py",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.667335Z"
+    },
+    {
+      "fingerprint": "a1c398c930ae774721ed5d68fee22ae9512f9500cb4d62518770109c8dc5c0bc",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_unreachable_cdp_comparison.py",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.667337Z"
+    },
+    {
+      "fingerprint": "f787b80c93d653c6d325ed55d9df0bfe524499619d1f5b60d74e1960f5e850ba",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_unreachable_cdp_comparison.py",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.667338Z"
+    },
+    {
+      "fingerprint": "f14560948c34afb3e828b7dfb1bf6bf5e87c201bdcba1184013f91d14083726e",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/durable_task_recovery/main.go",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.66734Z"
+    },
+    {
+      "fingerprint": "ae58cca066fac8a9d73a1ac1deff71a31d995afea6b8e2f5a1121f1308c30db4",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/durable_task_recovery/main.go",
+      "severity": "high",
+      "reason": "Reviewed as false positives: subprocess calls use argument arrays without a shell; Python working directory is derived from this script, GOTOOLCHAIN only selects the Go toolchain, and the optional agent-browser binary is explicitly selected by the operator. Arguments including CDP endpoints remain separate argv values.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:14:40.66734Z"
+    },
+    {
+      "fingerprint": "be881ee886f2448ce269f99e9597f3282362c466af0d8600d554d69c1d695d78",
+      "rule_id": "VULN-001",
+      "file_path": "Dockerfile",
+      "severity": "high",
+      "reason": "Reviewed against Dockerfile: its build installs zlib1g at Debian 13 fixed version 1:1.3.dfsg+really1.3.1-1+deb13u1 before removing apt lists. The finding is for the older package in the pinned base image layer; runtime package is upgraded in the final image.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T03:18:28.919362Z"
+    },
+    {
+      "fingerprint": "03058f2a890269a331f37e1d95852cdfeb6f7cf4286e1767268bea1b47171456",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.349139Z"
+    },
+    {
+      "fingerprint": "3859e73d3744072e0daf505c6788fb5adefa8c883beded79f3bd9a47e0bf440e",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.34914Z"
+    },
+    {
+      "fingerprint": "3c2d22212a1ca958bca637b7264dd29dc74795dd30044293bd552c73e983b00f",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.349141Z"
+    },
+    {
+      "fingerprint": "798493834f4a34c11c0a214d17b6cc52cc6c1c92562633fb38f374cb702ebcb1",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.349142Z"
+    },
+    {
+      "fingerprint": "923bc4a45d0f0940d8b5a8c6c979889a396b7d126e3896578ca1307555fba6b0",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.349143Z"
+    },
+    {
+      "fingerprint": "cce6561598798da7f5dd478ffc4de5ee5d48dda7aec190c7b3b58a555002ff93",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_scout_browser_recovery_matrix.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.349144Z"
+    },
+    {
+      "fingerprint": "dc786ce173315f4c565a6ad2a6f56576442fc943d24db405b22de72bdb4aa269",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.349145Z"
+    },
+    {
+      "fingerprint": "dc79031f2b5b53c10c08ec1619802e7dda6e7c635e3109b07c885fe12267708f",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.349147Z"
+    },
+    {
+      "fingerprint": "ef4265a8ef13eca75af58ea690aa3ee6838a6db79975cfdae8bfd537ff0d3779",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark scripts. Commands are passed as argument arrays to subprocess APIs with shell execution disabled; arguments are configured by the operator or derived from validated benchmark IDs. No remotely callable application handler passes attacker input to a shell.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.349148Z"
+    },
+    {
+      "fingerprint": "08528eb8ef0df83e241c31cb35daaa8e28adb57d25796fcb846b8785a71294ab",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/webmcp/run_scout_webmcp_smoke.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414662Z"
+    },
+    {
+      "fingerprint": "0bce28feff9229f4c95eeef767a8245f524d88e7faa54efa57eb300de2ea6f0b",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_idempotency.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414663Z"
+    },
+    {
+      "fingerprint": "0bdc1c7a6f163051483c735d7840a49729f98d0175ebb134feb6c42d335c2116",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/webmcp/run_playwright_mcp_smoke.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414664Z"
+    },
+    {
+      "fingerprint": "34a040f058cb74463f706ad5e05ce72e5abf7cf547155750129317bb55972f99",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_saved_flow_interfaces.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414666Z"
+    },
+    {
+      "fingerprint": "3b2d88fc965193b65f171b461f71a72a047d5de2fbaa30cce4df9d0f73806ab2",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_saved_flow_interfaces.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414667Z"
+    },
+    {
+      "fingerprint": "3c36f0cbe30d47ed3b1080c4bca2019667c54bca32264f64bf23db22a728af64",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_agent_browser.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.41467Z"
+    },
+    {
+      "fingerprint": "409271049832d599ef50f57eb63fa333a8db171d2ef6e55e3f48a70281b78a1c",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414672Z"
+    },
+    {
+      "fingerprint": "420b6d165b64a890a869097678a3562559e8c1b17e06812d81a4f3b64a585e0a",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/webmcp/run_playwright_mcp_smoke.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414673Z"
+    },
+    {
+      "fingerprint": "5b5b05f951f15d8930684ce12c10bac7f5ecaafcc8b03ce276b92a9744332b17",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_idempotency.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414675Z"
+    },
+    {
+      "fingerprint": "6c9aa3ce21a1e3c3f6dc84ce86ab335518294c7815ce1d080277b1d3e235dd1c",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414678Z"
+    },
+    {
+      "fingerprint": "980604fb467eb38fe13ee7de444075e8f7a4659330e5d5c1e3c3f18bbd723469",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414679Z"
+    },
+    {
+      "fingerprint": "9a320d841ce9fa7ad5981d7a84384798add892f8c02d74029d2ce883c0ced9a7",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_idempotency.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.41468Z"
+    },
+    {
+      "fingerprint": "ae8161c786e367ebd1d9c2adab41f057a4537845e3cbc9bf735013b9581caa5b",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/webmcp/run_playwright_mcp_smoke.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414682Z"
+    },
+    {
+      "fingerprint": "c29b22c6836abadf2f8cfc0482612e43a28b4aa97a28d643e78f9812b5761845",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_browser_use_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414683Z"
+    },
+    {
+      "fingerprint": "ce452448e56e8f3ca61f3c88a0afcfbec9d1ef06ab03b0097a1df80361b41bff",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/compare_playwright_inflight_idle.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414685Z"
+    },
+    {
+      "fingerprint": "d10e33b9677b764a834f6146c79308dcd8d62475765dea1a43848996556f03a9",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_output_evidence_comparison.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414689Z"
+    },
+    {
+      "fingerprint": "d1800a29fd028ad41751468b4c305b7e216a61b8657a2364e415f7bd0a8c8dab",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414692Z"
+    },
+    {
+      "fingerprint": "edb18cc5283a0204fd731ea6216b0b1fb58bb82b4c36d7414a4f451a0ad0cfea",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/webmcp/run_scout_webmcp_smoke.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414693Z"
+    },
+    {
+      "fingerprint": "f198a2bbc6ca25a186cbd18d97cb3d4979f521d26e1c7111240762139e5c1864",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/compare_playwright_idle.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414695Z"
+    },
+    {
+      "fingerprint": "f20810f5f5834294b16a7e7b252d8c68c0e745fb33c2376e006b5d851905818e",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414698Z"
+    },
+    {
+      "fingerprint": "f2ed72e751f0a68fd25de155162418926a19b126cb44990ddd5dc323e252ed00",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_process_recovery.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these detections are in local benchmark and comparison runners. Their URLs are operator-selected benchmark endpoints or loopback fixtures, and these scripts are not deployed request handlers. Fetching the selected fixture or comparison target is their intended behavior; no web request from an untrusted remote user controls these calls.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.414699Z"
+    },
+    {
+      "fingerprint": "05fa9bfe3a2dd0f64fe217847bbf07a4e7c792639b7eeaf1500afaac5292143b",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_idempotency.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.48761Z"
+    },
+    {
+      "fingerprint": "164c12c2f2cab996aa145da9409b3979f91bfcb9223eb6f6f43b82469e8781ec",
+      "rule_id": "TAINT-004",
+      "file_path": "docs/import_adoption_session.py",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487613Z"
+    },
+    {
+      "fingerprint": "21d01d354b4f929a7197a14dad5dfbe8a94aad78825fad949ba91e9dfd8bad06",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/adoption_recovery_fixture/run_arm.py",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487615Z"
+    },
+    {
+      "fingerprint": "2c6c489b251d9903d7ca81fc345b1b337fb10aee8239360e97612da5daa20892",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487617Z"
+    },
+    {
+      "fingerprint": "3395b7ae2c4d91095a78e64e6c947585e2642e5534a70d204437bd00f89b302b",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487619Z"
+    },
+    {
+      "fingerprint": "45cc9bf679ef0babbd32715d53b3ff1a792899e2b35f2057839981e6627dd3d7",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_idempotency.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487621Z"
+    },
+    {
+      "fingerprint": "629fd146dfb900eee450d5e52c9d546f283e3d7b55cbdb94557b11ef9897d733",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_idempotency.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487623Z"
+    },
+    {
+      "fingerprint": "68171bc4e58deb1a8a28de0ead7f42d938527655506181155cd32b18d436123e",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/adoption_recovery_fixture/verify_source_manifest.py",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487625Z"
+    },
+    {
+      "fingerprint": "7f8af273f5dd5abf6e30c6cf0d4bc07bf241392c30e05193cc6eaa7b8afb178b",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/webmcp/run_playwright_mcp_smoke.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487627Z"
+    },
+    {
+      "fingerprint": "94230d60713838374e0924e71213cd3f4d9911c75f90c7fa34bb105aed928b0d",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/webmcp/run_scout_webmcp_smoke.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.48763Z"
+    },
+    {
+      "fingerprint": "a5ccf6dd8c6eccffab1494338b6c34b867310083b3398fb39b9d81e950f596a6",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/process_rss_sampler.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487632Z"
+    },
+    {
+      "fingerprint": "ac462ad603dadc5e9a353aedc8218ee5c5de9e82e39d28bd9366ff1fca323a8a",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_browser_use_host_restart.py",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487634Z"
+    },
+    {
+      "fingerprint": "b0beebf578c6fea2df2b406bacd58d96b8e353fec4b11e782874b008e43adc6d",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/adoption_recovery_fixture/grade_run.py",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487638Z"
+    },
+    {
+      "fingerprint": "b38e0af5ff491ac10e8683e595a7523ccc8f3d0213dd418ea2f970d586308c80",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/recovery_capability_probe.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.48764Z"
+    },
+    {
+      "fingerprint": "ba9164b2e9701d6d4d6173fbaa17e28274af0c47820fc2762abbe3c5fa222b69",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487643Z"
+    },
+    {
+      "fingerprint": "be8554d9bd3c40d03f2e1bbaa5b81f4159512b0f5673b8cb7cc811f69ab7f63f",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/adoption_recovery_fixture/run_arm.py",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487645Z"
+    },
+    {
+      "fingerprint": "d3c94f2e4d9cc0987aec778ccb4fb656a1ec3a7fc66d1cddd7eec9b43faa2300",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_process_recovery.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487648Z"
+    },
+    {
+      "fingerprint": "f10c1ea832132712db364fcda9077a4e4dd94f95f839e734836197935329bee9",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_process_recovery.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.48765Z"
+    },
+    {
+      "fingerprint": "f62355defd933d246fb1026ca9d58180b442653947b392d3443574229a8832ef",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487652Z"
+    },
+    {
+      "fingerprint": "ff04cbb085e6180c4f9347f54a2f3b76df84b3c2ce43fbcab20a42930708cddf",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_process_recovery.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positives: these detections are in local study, fixture, and benchmark commands. The paths are explicit operator-selected local inputs or outputs for reports, databases, and source manifests. They are not paths served or selected by a remotely callable Scout endpoint.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.487655Z"
+    },
+    {
+      "fingerprint": "775019d862cd3f02741a51735694653f2e413860cab3d56faaf5982b37c3af37",
+      "rule_id": "SEC-161",
+      "file_path": "egress_proxy_integration_test.go",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these are deterministic test and published fixture-evidence strings (loopback allowed-origin configuration and example ledger URLs). They are not credentials, API keys, or values accepted by a credential provider.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.54592Z"
+    },
+    {
+      "fingerprint": "b310de669a9cdb9db5eb55c2941fdae60b3457e0e3abc630158ab1366aa91789",
+      "rule_id": "SEC-161",
+      "file_path": "examples/durable_task_recovery/reports/zero-effect-idempotency-20261112.json",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these are deterministic test and published fixture-evidence strings (loopback allowed-origin configuration and example ledger URLs). They are not credentials, API keys, or values accepted by a credential provider.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.545928Z"
+    },
+    {
+      "fingerprint": "eb42ffa70b16dc5068eea0a520562aaf89411d547a982644f435e6cf629f4bfe",
+      "rule_id": "SEC-161",
+      "file_path": "examples/durable_task_recovery/reports/recovery-run-20261112T0828Z.json",
+      "severity": "medium",
+      "reason": "Reviewed false positives: these are deterministic test and published fixture-evidence strings (loopback allowed-origin configuration and example ledger URLs). They are not credentials, API keys, or values accepted by a credential provider.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.545936Z"
+    },
+    {
+      "fingerprint": "bf6b99874529f22ba753ffcf0ec1d268fccbcd72e9aca2a8abd9caf40b97fd21",
+      "rule_id": "TAINT-003",
+      "file_path": "examples/adoption_recovery_fixture/main.go",
+      "severity": "low",
+      "reason": "Reviewed false positive: the adoption fixture escapes task IDs and page tokens with an HTML-context escaper before writing them into quoted HTML attributes or text. The flagged formatter arguments are already escaped; they are not inserted into script source.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.623229Z"
+    },
+    {
+      "fingerprint": "2772fbd46dca93691bc643824113e8ddbe772d2789d4f337ab96a2aa7a54b901",
+      "rule_id": "IAC-121",
+      "file_path": "Dockerfile",
+      "severity": "medium",
+      "reason": "Reviewed and intentionally not applicable: this container runs the MCP stdio transport by default and exposes no health endpoint. A Dockerfile HEALTHCHECK would either probe the version command (which does not prove service health) or fail to connect to a nonexistent HTTP endpoint. Process termination is observed by the container runtime.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T06:49:37.696386Z"
+    },
+    {
+      "fingerprint": "9c4b27818816a06afabae56071430ec9700f21844b64f69df5f7a05886dfa8e4",
+      "rule_id": "SLOP-001",
+      "file_path": "examples/benchmark/run_browser_use_host_restart.py",
+      "severity": "low",
+      "reason": "Reviewed false positive: this is a sibling Python script intentionally imported by run_browser_use_host_restart.py. Direct script execution puts examples/benchmark on sys.path, so run_browser_use_recovery is a local module, not an undeclared third-party dependency.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184210Z"
+    },
+    {
+      "fingerprint": "03058f2a890269a331f37e1d95852cdfeb6f7cf4286e1767268bea1b47171456",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184211Z"
+    },
+    {
+      "fingerprint": "03058f2a890269a331f37e1d95852cdfeb6f7cf4286e1767268bea1b47171456",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184212Z"
+    },
+    {
+      "fingerprint": "03058f2a890269a331f37e1d95852cdfeb6f7cf4286e1767268bea1b47171456",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184213Z"
+    },
+    {
+      "fingerprint": "03058f2a890269a331f37e1d95852cdfeb6f7cf4286e1767268bea1b47171456",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184214Z"
+    },
+    {
+      "fingerprint": "03058f2a890269a331f37e1d95852cdfeb6f7cf4286e1767268bea1b47171456",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184215Z"
+    },
+    {
+      "fingerprint": "03058f2a890269a331f37e1d95852cdfeb6f7cf4286e1767268bea1b47171456",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184216Z"
+    },
+    {
+      "fingerprint": "3859e73d3744072e0daf505c6788fb5adefa8c883beded79f3bd9a47e0bf440e",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184217Z"
+    },
+    {
+      "fingerprint": "dc786ce173315f4c565a6ad2a6f56576442fc943d24db405b22de72bdb4aa269",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184218Z"
+    },
+    {
+      "fingerprint": "ef4265a8ef13eca75af58ea690aa3ee6838a6db79975cfdae8bfd537ff0d3779",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184219Z"
+    },
+    {
+      "fingerprint": "3859e73d3744072e0daf505c6788fb5adefa8c883beded79f3bd9a47e0bf440e",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184220Z"
+    },
+    {
+      "fingerprint": "dc786ce173315f4c565a6ad2a6f56576442fc943d24db405b22de72bdb4aa269",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184221Z"
+    },
+    {
+      "fingerprint": "ef4265a8ef13eca75af58ea690aa3ee6838a6db79975cfdae8bfd537ff0d3779",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184222Z"
+    },
+    {
+      "fingerprint": "cce6561598798da7f5dd478ffc4de5ee5d48dda7aec190c7b3b58a555002ff93",
+      "rule_id": "TAINT-002",
+      "file_path": "examples/benchmark/run_scout_browser_recovery_matrix.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run benchmark. The harness constructs argument arrays for local build/runtime commands and explicitly uses shell=False; the values are not received from Scout browser pages or a remotely callable endpoint, so they cannot become shell syntax.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184223Z"
+    },
+    {
+      "fingerprint": "3395b7ae2c4d91095a78e64e6c947585e2642e5534a70d204437bd00f89b302b",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positive in the local benchmark runner. resultsDir is an explicit operator-selected destination for generated reports, and the file names are fixed by the script; no remotely supplied path reaches these writes.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184224Z"
+    },
+    {
+      "fingerprint": "f62355defd933d246fb1026ca9d58180b442653947b392d3443574229a8832ef",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positive in the local benchmark runner. resultsDir is an explicit operator-selected destination for generated reports, and the file names are fixed by the script; no remotely supplied path reaches these writes.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184225Z"
+    },
+    {
+      "fingerprint": "f62355defd933d246fb1026ca9d58180b442653947b392d3443574229a8832ef",
+      "rule_id": "TAINT-004",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "low",
+      "reason": "Reviewed false positive in the local benchmark runner. resultsDir is an explicit operator-selected destination for generated reports, and the file names are fixed by the script; no remotely supplied path reaches these writes.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184226Z"
+    },
+    {
+      "fingerprint": "f198a2bbc6ca25a186cbd18d97cb3d4979f521d26e1c7111240762139e5c1864",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/compare_playwright_idle.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184227Z"
+    },
+    {
+      "fingerprint": "f198a2bbc6ca25a186cbd18d97cb3d4979f521d26e1c7111240762139e5c1864",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/compare_playwright_idle.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184228Z"
+    },
+    {
+      "fingerprint": "f20810f5f5834294b16a7e7b252d8c68c0e745fb33c2376e006b5d851905818e",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184229Z"
+    },
+    {
+      "fingerprint": "f20810f5f5834294b16a7e7b252d8c68c0e745fb33c2376e006b5d851905818e",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_agent_browser_saved_flow_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184230Z"
+    },
+    {
+      "fingerprint": "c29b22c6836abadf2f8cfc0482612e43a28b4aa97a28d643e78f9812b5761845",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_browser_use_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184231Z"
+    },
+    {
+      "fingerprint": "c29b22c6836abadf2f8cfc0482612e43a28b4aa97a28d643e78f9812b5761845",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_browser_use_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184232Z"
+    },
+    {
+      "fingerprint": "c29b22c6836abadf2f8cfc0482612e43a28b4aa97a28d643e78f9812b5761845",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_browser_use_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184233Z"
+    },
+    {
+      "fingerprint": "c29b22c6836abadf2f8cfc0482612e43a28b4aa97a28d643e78f9812b5761845",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_browser_use_recovery.py",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184234Z"
+    },
+    {
+      "fingerprint": "980604fb467eb38fe13ee7de444075e8f7a4659330e5d5c1e3c3f18bbd723469",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184235Z"
+    },
+    {
+      "fingerprint": "980604fb467eb38fe13ee7de444075e8f7a4659330e5d5c1e3c3f18bbd723469",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_mcp.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184236Z"
+    },
+    {
+      "fingerprint": "f2ed72e751f0a68fd25de155162418926a19b126cb44990ddd5dc323e252ed00",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/run_playwright_process_recovery.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184237Z"
+    },
+    {
+      "fingerprint": "ae8161c786e367ebd1d9c2adab41f057a4537845e3cbc9bf735013b9581caa5b",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/webmcp/run_playwright_mcp_smoke.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184238Z"
+    },
+    {
+      "fingerprint": "edb18cc5283a0204fd731ea6216b0b1fb58bb82b4c36d7414a4f451a0ad0cfea",
+      "rule_id": "TAINT-006",
+      "file_path": "examples/benchmark/webmcp/run_scout_webmcp_smoke.mjs",
+      "severity": "medium",
+      "reason": "Reviewed false positive in an operator-run local comparison. The benchmark explicitly targets its local fixture or the operator-selected browser/MCP endpoint; no Scout request or browser-derived value can select this URL. Running the harness against a chosen target is the benchmark’s documented purpose.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184239Z"
+    },
+    {
+      "fingerprint": "6213d42af9fa7ce90ccb35374e2a49184699d19ffb79681cfedeff82618cfa29",
+      "rule_id": "VULN-001",
+      "file_path": "Dockerfile",
+      "severity": "medium",
+      "reason": "Reviewed image-layer false positive. The finding describes zlib in the pinned upstream headless-shell base image. The Dockerfile installs the fixed Debian package in the final layer; a fresh local build was inspected with dpkg-query and contains zlib1g 1:1.3.dfsg+really1.3.1-1+deb13u1, the advisory’s fixed version. Nox currently reports the pre-upgrade base layer without accounting for the later apt layer.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184240Z"
+    },
+    {
+      "fingerprint": "f67fbe9c3c9f6a1b27842327951495793a9690a9a360ef196882ca888ef36e00",
+      "rule_id": "VULN-001",
+      "file_path": "Dockerfile",
+      "severity": "medium",
+      "reason": "Reviewed image-layer false positive. The finding describes zlib in the pinned upstream headless-shell base image. The Dockerfile installs the fixed Debian package in the final layer; a fresh local build was inspected with dpkg-query and contains zlib1g 1:1.3.dfsg+really1.3.1-1+deb13u1, the advisory’s fixed version. Nox currently reports the pre-upgrade base layer without accounting for the later apt layer.",
+      "owner": "scout-maintainers",
+      "created_at": "2026-11-14T07:00:45.184241Z"
     }
   ]
 }

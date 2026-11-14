@@ -41,13 +41,18 @@ func resolveToolTimeout() time.Duration {
 	return d
 }
 
-// resolveSessionIdleTimeout reads SCOUT_SESSION_IDLE_TIMEOUT. Idle expiration
-// is opt-in so existing MCP users do not unexpectedly lose browser state. A
-// configured but invalid value is rejected so a typo cannot silently disable
-// the requested lifecycle bound.
+const defaultSessionIdleTimeout = time.Hour
+
+// resolveSessionIdleTimeout reads SCOUT_SESSION_IDLE_TIMEOUT. Idle sessions
+// expire after one hour by default so abandoned owned browsers are reclaimed.
+// Set the value to "off" to retain sessions until explicit close or shutdown.
+// Invalid values are rejected so a typo cannot silently disable cleanup.
 func resolveSessionIdleTimeout() (time.Duration, error) {
 	raw := strings.TrimSpace(os.Getenv("SCOUT_SESSION_IDLE_TIMEOUT"))
 	if raw == "" {
+		return defaultSessionIdleTimeout, nil
+	}
+	if strings.EqualFold(raw, "off") {
 		return 0, nil
 	}
 	d, err := time.ParseDuration(raw)

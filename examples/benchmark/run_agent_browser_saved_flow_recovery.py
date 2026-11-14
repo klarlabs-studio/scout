@@ -29,7 +29,7 @@ RESULTS = ROOT / "examples" / "benchmark" / "results"
 def command(argv, *, env=None, timeout=60):
     return subprocess.run(
         argv, cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, timeout=timeout, check=False,
+        stderr=subprocess.STDOUT, timeout=timeout, check=False, shell=False,
     )
 
 
@@ -109,7 +109,7 @@ def main():
     server_log = (output / "fixture-server.log").open("w", encoding="utf-8")
     server = subprocess.Popen(
         [str(server_binary), "-listen", f"127.0.0.1:{args.port}", "-process-recovery"],
-        cwd=ROOT, stdout=server_log, stderr=subprocess.STDOUT, text=True,
+        cwd=ROOT, stdout=server_log, stderr=subprocess.STDOUT, text=True, shell=False,
     )
     scout_submit = None
     scout_submit_log = None
@@ -198,7 +198,7 @@ def main():
                 [str(scout_binary), "--stage", "submit", "--task-id", scout_task_id,
                  "--base-url", base, "--store", str(store_path)],
                 cwd=ROOT, stdin=subprocess.DEVNULL, stdout=scout_submit_log,
-                stderr=subprocess.STDOUT, text=True, start_new_session=True,
+                stderr=subprocess.STDOUT, text=True, start_new_session=True, shell=False,
             )
             scout_deadline = time.monotonic() + 60
             while time.monotonic() < scout_deadline:

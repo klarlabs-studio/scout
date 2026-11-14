@@ -1,2 +1,12 @@
 *
-!scout
+!go.mod
+!go.sum
+!*.go
+!agent/
+!agent/**
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!middleware/
+!middleware/**

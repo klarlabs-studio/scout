@@ -45,7 +45,8 @@ func TestResolveSessionIdleTimeout(t *testing.T) {
 		want    time.Duration
 		wantErr string
 	}{
-		{name: "disabled by default", value: "", want: 0},
+		{name: "one hour by default", value: "", want: time.Hour},
+		{name: "explicitly disabled", value: "off", want: 0},
 		{name: "valid", value: "30m", want: 30 * time.Minute},
 		{name: "malformed", value: "30 minutes", wantErr: "SCOUT_SESSION_IDLE_TIMEOUT"},
 		{name: "zero", value: "0s", wantErr: "SCOUT_SESSION_IDLE_TIMEOUT"},
