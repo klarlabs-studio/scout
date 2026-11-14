@@ -135,21 +135,21 @@ func TestIntegrationScreenRecording_AcrossNavigations(t *testing.T) {
 
 	// Capture across two more navigations. The capture loop must keep
 	// shooting frames against the new page each time.
-	time.Sleep(400 * time.Millisecond)
+	time.Sleep(750 * time.Millisecond)
 	if _, err := s.Navigate(srv.URL + "/b"); err != nil {
 		t.Fatalf("Navigate /b: %v", err)
 	}
-	time.Sleep(400 * time.Millisecond)
+	time.Sleep(750 * time.Millisecond)
 	if _, err := s.Navigate(srv.URL + "/c"); err != nil {
 		t.Fatalf("Navigate /c: %v", err)
 	}
-	time.Sleep(400 * time.Millisecond)
+	time.Sleep(750 * time.Millisecond)
 
 	res, err := s.StopScreenRecording()
 	if err != nil {
 		t.Fatalf("StopScreenRecording: %v", err)
 	}
-	// At 10 fps over ~1.2s with 2 navigations, we should still bank a
+	// At 10 fps over ~2.25s with 2 navigations, we should still bank a
 	// double-digit number of frames if recording survived. The earlier
 	// stale-page bug would have us at ≤2.
 	if res.FrameCount < 5 {
