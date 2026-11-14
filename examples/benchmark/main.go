@@ -594,7 +594,9 @@ func runRemoteDisconnectRecovery(serverURL string, dispatchObserved <-chan struc
 	}
 	closeErr := browser.Close()
 	browser = nil
-	if closeErr != nil {
+	// Closing a fixture browser deliberately kills its child process. Some
+	// platforms report that expected termination as signal: killed.
+	if closeErr != nil && !strings.Contains(closeErr.Error(), "signal: killed") {
 		return scenarioResult{ID: fixture.ID, ActionCalls: 2, Error: "stop remote fixture browser: " + closeErr.Error()}
 	}
 	var clickErr error
@@ -1178,7 +1180,7 @@ func runMCPRemoteEndpointStickiness(serverURL string, fixture fixtureScenario) s
 	if err := json.Unmarshal(mcpResultJSON(nav), &firstPage); err != nil || firstPage.TargetID == "" {
 		return scenarioResult{ID: fixture.ID, ActionCalls: calls, OutputBytes: outputBytes, Error: fmt.Sprintf("initial navigation omitted target identity: %v", err)}
 	}
-	if err := browser.Close(); err != nil {
+	if err := browser.Close(); err != nil && !strings.Contains(err.Error(), "signal: killed") {
 		return scenarioResult{ID: fixture.ID, ActionCalls: calls, OutputBytes: outputBytes, Error: "stop remote fixture browser: " + err.Error()}
 	}
 	browser = nil
@@ -3568,7 +3570,7 @@ func runCLIFrameClose(fixture fixtureScenario) scenarioResult {
 	if output, err := build.CombinedOutput(); err != nil {
 		return scenarioResult{ID: fixture.ID, Error: fmt.Sprintf("build CLI: %v: %s", err, strings.TrimSpace(string(output)))}
 	}
-	cmd := exec.CommandContext(ctx, binary, "session", "--headless")
+	cmd := exec.CommandContext(ctx, binary, "session", "--headless", "--allow-private-ips")
 	cmd.Env = append(os.Environ(), "SCOUT_REMOTE_CDP=")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -3759,7 +3761,7 @@ func runCLISessionParityAtBase(fixture fixtureScenario, baseURL string, typeBase
 	if output, err := build.CombinedOutput(); err != nil {
 		return scenarioResult{ID: fixture.ID, Error: fmt.Sprintf("build CLI: %v: %s", err, strings.TrimSpace(string(output)))}
 	}
-	cmd := exec.CommandContext(ctx, binary, "session", "--headless")
+	cmd := exec.CommandContext(ctx, binary, "session", "--headless", "--allow-private-ips")
 	cmd.Env = append(os.Environ(), "SCOUT_REMOTE_CDP=")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
