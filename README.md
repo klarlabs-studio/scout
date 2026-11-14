@@ -17,6 +17,8 @@
 
 A single statically-linked `scout` binary gives you a CLI, an MCP server with browser automation tools (so any MCP-aware agent — Claude Desktop, Cursor, Cline, custom — has a browser), a conversational chat UI, and a Go library with Gin-like middleware composition. Same engine, four access points.
 
+The current release is [v1.16.2](https://github.com/klarlabs-studio/scout/releases/tag/v1.16.2). It confirms browser tab targets have closed before reporting success and flushes held-key releases before a session closes. See the [changelog](CHANGELOG.md) for the full release history.
+
 ```bash
 brew install --cask klarlabs-studio/tap/scout-mcp
 ```
@@ -678,8 +680,10 @@ record in `options.recovery_record` or its base64-encoded JSON form in
 `options.recovery_record_base64`. Requests may set `timeout_ms` to bound one
 operation; `press_key` accepts an optional `expected_postcondition`, and held
 keys should be paired with `key_up` (Scout releases any held keys on reset or
-shutdown). If a dispatched mutation times out, preserve its returned recovery
-record and reconcile it before retrying. A `batch` request supplies the normal
+shutdown). A key action without a postcondition reports dispatch only; it does
+not establish that the page handled the key or shortcut. If a dispatched
+mutation times out, preserve its returned recovery record and reconcile it
+before retrying. A `batch` request supplies the normal
 `execute_batch` fields in an `actions` array; it accepts up to 100 actions and
 returns the same evidence counts and per-step receipts. If a batch deadline
 interrupts execution, the response includes completed steps under
