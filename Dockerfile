@@ -1,14 +1,14 @@
 FROM --platform=$BUILDPLATFORM golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea AS scout-build
 
 WORKDIR /src
-COPY go.mod go.sum ./
+COPY --chown=0:0 go.mod go.sum ./
 RUN go mod download
 
-COPY agent ./agent
-COPY cmd ./cmd
-COPY internal ./internal
-COPY middleware ./middleware
-COPY browse.go context.go engine.go errors.go group.go keypress.go lifecycle.go middleware.go options.go page.go page_fetch.go recorder.go selection.go selection_all.go table.go urlvalidator.go util.go ./
+COPY --chown=0:0 agent ./agent
+COPY --chown=0:0 cmd ./cmd
+COPY --chown=0:0 internal ./internal
+COPY --chown=0:0 middleware ./middleware
+COPY --chown=0:0 browse.go context.go engine.go errors.go group.go keypress.go lifecycle.go middleware.go options.go page.go page_fetch.go recorder.go selection.go selection_all.go table.go urlvalidator.go util.go ./
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -27,6 +27,7 @@ RUN apt-get update \
 
 LABEL org.opencontainers.image.source="https://github.com/klarlabs-studio/scout"
 LABEL org.opencontainers.image.description="AI-powered browser automation MCP server"
+LABEL org.opencontainers.image.authors="Klarlabs Studio"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL io.modelcontextprotocol.server.name="io.github.klarlabs-studio/scout"
 

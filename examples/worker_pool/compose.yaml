@@ -14,6 +14,8 @@ services:
       interval: 2s
       timeout: 2s
       retries: 20
+    cpus: "2.0"
+    mem_limit: 1g
 
   worker:
     image: golang:1.27.4
@@ -24,6 +26,8 @@ services:
       SCOUT_REMOTE_CDP: http://127.0.0.1:9222
     network_mode: service:browser
     command: ["go", "run", "./examples/worker_pool", "-workers", "2", "-jobs", "4", "-isolate-remote-contexts"]
+    cpus: "1.0"
+    mem_limit: 512m
     depends_on:
       browser:
         condition: service_healthy

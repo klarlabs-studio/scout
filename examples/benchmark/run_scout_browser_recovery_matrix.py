@@ -17,7 +17,7 @@ RESULTS = ROOT / "examples" / "benchmark" / "results"
 def run(command, *, cwd=ROOT, check=True):
     return subprocess.run(
         command, cwd=cwd, text=True, stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, check=check,
+        stderr=subprocess.STDOUT, check=check, shell=False,
     )
 
 
@@ -69,7 +69,7 @@ def main():
     for index in range(1, args.repetitions + 1):
         started = time.monotonic()
         result = subprocess.run([str(binary)], cwd=ROOT, text=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False,
                                 timeout=120, check=False)
         elapsed_ms = round((time.monotonic() - started) * 1000, 1)
         raw_path = output_dir / f"run-{index:03d}.log"

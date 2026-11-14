@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"html"
 	"log"
 	"net"
 	"net/http"
@@ -136,7 +137,7 @@ func (s *server) page(w http.ResponseWriter, r *http.Request) {
 		}
 		token := s.issuePageToken(taskID)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>First success</title><body data-task="%s" data-token="%s"><button id="complete" onclick="completeTask()">Complete task</button><p id="status">Waiting</p><script>async function completeTask(){const b=document.querySelector('#complete');b.disabled=true;try{await fetch('/first-success/complete?task='+encodeURIComponent(document.body.dataset.task),{method:'POST',headers:{'X-Study-Page-Token':document.body.dataset.token}});const s=document.querySelector('#status');s.textContent='Complete';await fetch('/first-success/observed?task='+encodeURIComponent(document.body.dataset.task)+'&status='+encodeURIComponent(s.textContent),{method:'POST',headers:{'X-Study-Page-Token':document.body.dataset.token}})}catch(e){b.disabled=false}}</script></body>`, htmlEscape(taskID), htmlEscape(token))
+		_, _ = fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>First success</title><body data-task="%s" data-token="%s"><button id="complete" onclick="completeTask()">Complete task</button><p id="status">Waiting</p><script>async function completeTask(){const b=document.querySelector('#complete');b.disabled=true;try{await fetch('/first-success/complete?task='+encodeURIComponent(document.body.dataset.task),{method:'POST',headers:{'X-Study-Page-Token':document.body.dataset.token}});const s=document.querySelector('#status');s.textContent='Complete';await fetch('/first-success/observed?task='+encodeURIComponent(document.body.dataset.task)+'&status='+encodeURIComponent(s.textContent),{method:'POST',headers:{'X-Study-Page-Token':document.body.dataset.token}})}catch(e){b.disabled=false}}</script></body>`, html.EscapeString(taskID), html.EscapeString(token))
 		return
 	}
 	if r.URL.Path != "/" {
@@ -151,7 +152,7 @@ func (s *server) page(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>Approval task</title>
 <body data-task="%s" data-token="%s"><main><h1>Approval task</h1><p id="task">Task: %s</p><button id="approve" onclick="submitApproval()">Approve once</button><p id="status">Ready</p></main>
-<script>async function submitApproval(){const s=document.querySelector('#status');s.textContent='Submitting';try{const r=await fetch('/submit?task='+encodeURIComponent(document.body.dataset.task),{method:'POST',headers:{'X-Study-Page-Token':document.body.dataset.token}});const j=await r.json();s.textContent='Accepted '+j.sequence}catch(e){s.textContent='Response pending'}}</script></body>`, htmlEscape(taskID), htmlEscape(token), htmlEscape(taskID))
+<script>async function submitApproval(){const s=document.querySelector('#status');s.textContent='Submitting';try{const r=await fetch('/submit?task='+encodeURIComponent(document.body.dataset.task),{method:'POST',headers:{'X-Study-Page-Token':document.body.dataset.token}});const j=await r.json();s.textContent='Accepted '+j.sequence}catch(e){s.textContent='Response pending'}}</script></body>`, html.EscapeString(taskID), html.EscapeString(token), html.EscapeString(taskID))
 }
 
 func (s *server) issuePageToken(taskID string) string {
@@ -454,8 +455,4 @@ func (s *server) persistLocked() error {
 	}
 	defer dir.Close()
 	return dir.Sync()
-}
-
-func htmlEscape(v string) string {
-	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;", "'", "&#39;").Replace(v)
 }
