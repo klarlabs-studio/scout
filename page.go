@@ -1527,6 +1527,12 @@ func mergeContexts(primary, lifetime context.Context) (context.Context, context.
 	}
 	ctx, cancel := context.WithCancel(primary)
 	stop := context.AfterFunc(lifetime, cancel)
+	// AfterFunc schedules its callback asynchronously. Observe an already-ended
+	// page lifetime before the caller can dispatch work with the merged context.
+	if lifetime.Err() != nil {
+		stop()
+		cancel()
+	}
 	return ctx, func() { stop(); cancel() }
 }
 
