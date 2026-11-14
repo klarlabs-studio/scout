@@ -494,6 +494,36 @@ func (s *Session) CloseTabResultForTargetContext(ctx context.Context, name, expe
 		}
 		return nil, s.traceActionFailureContext(ctx, traceStart, traceBefore, "close_tab", name, "", "", err)
 	}
+	targetID := tab.page.TargetID()
+	if checker, ok := s.browser.(interface {
+		HasTargetContext(context.Context, string) (bool, error)
+	}); ok {
+		// Target.closeTarget may be acknowledged before Chrome publishes the
+		// target-detached event in its browser-wide target inventory. Wait for
+		// that postcondition so callers never treat a still-live browser tab as
+		// closed merely because Scout has stopped tracking it locally.
+		waitCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		ticker := time.NewTicker(25 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			present, checkErr := checker.HasTargetContext(waitCtx, targetID)
+			if checkErr != nil {
+				outcomeErr := s.actionOutcomeAfterDispatchForPage(tab.page, "close_tab", name, "tab close was acknowledged but browser target absence could not be confirmed", checkErr, Postcondition{TargetAbsent: targetID})
+				return nil, s.traceActionFailureContext(ctx, traceStart, traceBefore, "close_tab", name, "", "", outcomeErr)
+			}
+			if !present {
+				break
+			}
+			select {
+			case <-waitCtx.Done():
+				cause := fmt.Errorf("browser target %s remained present after close acknowledgement: %w", targetID, waitCtx.Err())
+				outcomeErr := s.actionOutcomeAfterDispatchForPage(tab.page, "close_tab", name, "tab close was acknowledged but browser target is still present", cause, Postcondition{TargetAbsent: targetID})
+				return nil, s.traceActionFailureContext(ctx, traceStart, traceBefore, "close_tab", name, "", "", outcomeErr)
+			case <-ticker.C:
+			}
+		}
+	}
 	if s.tracing && s.trace != nil {
 		s.collectPageTraceURLPolicyDecisions(tab.page)
 	}
