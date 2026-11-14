@@ -198,6 +198,10 @@ func (s *Session) releaseHeldKeysLocked() {
 		mask &^= keyModifierBit(key)
 		_ = browse.NewSelection(s.page, 0, "").KeyControlWithModifiersContext(ctx, key, false, mask)
 	}
+	// Flush the renderer's input queue before Close tears down the page. The
+	// CDP dispatch acknowledgment only confirms that Chromium accepted the
+	// command; page keyup handlers may still be queued on the renderer thread.
+	_, _ = s.page.EvaluateContext(ctx, `void 0`)
 	s.heldKeyModifiers = 0
 	s.heldKeys = nil
 }
