@@ -3258,8 +3258,9 @@ Browser tool calls can address an existing named session without changing the ac
 session by setting request metadata _meta.go.klarlabs.de/scout/session to its name.
 This selector is scoped to the caller's existing registry and is not an authorization token.
 Remote CDP endpoints still refer to shared external browser state. Profile save/load tools persist cookies
-and localStorage in a private JSON file. Set SCOUT_SESSION_IDLE_TIMEOUT (for example,
-'30m') to opt into per-session idle cleanup; list_sessions reports last_activity and
+and localStorage in a private JSON file. Inactive MCP sessions expire after one hour
+by default. Set SCOUT_SESSION_IDLE_TIMEOUT (for example, '30m') to change the timeout,
+or set it to 'off' to disable automatic expiration; list_sessions reports last_activity and
 idle_deadline. Launched browsers close when their idle session expires. Remote CDP
 sessions disconnect without closing the caller-owned browser.
 
