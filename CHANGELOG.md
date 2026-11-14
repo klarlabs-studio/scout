@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Bound MCP browser cleanup to a five-second deadline so a Chrome process
+  that ignores graceful shutdown is force-killed and its temporary profile is
+  removed. Cloned sessions remain live until explicitly closed, idle expiry, or
+  server shutdown.
 - Prevent retry middleware from replaying actions with unknown outcomes unless
   callers explicitly mark them retryable.
 - Reject task-run dispatch when the selected frame's document identity changes,
