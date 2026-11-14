@@ -19,7 +19,8 @@ RUN groupadd --system scout \
 ENV HOME=/home/scout
 ENV SCOUT_CHROME_NO_SANDBOX=1
 
-COPY --chown=scout:scout scout /usr/local/bin/scout
+ARG TARGETPLATFORM
+COPY --chown=scout:scout $TARGETPLATFORM/scout /usr/local/bin/scout
 USER scout
 
 ENTRYPOINT ["scout"]

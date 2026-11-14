@@ -46,47 +46,22 @@ changelog:
       - "^chore:"
       - "^ci:"
 
-dockers:
-  - image_templates:
-      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-amd64"
-    use: buildx
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.source=https://github.com/klarlabs-studio/scout"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=io.modelcontextprotocol.server.name=io.github.klarlabs-studio/scout"
+dockers_v2:
+  - images:
+      - "ghcr.io/klarlabs-studio/scout"
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      "org.opencontainers.image.source": "https://github.com/klarlabs-studio/scout"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.created": "{{ .Date }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "io.modelcontextprotocol.server.name": "io.github.klarlabs-studio/scout"
     dockerfile: Dockerfile
-    goos: linux
-    goarch: amd64
-
-  - image_templates:
-      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-arm64"
-    use: buildx
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.source=https://github.com/klarlabs-studio/scout"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=io.modelcontextprotocol.server.name=io.github.klarlabs-studio/scout"
-    dockerfile: Dockerfile
-    goos: linux
-    goarch: arm64
-
-docker_manifests:
-  - name_template: "ghcr.io/klarlabs-studio/scout:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-amd64"
-      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-arm64"
-
-  - name_template: "ghcr.io/klarlabs-studio/scout:latest"
-    image_templates:
-      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-amd64"
-      - "ghcr.io/klarlabs-studio/scout:{{ .Version }}-arm64"
 
 # The formula goes to the tap owned by the org that owns this repo, which is
 # also the scope the org secret behind HOMEBREW_TAP_GITHUB_TOKEN can write to;
@@ -121,7 +96,7 @@ homebrew_casks:
         # The release archives are not notarized, so Gatekeeper quarantines the
         # binary on first run. A formula was never subject to this; a cask is,
         # so without this scout refuses to start.
-        install: |
-          if OS.mac?
-            system_command "xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/scout"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/scout"]
           end
