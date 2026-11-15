@@ -1258,8 +1258,9 @@ func (s *Session) Close() error {
 }
 
 // CloseContext releases the session within the supplied cleanup deadline.
-// It first attempts to close a locally owned page using ctx, then asks a local
-// Chrome process to shut down cleanly before force-killing it at the deadline.
+// For a local browser it asks Chrome to shut down cleanly before force-killing
+// it at the deadline. Remote browser targets remain open unless the session
+// owns an isolated browser context.
 // For remote CDP it closes only Scout's connection and leaves the browser and
 // its targets open. An isolated context is Scout-owned and disposed.
 func (s *Session) CloseContext(ctx context.Context) (retErr error) {
@@ -1324,16 +1325,18 @@ func (s *Session) CloseContext(ctx context.Context) (retErr error) {
 	s.mu.Unlock()
 
 	var cleanupErr error
-	if rec != nil {
+	if rec != nil && browser == nil {
 		cleanupErr = rec.cleanupContext(ctx)
 	}
-	for _, framePage := range framePages {
-		if err := framePage.DetachContext(ctx); err != nil {
-			cleanupErr = errors.Join(cleanupErr, err)
+	if browser == nil {
+		for _, framePage := range framePages {
+			if err := framePage.DetachContext(ctx); err != nil {
+				cleanupErr = errors.Join(cleanupErr, err)
+			}
 		}
 	}
 	var pageErr error
-	if s.remoteBrowserURL != "" && browser != nil {
+	if browser != nil {
 		if closer, ok := browser.(interface{ CloseContext(context.Context) error }); ok {
 			pageErr = closer.CloseContext(ctx)
 		} else {
@@ -1341,7 +1344,10 @@ func (s *Session) CloseContext(ctx context.Context) (retErr error) {
 		}
 		browser = nil
 	}
-	if page != nil && s.remoteBrowserURL == "" {
+	// A locally owned browser closes all its targets through Browser.close.
+	// Closing the page separately can consume the shared cleanup deadline and
+	// prevent Engine.CloseContext from asking Chrome to exit gracefully.
+	if page != nil && s.remoteBrowserURL == "" && browser == nil {
 		pageErr = page.CloseContext(ctx)
 	}
 	if browser == nil {

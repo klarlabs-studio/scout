@@ -2854,7 +2854,7 @@ func runMCPWithCurated(httpAddr, profile, requiredTools, taskStorePath string, c
 	// Chrome fails to exit after that command, CloseContext force-kills the
 	// owned process and removes its temporary profile when the deadline expires.
 	closeBrowserSession := func(sess *agent.Session) error {
-		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		closeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		return sess.CloseContext(closeCtx)
 	}
